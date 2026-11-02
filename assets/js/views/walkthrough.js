@@ -102,7 +102,7 @@ function slide1() {
     el('h2', {}, 'What it can — and cannot'),
     el('p', {}, 'Lockin is a web app, so it cannot block other apps on your phone — nothing on the web can. Its deal is different: staying here becomes the easy path, and everything else gets remembered.'),
     bullets([
-      'Study Mode takes over the whole screen — clock, task, sound',
+      'Study Mode takes over the whole screen — clock, task, daily target',
       'Leaving mid-focus (over 10 seconds) is logged as a slip, honestly, forever',
       'Accidents under 10 seconds are forgiven — no punishment for mistakes',
       'Strict Mode is a toggle in Settings, not a trap',

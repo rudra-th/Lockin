@@ -40,7 +40,7 @@ function todayCard() {
         el('div', { class: 'center', style: 'font-size:14px' }, fmtMin(mins)),
       ),
       el('div', { class: 'grow' },
-        el('div', { style: 'font:600 15px Inter, sans-serif' },
+        el('div', { class: 'stat-lead' },
           `${fmtMin(mins)} of ${fmtMin(goal)} goal`),
         el('div', { class: 'muted', style: 'margin-top:2px' },
           clean ? 'Today is clean.' : 'Today is not clean yet.'),

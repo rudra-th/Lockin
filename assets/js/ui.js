@@ -59,3 +59,41 @@ export function hint(text) {
     if (hintEl) { hintEl.remove(); hintEl = null; }
   }, 2600);
 }
+
+/* ---------- daily goal meter ---------- */
+
+export function goalMeter({ label = 'Daily target' } = {}) {
+  return el('div', {
+    class: 'goal-meter', role: 'progressbar',
+    'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0',
+  },
+    el('div', { class: 'gm-top' },
+      el('span', { class: 'gm-label' }, label),
+      el('span', { class: 'gm-val' },
+        el('b', { class: 'gm-num' }, '0'),
+        el('span', { class: 'gm-goal' }, ' / 0 min'))),
+    el('div', { class: 'gm-track' }, el('i', { class: 'gm-fill' })),
+    el('div', { class: 'gm-foot' },
+      el('span', { class: 'gm-pct' }, '0% of target'),
+      el('span', { class: 'gm-left' }, '—'))
+  );
+}
+
+export function updateGoalMeter(root, { total = 0, goal = 0 } = {}) {
+  if (!root) return;
+  const g = Math.max(1, Math.round(goal || 0));
+  const done = Math.max(0, Math.floor(total || 0));
+  const pct = Math.min(100, Math.round((done / g) * 100));
+  root.setAttribute('aria-valuenow', String(pct));
+  root.classList.toggle('is-met', pct >= 100);
+  const num = root.querySelector('.gm-num');
+  const goalEl = root.querySelector('.gm-goal');
+  const fill = root.querySelector('.gm-fill');
+  const pctEl = root.querySelector('.gm-pct');
+  const leftEl = root.querySelector('.gm-left');
+  if (num) num.textContent = String(done);
+  if (goalEl) goalEl.textContent = ` / ${g} min`;
+  if (fill) fill.style.width = `${pct}%`;
+  if (pctEl) pctEl.textContent = pct >= 100 ? 'Target met' : `${pct}% of target`;
+  if (leftEl) leftEl.textContent = pct >= 100 ? 'Everything counts now' : `${g - done} min to go`;
+}

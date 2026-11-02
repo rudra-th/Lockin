@@ -19,7 +19,7 @@ function applyTheme() {
   const pref = Store.state.settings.theme || 'system';
   const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  const color = dark ? '#0b0d12' : '#f6f7f4';
+  const color = dark ? '#08090c' : '#f7f8f5';
   $$('meta[name="theme-color"]').forEach((m) => { m.content = color; });
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);

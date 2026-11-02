@@ -11,16 +11,16 @@ Regain, Forest, Opal and friends block apps or grow trees. Lockin is doing a dif
 | | Lockin's deal |
 |---|---|
 | Plans | Paint the full 24 hours (sleep, school, meals, subjects) on tap-tap-paint grid |
-| Enforces | Study Mode goes full-screen, keeps the screen awake, plays focus sound, and **logs a slip** if you leave mid-focus for more than 10 seconds |
+| Enforces | Study Mode holds a full-bleed session screen, keeps the screen awake, and **logs a slip** if you leave mid-focus for more than 10 seconds |
 | Forgives | Away under 10s? Forgiven — 3 free accidents a day. No punishment for mistakes |
 | Remembers | Every slip, quit, and rescued accident goes into the Honesty Log. The streak of *genuinely clean days* is earned, never bought |
 
-One honest limit, stated plainly in-app: **a web app cannot block other apps on your phone** — nothing on the web can. Lockin's enforcement lives inside the session: full-screen, wake-locked, and a log that doesn't lie.
+One honest limit, stated plainly in-app: **a web app cannot block other apps on your phone** — nothing on the web can. Lockin's enforcement lives inside the session: a full-bleed screen, wake lock, a daily-target meter you can't hide from, and a log that doesn't lie.
 
 ## What's inside
 
 - **Plan** — 48 half-hour slots, tap-tap painting per subject, block editor (stretch/shrink/rename/delete), copy day → tomorrow / next week, per-day tasks with staged subtasks.
-- **Study Mode** — preset lengths (10–90 min) or ×3 Pomodoro with configurable focus/short/long breaks; hold-the-ring intention screen (latches fullscreen + Screen Wake Lock + notification permission in one gesture); ambient sound (rain / brown noise / lo-fi pad, all synthesized in Web Audio — zero files); attach today's tasks and tick them mid-session; quit requires a 2.4-second hold + explicit confirm, then it's logged.
+- **Study Mode** — preset lengths (10–90 min) or ×3 Pomodoro with configurable focus/short/long breaks; a hold-the-ring intention screen (latches Screen Wake Lock + notification permission in one gesture); the running room keeps the app identity and a live **daily-target meter** (banked today + this session) on screen; attach today's tasks and tick them mid-session; quit requires a 2.4-second hold + explicit confirm, then it's logged.
 - **Session survives everything** — a running session is snapshotted to storage every change; close the tab, crash, reload — reopen and the clock is still true (wall-clock math, not setInterval accumulation), and an away-episode that bracketed the reload is processed exactly once.
 - **Stats** — daily goal ring, 7-day bars, subject split, 13-week clean-day heatmap (lime = clean, orange = focused but broken), full session log and Honesty Log.
 - **Strict Mode is a switch, not a trap** — off means tracking only. Daily goal, clean-day minimum, rescue rules: all visible, all adjustable in Settings.
@@ -52,8 +52,7 @@ assets/
     store.js            versioned localStorage store + pure grid math
     util.js             time/slot/date helpers + decideAway (enforcement math)
     router.js           hash router
-    audio.js            Web Audio synth scenes
-    ui.js               shared sheet + hint widgets
+    ui.js               shared sheet, hint and daily-goal meter widgets
     install.js          beforeinstallprompt plumbing
     app.js              bootstrap: theme, routes, live-session resume
     icons.js            inline SVG set
@@ -68,4 +67,4 @@ One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settin
 
 ## Status
 
-v1.0 — desktop + Android Chrome/Edge get the full experience (fullscreen, wake lock, install). iOS gets PWA-shell sessions; element-fullscreen is unavailable there, and the app says so rather than pretending.
+v1.0.18 — a quieter, flatter production pass: audio removed entirely, the session room keeps the app's brand and daily target visible, and no OS fullscreen yank. Desktop + Android Chrome/Edge get the full experience (wake lock, install); iOS gets the PWA-shell session.

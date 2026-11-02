@@ -1,4 +1,4 @@
-/* Lockin — Settings: enforcement, sounds, theme, goals, data in/out, walkthrough. */
+/* Lockin — Settings: enforcement, theme, goals, profile, data in/out. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
@@ -6,10 +6,16 @@ import { el, fmtMin } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
 import { tryInstall } from '../install.js';
-import { Sounds } from '../audio.js';
 
 export function initSettings(Router) {
   Router.register('/settings', { mount, unmount: null });
+}
+
+function group(label, ...cards) {
+  return el('section', { class: 'setgroup' },
+    el('div', { class: 'setgroup-label' }, label),
+    ...cards
+  );
 }
 
 function setrow(title, desc, control) {
@@ -33,11 +39,11 @@ function toggle(get, setfn) {
 function stepper(get, setfn, opts) {
   const { def, lo, hi, step = 1, suffix = '', fmt = null } = opts;
   const show = (v) => (fmt ? fmt(v) : `${v}${suffix}`);
-  const wrap = el('div', { class: 'row', style: 'gap:6px' });
-  const val = el('span', { class: 'mono', style: 'min-width:64px;text-align:center;font-size:14px' }, show(get()));
+  const wrap = el('div', { class: 'stepper' });
+  const val = el('span', { class: 'stepper-val' }, show(get()));
   const redraw = () => { val.textContent = show(get()); };
   const mk = (d, label) => el('button', {
-    class: 'iconbtn', style: 'width:34px;height:34px', 'aria-label': label, innerHTML: svg(d > 0 ? 'plus' : 'minus', 15),
+    class: 'iconbtn stepper-btn', 'aria-label': label, innerHTML: svg(d > 0 ? 'plus' : 'minus', 15),
     onclick: () => { setfn(Math.max(lo, Math.min(hi, get() + d * step))); redraw(); },
   });
   wrap.append(mk(-1, 'Decrease'), val, mk(+1, 'Increase'));
@@ -49,13 +55,13 @@ function enforcementCard() {
   return el('div', { class: 'card' },
     el('h2', {}, 'Enforcement'),
     setrow('Strict Mode',
-      `Focus sessions lock the app full-screen and flame the clock. Leaving >10s mid-focus = slip (logged). Under 10s = forgiven, 3 free a day.`,
+      `Leaving a focus session for more than ${10}s is a slip in the honesty log. Under ${10}s is forgiven — 3 free rescues a day.`,
       toggle(() => s.strict, () => Store.set((st) => { st.settings.strict = !st.settings.strict; }))),
     setrow('Keep screen awake',
       'Screen Wake Lock during focus sessions — the phone stays awake while you study.',
       toggle(() => s.wakelock, () => Store.set((st) => { st.settings.wakelock = !st.settings.wakelock; }))),
     setrow('Notifications',
-      'A ping and a buzz when a round completes (asks your browser for permission first time).',
+      'A system notification and a buzz when a round completes (asks your browser for permission first time).',
       toggle(() => s.notifs, () => {
         Store.set((st) => { st.settings.notifs = !st.settings.notifs; });
         if (Store.state.settings.notifs && 'Notification' in window && Notification.permission === 'default') {
@@ -70,41 +76,6 @@ function enforcementCard() {
       stepper(() => Store.state.settings.minClean,
         (v) => Store.set((st) => { st.settings.minClean = v; }),
         { lo: 5, hi: 120, step: 5, fmt: fmtMin })),
-  );
-}
-
-function soundCard() {
-  const s = Store.state.settings;
-  const kinds = Sounds.KINDS;
-  const chips = el('div', { class: 'chips', style: 'margin-left:auto' },
-    kinds.map((k) => {
-      const c = el('button', {
-        class: 'chip', style: 'padding:6px 11px;font-size:12px',
-        'aria-pressed': String(s.soundKind === k),
-        onclick: () => {
-          Store.set((st) => { st.settings.soundKind = k; });
-          if (s.sounds) { Sounds.setVolume(s.volume ?? 0.6); Sounds.play(k); }
-          else Sounds.stop();
-          sync();
-        },
-      }, k);
-      return c;
-    }));
-  function sync() {
-    [...chips.children].forEach((c) => c.setAttribute('aria-pressed', String(c.textContent === Store.state.settings.soundKind)));
-  }
-  return el('div', { class: 'card' },
-    el('h2', {}, 'Focus sounds'),
-    setrow('Ambient sound', 'Rain, brown noise, a lo-fi pad, or silence. Also swappable from inside a session.', chips),
-    setrow('Sounds on', 'Plays automatically when a session starts.',
-      toggle(() => s.sounds, () => {
-        Store.set((st) => { st.settings.sounds = !st.settings.sounds; });
-        if (!s.sounds) Sounds.stop();
-      })),
-    setrow('Volume', 'Applies to all Lockin sounds.', stepper(
-      () => Math.round((s.volume ?? 0.6) * 100),
-      (v) => { Store.set((st) => { st.settings.volume = v / 100; }); Sounds.setVolume(v / 100); },
-      { lo: 0, hi: 100, step: 5, suffix: '%' })),
   );
 }
 
@@ -128,18 +99,18 @@ function pomoCard() {
 
 function lookCard() {
   const s = Store.state.settings;
-  const seg = el('div', { class: 'chips', style: 'margin-left:auto' },
+  const seg = el('div', { class: 'segmented' },
     ['system', 'dark', 'light'].map((t) => el('button', {
-      class: 'chip', style: 'padding:6px 11px;font-size:12px',
+      class: 'seg-btn', dataset: { theme: t },
       'aria-pressed': String(s.theme === t),
       onclick: () => { Store.set((st) => { st.settings.theme = t; }); sync(); },
     }, t)));
   function sync() {
-    [...seg.children].forEach((c) => c.setAttribute('aria-pressed', String(c.textContent === Store.state.settings.theme)));
+    [...seg.children].forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.theme === Store.state.settings.theme)));
   }
   return el('div', { class: 'card' },
-    el('h2', {}, 'Look'),
-    setrow('Theme', 'Locked to your OS by default.', seg),
+    el('h2', {}, 'Appearance'),
+    setrow('Theme', 'Follows your OS by default.', seg),
   );
 }
 
@@ -158,10 +129,10 @@ function profileCard() {
   }, svg('check', 16), 'Save profile');
   return el('div', { class: 'card' },
     el('h2', {}, 'Profile'),
-    el('p', { class: 'muted', style: 'margin:0 0 10px' }, 'Your name and exam personalize Home, the session screens and the seeds.'),
-    el('div', { style: `display:grid;grid-template-columns:1fr;gap:8px` },
-      el('div',{}, el('div', { class: 'tiny', style: 'color:var(--tx-3);margin-bottom:3px' }, 'Name'), nameInp),
-      el('div',{}, el('div', { class: 'tiny', style: 'color:var(--tx-3);margin-bottom:3px' }, 'Target exam'), examInp),
+    el('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Your name and exam personalize Home, the session screens and the seeds.'),
+    el('div', { class: 'fields' },
+      el('label', { class: 'field' }, el('span', {}, 'Name'), nameInp),
+      el('label', { class: 'field' }, el('span', {}, 'Target exam'), examInp),
     ),
     save,
   );
@@ -183,7 +154,7 @@ function dataCard() {
   });
 
   const exportBtn = el('button', {
-    class: 'btn btn-subtle btn-block', innerHTML: '', onclick: () => {
+    class: 'btn btn-subtle btn-block', onclick: () => {
       const blob = new Blob([Store.exportJSON()], { type: 'application/json' });
       const a = el('a', { href: URL.createObjectURL(blob), download: `lockin-backup-${Storetoday()}.json` });
       document.body.append(a); a.click(); a.remove();
@@ -222,22 +193,22 @@ function dataCard() {
 
   return el('div', { class: 'card' },
     el('h2', {}, 'Data & privacy'),
-    el('p', { class: 'muted', style: 'margin:0 0 12px' },
+    el('p', { class: 'muted', style: 'margin:0 0 4px' },
       'Everything lives in this browser’s localStorage. No account, no analytics, no network calls beyond this page.'),
-    exportBtn, installBtn, replayBtn,
-    el('div', { style: 'height:10px' }),
-    importBtn, wipeBtn, input,
+    el('div', { class: 'btn-stack' }, exportBtn, installBtn, replayBtn),
+    el('div', { class: 'btn-stack' }, importBtn, wipeBtn),
+    input,
   );
 }
 
 const Storetoday = () => new Date().toISOString().slice(0, 10);
 
 function aboutCard() {
-  return el('div', { class: 'card' },
-    el('h2', {}, 'About'),
-    el('div', { style: 'font:400 30px "Instrument Serif",serif;text-align:center;margin:4px 0 2px' }, 'Lockin'),
-    el('div', { class: 'tiny', style: 'text-align:center' }, `v1.0 · focus, strictly`),
-    el('div', { class: 'row', style: 'justify-content:center;gap:8px;margin-top:10px' },
+  return el('div', { class: 'card aboutcard' },
+    el('div', { class: 'about-mark' }, el('i', { class: 'brand-dot' })),
+    el('div', { class: 'about-name' }, 'Lockin'),
+    el('div', { class: 'tiny' }, 'Focus, strictly. Built for one thing — study.'),
+    el('div', { class: 'row', style: 'justify-content:center;gap:8px;margin-top:12px' },
       el('a', { class: 'chip', href: 'tests.html', style: 'text-decoration:none' }, 'Run the self-check'),
     ),
   );
@@ -248,16 +219,13 @@ function render(host) {
     el('div', { class: 'app-head' },
       el('div', { class: 'grow' },
         el('h1', {}, 'Settings'),
-        el('div', { class: 'sub' }, 'Pull any lever; nothing is dark-pattern-locked.'),
+        el('div', { class: 'sub' }, 'Every lever, in the open.'),
       ),
     ),
-    enforcementCard(),
-    profileCard(),
-    soundCard(),
-    pomoCard(),
-    lookCard(),
-    dataCard(),
-    aboutCard(),
+    group('Focus', enforcementCard(), pomoCard()),
+    group('You', profileCard(), lookCard()),
+    group('Your data', dataCard()),
+    group('About', aboutCard()),
   ));
 }
 

@@ -82,8 +82,7 @@ function render(host) {
 
   if (!blocks.length) {
     grid.append(el('div', {
-      class: 'empty',
-      style: 'position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding:0 26px;text-align:center',
+      class: 'empty grid-empty',
     },
       brush ? 'Tap the start, then tap the end.' : 'Pick a chip above, then tap two spots to paint.'
     ));

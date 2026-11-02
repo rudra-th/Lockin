@@ -1,7 +1,7 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.0.17';
+const VERSION = 'lockin.v1.0.18';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -14,7 +14,6 @@ const PRECACHE = [
   './assets/js/store.js',
   './assets/js/util.js',
   './assets/js/router.js',
-  './assets/js/audio.js',
   './assets/js/icons.js',
   './assets/js/ui.js',
   './assets/js/install.js',

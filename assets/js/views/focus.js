@@ -5,8 +5,7 @@ import { Store, uid } from '../store.js';
 import { Router } from '../router.js';
 import { el, fmtClock, fmtWatch, fmtMin, todayKey, decideAway } from '../util.js';
 import { svg } from '../icons.js';
-import { openSheet, closeSheet, hint } from '../ui.js';
-import { Sounds } from '../audio.js';
+import { openSheet, closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
 
 export const GRACE_SEC = 10;    // accident window — an away this short is forgiven
 export const RESCUE_CAP = 3;    // free rescues per day; beyond that it is a slip
@@ -104,14 +103,12 @@ function processBack() {
 
 document.addEventListener('visibilitychange', onVisibility);
 
-/* ---------- take-over: fullscreen + wake lock + notifications ---------- */
+/* ---------- take-over: wake lock + notifications ----------
+   No forced OS fullscreen: the session is already a full-bleed app screen,
+   and yanking the browser chrome away is what made the app "disappear".
+   The chrome stays put; only the screen is kept awake. */
 
 async function takeOver() {
-  try {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-      await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-    }
-  } catch (_) { /* iOS Safari: no element fullscreen — standalone PWA is already full-bleed */ }
   if ('wakeLock' in navigator && Store.state.settings.wakelock) {
     try { wakeSentinel = await navigator.wakeLock.request('screen'); } catch (_) {}
   }
@@ -129,7 +126,6 @@ function wakeAlive() {
 async function releaseAll() {
   try { if (wakeSentinel) await wakeSentinel.release(); } catch (_) {}
   wakeSentinel = null;
-  if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch (_) {} }
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -153,10 +149,6 @@ function begin() {
   }
   snapshot();
   takeOver(); // no-op safety net when armed-hold already latched it
-  if (Store.state.settings.sounds) {
-    Sounds.setVolume(Store.state.settings.volume ?? 0.6);
-    Sounds.play(Store.state.settings.soundKind || 'rain');
-  }
   startTick();
   renderHost();
 }
@@ -168,7 +160,6 @@ function pauseStop() {
   Session.savedMs += Date.now() - Session.startedAt;
   Session.pauseCount += 1;
   Session.phase = 'paused';
-  Sounds.stop();
   releaseAll();
   snapshot();
   renderHost();
@@ -180,10 +171,6 @@ function resumeStop() {
   Session.phase = 'running';
   snapshot();
   takeOver();
-  if (Store.state.settings.sounds) {
-    Sounds.setVolume(Store.state.settings.volume ?? 0.6);
-    Sounds.play(Store.state.settings.soundKind || 'rain');
-  }
   startTick();
   renderHost();
 }
@@ -268,7 +255,6 @@ function startBreak(min) {
   Session.breakKind = min;
   Session.startedAt = Date.now();
   Session.plannedEnd = Date.now() + min * 60000;
-  Sounds.stop();
   snapshot();
   startTick();
   renderHost();
@@ -282,7 +268,6 @@ function finishBreak() {
     Session.plannedEnd = Session.startedAt + Session.cfg.min * 60000;
     currentSessId = uid('ss');
     snapshot();
-    if (Store.state.settings.sounds) Sounds.play(Store.state.settings.soundKind || 'rain');
     startTick();
     renderHost();
   } else {
@@ -293,7 +278,6 @@ function finishBreak() {
 function finish(finished) {
   clearInterval(timer);
   timer = null;
-  Sounds.stop();
   releaseAll();
   const stopMode = Session.cfg?.mode === 'stop';
   const secs = stopMode ? stopSeconds() : null;
@@ -379,17 +363,24 @@ function renderHost() {
   const host = document.getElementById('view');
   if (!host || Router.parse().path !== '/focus') return;
   host.textContent = '';
-  document.body.dataset.mode =
-    ['running', 'break', 'paused'].includes(Session.phase) ? 'focus' : '';
+  document.querySelectorAll('body > .session').forEach((n) => n.remove());
+  const live = ['running', 'break', 'paused'].includes(Session.phase);
+  document.body.dataset.mode = live ? 'focus' : '';
 
-  if (Session.phase === 'running') host.append(el('div', { class: 'view-anim' }, runningScreen()));
-  else if (Session.phase === 'break') host.append(el('div', { class: 'view-anim' }, breakScreen()));
-  else if (Session.phase === 'paused') host.append(el('div', { class: 'view-anim' }, pausedScreen()));
-  else if (Session.phase === 'armed') host.append(el('div', { class: 'view-anim' }, armedScreen()));
-  else if (Session.phase === 'done' || Session.phase === 'aborted') host.append(el('div', { class: 'view-anim' }, doneScreen()));
-  else host.append(el('div', { class: 'view-anim' }, setupScreen()));
+  let screen;
+  if (Session.phase === 'running') screen = runningScreen();
+  else if (Session.phase === 'break') screen = breakScreen();
+  else if (Session.phase === 'paused') screen = pausedScreen();
+  else if (Session.phase === 'armed') screen = armedScreen();
+  else if (Session.phase === 'done' || Session.phase === 'aborted') screen = doneScreen();
+  else screen = setupScreen();
 
-  if (Session.phase === 'running' || Session.phase === 'break' || Session.phase === 'paused') drawClock();
+  /* the live room lives on body: a fixed overlay must never be clipped by
+     the scrolling view container, and it stays put while the router clears */
+  if (live) document.body.append(screen);
+  else host.append(el('div', { class: 'view-anim' }, screen));
+
+  if (live) drawClock();
 }
 
 /* ---------- setup screen ---------- */
@@ -397,7 +388,8 @@ function renderHost() {
 function setupScreen() {
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
   const subjects = Store.subjects();
-  let min = Number(q.get('min')) || 25;
+  const pomoSettings = Store.state.settings.pomo || { focus: 25, short: 5, long: 15 };
+  let min = Number(q.get('min')) || pomoSettings.focus || 25;
   let subjId = q.get('subj') || subjects[0]?.id || null;
   let rounds = 1;
   let pomo = false;
@@ -409,14 +401,24 @@ function setupScreen() {
   const doneToday = Store.state.sessions.filter((x) =>
     x.day === todayKey() && x.kind === 'focus' && !x.demo).length;
   const todayMins = Store.focusMinutesOn(todayKey());
+  const goal = Store.state.settings.goalMin || 120;
 
-  const presetChips = el('div', { class: 'chips', style: 'margin-bottom:12px' });
+  const meter = goalMeter({ label: 'Daily target' });
+  updateGoalMeter(meter, { total: todayMins, goal });
+
+  const presetChips = el('div', { class: 'chips' });
+  function selectMin(m) {
+    min = m;
+    for (const c of presetChips.children) {
+      if (c.dataset.min) c.setAttribute('aria-pressed', String(Number(c.dataset.min) === m));
+    }
+  }
   [10, 25, 45, 50, 90].forEach((m) => {
-    const chip = el('button', {
-      class: 'chip', 'aria-pressed': String(m === min),
-      onclick: () => { min = m; syncPressed(presetChips, chip); },
-    }, `${m}m`);
-    presetChips.append(chip);
+    presetChips.append(el('button', {
+      class: 'chip', dataset: { min: String(m) },
+      'aria-pressed': String(m === min),
+      onclick: () => selectMin(m),
+    }, `${m}m`));
   });
 
   const pomoChip = el('button', {
@@ -425,7 +427,8 @@ function setupScreen() {
       pomo = !pomo;
       rounds = pomo ? 3 : 1;
       pomoChip.setAttribute('aria-pressed', String(pomo));
-      hint(pomo ? `Pomodoro: ${Store.state.settings.pomo.focus}m focus + breaks, ×3` : 'One round, one finish');
+      if (pomo) selectMin(pomoSettings.focus || 25);
+      hint(pomo ? `Pomodoro: ${pomoSettings.focus}m focus + breaks, ×3` : 'One round, one finish');
     },
   }, svg('flame', 13), 'Pomodoro ×3');
   presetChips.append(pomoChip);
@@ -443,11 +446,18 @@ function setupScreen() {
     return subjChips;
   };
 
-  const stopExplain = el('p', { class: 'muted', style: 'margin:0 0 12px' },
-    'Open-ended: start it, seconds count up, pause or lay it down whenever. The seconds you run are the seconds that count.');
+  const modeSeg = el('div', { class: 'segmented' },
+    ['timer', 'stop'].map((m) => el('button', {
+      class: 'seg-btn', 'aria-pressed': String(mode === m),
+      onclick: () => {
+        if (mode === m) return;
+        Store.set((s) => { s.settings.lastMode = m; });
+        renderHost();
+      },
+    }, m === 'timer' ? 'Timer' : 'Stopwatch')));
 
   const startBtn = el('button', {
-    class: 'btn btn-primary btn-block', style: 'margin-top:16px',
+    class: 'btn btn-primary btn-block setup-start',
     onclick: () => {
       if (!subjId) { hint('Pick a subject first.'); return; }
       if (mode === 'stop') {
@@ -460,59 +470,60 @@ function setupScreen() {
       if (strictOn()) { Session.phase = 'armed'; renderHost(); }
       else begin();
     },
-  }, svg('lock', 18), strictOn() ? (mode === 'stop' ? 'Arm the stopwatch' : 'Set the intention') : (mode === 'stop' ? 'Start the stopwatch' : 'Start session'));
+  }, svg('lock', 18), strictOn()
+    ? (mode === 'stop' ? 'Arm the stopwatch' : 'Set the intention')
+    : (mode === 'stop' ? 'Start the stopwatch' : 'Start session'));
 
-  const modeWrap = () => {
-    const pillRow = el('div', { class: 'chips', style: 'margin-bottom:14px' },
-      el('button', {
-        class: 'chip', 'aria-pressed': String(mode === 'timer'),
-        onclick: () => {
-          if (mode === 'timer') return; // idempotent — no rebuild churn
-          Store.set((s) => { s.settings.lastMode = 'timer'; });
-          renderHost();
-        },
-      }, svg('caret', 13), 'Timer'),
-      el('button', {
-        class: 'chip', 'aria-pressed': String(mode === 'stop'),
-        onclick: () => {
-          if (mode === 'stop') return;
-          Store.set((s) => { s.settings.lastMode = 'stop'; });
-          renderHost();
-        },
-      }, svg('sound', 13), 'Stopwatch'),
-    );
-    return pillRow;
-  };
+  const taskChipRow = tasksToday.length
+    ? el('div', { class: 'chips' }, tasksToday.map((t) => {
+        const chip = el('button', {
+          class: 'chip', style: 'max-width:300px',
+          onclick: () => {
+            if (pickedTasks.has(t.id)) { pickedTasks.delete(t.id); chip.setAttribute('aria-pressed', 'false'); }
+            else { pickedTasks.add(t.id); chip.setAttribute('aria-pressed', 'true'); }
+          },
+        }, t.title.length > 30 ? `${t.title.slice(0, 28)}…` : t.title);
+        return chip;
+      }))
+    : null;
 
-  const errorNote = subjects.length ? null : el('p', { class: 'muted', style: 'margin:0 0 8px' },
-    'No subjects yet — add them on the Plan tab, then come back.');
-
-  return el('div', { class: 'card' },
-    el('h2', {}, 'Study Mode setup'),
-    doneToday ? el('p', { class: 'muted', style: 'margin:0 0 6px' }, `Session ${doneToday + 1} today · ${fmtMin(todayMins)} banked so far.`) : null,
-    el('p', { class: 'muted', style: 'margin:0 0 12px' },
-      strictOn()
-        ? `Strict Mode is on. During focus, leaving for more than ${GRACE_SEC}s is a slip — under ${GRACE_SEC}s is forgiven, ${RESCUE_CAP} times a day.`
-        : 'Strict Mode is off — sessions are tracked, not enforced.'),
-    modeWrap(),
-    mode === 'stop'
-      ? [el('p', { class: 'muted', style: 'margin:0 0 8px' }, 'Subject'), subjectRow(), stopExplain]
-      : [presetChips, el('p', { class: 'muted', style: 'margin:0 0 8px' }, 'Subject'), subjectRow()],
-    errorNote,
-    tasksToday.length ? el('p', { class: 'muted', style: 'margin:10px 0 2px' }, 'Attach tasks') : null,
-    tasksToday.length
-      ? el('div', { class: 'chips', style: 'margin-top:6px' }, tasksToday.map((t) => {
-          const chip = el('button', {
-            class: 'chip', style: 'max-width:300px',
-            onclick: () => {
-              if (pickedTasks.has(t.id)) { pickedTasks.delete(t.id); chip.setAttribute('aria-pressed', 'false'); }
-              else { pickedTasks.add(t.id); chip.setAttribute('aria-pressed', 'true'); }
-            },
-          }, t.title.length > 30 ? `${t.title.slice(0, 28)}…` : t.title);
-          return chip;
-        }))
-      : null,
-    startBtn,
+  return el('section', { class: 'setup' },
+    el('div', { class: 'app-head' },
+      el('div', { class: 'grow' },
+        el('h1', {}, 'Study Mode'),
+        el('div', { class: 'sub' },
+          strictOn()
+            ? `Strict is on — leaving for more than ${GRACE_SEC}s is a slip.`
+            : 'Strict is off — tracked, not enforced.'),
+      ),
+    ),
+    meter,
+    el('div', { class: 'card setup-card' },
+      el('div', { class: 'setup-row' },
+        el('div', { class: 'setup-labels' },
+          el('span', { class: 'setup-label' }, 'Mode'),
+          el('span', { class: 'setup-hint' },
+            mode === 'timer' ? 'A fixed length that ends on its own.' : 'Open-ended — seconds count up.')),
+        modeSeg),
+      mode === 'stop'
+        ? el('p', { class: 'muted setup-note' },
+            'Start it, work, pause or lay it down whenever. The seconds you run are the seconds that count.')
+        : el('div', { class: 'setup-block' },
+            el('span', { class: 'setup-label' }, 'Length'),
+            presetChips),
+      el('div', { class: 'setup-block' },
+        el('span', { class: 'setup-label' }, 'Subject'),
+        subjects.length
+          ? subjectRow()
+          : el('p', { class: 'muted' }, 'No subjects yet — add them on the Plan tab, then come back.')),
+      taskChipRow ? el('div', { class: 'setup-block' },
+        el('span', { class: 'setup-label' }, 'Attach today’s tasks'),
+        taskChipRow) : null,
+      startBtn,
+      doneToday
+        ? el('p', { class: 'setup-foot tiny' }, `Session ${doneToday + 1} today · ${fmtMin(todayMins)} already banked`)
+        : el('p', { class: 'setup-foot tiny' }, `Under ${GRACE_SEC}s away is forgiven, ${RESCUE_CAP} times a day.`),
+    )
   );
 }
 
@@ -544,7 +555,7 @@ function armedScreen() {
 
   function holdStart(ev) {
     ev.preventDefault();
-    takeOver(); // latch fullscreen + wake lock + n-permission while the gesture is live
+    takeOver(); // latch wake lock + notification permission while the gesture is live
     t0 = performance.now();
     const step = (now) => {
       const p = (now - t0) / HOLD_MS;
@@ -563,21 +574,20 @@ function armedScreen() {
     progress(0);
     btn.removeEventListener('pointerup', holdCancel);
     btn.removeEventListener('pointercancel', holdCancel);
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
 
-  return el('div', { class: 'card', style: 'text-align:center' },
-    el('h2', {}, 'Before you go in'),
-    el('div', { style: 'font:600 34px "JetBrains Mono",monospace;margin-bottom:4px' },
+  return el('div', { class: 'card armed-card' },
+    el('h2', {}, 'One breath before you go in'),
+    el('div', { class: 'armed-what' },
       Session.cfg.mode === 'stop' ? 'Stopwatch' : `${Session.cfg.min} min`),
-    el('div', { style: `font:400 24px "Instrument Serif",serif;color:hsl(${hue} 45% 62%)` }, nameOf(Session.cfg.subjId)),
+    el('div', { class: 'armed-subject', style: `--h:${hue}` }, nameOf(Session.cfg.subjId)),
     Session.cfg.taskIds.length
       ? el('div', { class: 'muted', style: 'margin-top:6px' },
           `${Session.cfg.taskIds.length} task${Session.cfg.taskIds.length === 1 ? '' : 's'} attached`)
       : null,
-    el('p', { class: 'tiny', style: 'margin-top:10px;padding:0 14px' },
-      'As you hold, Lockin wakes the screen and goes full-screen. When the ring closes, you are in.'),
-    el('div', { class: 'holdwrap', style: 'justify-content:center;flex-direction:column;gap:12px;margin-top:16px' }, btn, note),
+    el('p', { class: 'tiny armed-copy' },
+      'As you hold, Lockin wakes the screen and opens the room. When the ring closes, you are in.'),
+    el('div', { class: 'holdwrap armed-hold' }, btn, note),
     el('button', {
       class: 'btn btn-ghost', style: 'margin-top:10px',
       onclick: () => { Session.phase = 'idle'; renderHost(); },
@@ -587,120 +597,119 @@ function armedScreen() {
 
 /* ---------- running screen ---------- */
 
-/* how many real sessions + minutes banked today (drives the Regain-style counter) */
-function todayTally() {
-  const n = Store.state.sessions.filter((x) =>
-    x.day === todayKey() && x.kind === 'focus' && !x.demo).length + 1; // this one
-  return { n, mins: Store.focusMinutesOn(todayKey()) };
-}
-
-function aurora() {
-  return el('div', { class: 'aurora', 'aria-hidden': 'true' });
-}
-
-function sessionHead(kindLabel, subjId) {
-  const act = Store.activity(subjId);
-  const tasks = (Session.cfg.taskIds || [])
-    .map((id) => Store.state.tasks.find((t) => t.id === id))
-    .filter(Boolean);
-  const tally = todayTally();
-  const pips = el('div', { class: 'pips' });
-  for (let i = 1; i <= (Session.cfg.rounds || 1); i++) {
-    pips.append(el('i', { class: `pip ${i < Session.roundIdx ? 'done' : i === Session.roundIdx ? 'cur' : ''}` }));
+/* focused minutes today, including the live session — the honest denominator */
+function dailyTarget() {
+  const banked = Store.focusMinutesOn(todayKey());
+  let live = 0;
+  if (Session.phase === 'running') {
+    live = Session.cfg?.mode === 'stop'
+      ? elapsedMs() / 60000
+      : (Date.now() - Session.startedAt) / 60000;
+  } else if (Session.phase === 'paused' && Session.cfg?.mode === 'stop') {
+    live = elapsedMs() / 60000;
   }
-  return el('div', { class: 'head' },
-    el('div', { class: 'phase' }, `${kindLabel}${Session.cfg.rounds > 1 && Session.cfg.mode !== 'stop' ? ` · round ${Session.roundIdx} of ${Session.cfg.rounds}` : ''}`),
-    el('div', { class: 'subj', style: `--h:${act?.hue ?? 100}` }, nameOf(subjId)),
-    pips,
-    el('div', { class: 'muted tiny', style: 'margin-top:2px' }, `Session ${tally.n} today · ${fmtMin(tally.mins)} banked`),
-    tasks.length ? el('div', { class: 'muted tiny' }, tasks.map((t) => t.title).join(' · ')) : null,
+  live = Math.max(0, live);
+  return { banked, live, total: banked + live, goal: Store.state.settings.goalMin || 120 };
+}
+
+/* the session keeps the app's identity and today's target on screen */
+function sessionChrome(kind, tone = '') {
+  return el('header', { class: 'sess-chrome' },
+    el('div', { class: 'sess-bar' },
+      el('div', { class: 'sess-brand' }, el('i', { class: 'brand-dot' }), 'Lockin'),
+      el('span', { class: `sess-kind${tone ? ` ${tone}` : ''}` }, kind)
+    ),
+    goalMeter({ label: 'Daily target' })
   );
 }
 
-function runningScreen() {
-  if (Session.cfg.mode === 'stop') return stopRunningScreen();
+function pipsRow() {
+  const rounds = Session.cfg?.rounds || 1;
+  if (rounds < 2 || Session.cfg?.mode === 'stop') return null;
+  const pips = el('div', { class: 'pips' });
+  for (let i = 1; i <= rounds; i += 1) {
+    pips.append(el('i', { class: `pip ${i < Session.roundIdx ? 'done' : i === Session.roundIdx ? 'cur' : ''}` }));
+  }
+  return pips;
+}
 
-  const soundsBtn = el('button', {
-    class: 'iconbtn', innerHTML: svg('sound'), 'aria-label': 'Change focus sound',
-    onclick: () => {
-      const kinds = Sounds.KINDS;
-      const next = kinds[(kinds.indexOf(Store.state.settings.soundKind || 'rain') + 1) % kinds.length];
-      Store.set((s) => { s.settings.soundKind = next; });
-      if (Store.state.settings.sounds) { Sounds.setVolume(Store.state.settings.volume ?? 0.6); Sounds.play(next); }
-      else Sounds.stop();
-      hint(next === 'none' ? 'Sound off' : `Sound: ${next}`);
-    },
-  });
-
-  const quitBtn = el('button', {
-    class: 'btn btn-danger btn-sm', style: 'border-radius:999px;padding:11px 20px',
-    onpointerdown: startQuitHold,
-  }, svg('x', 15), 'Quit — hold');
-
-  const taskZip = (Session.cfg.taskIds || [])
+function taskChips() {
+  return (Session.cfg?.taskIds || [])
     .map((id) => Store.state.tasks.find((t) => t.id === id))
     .filter(Boolean)
     .map((t) => el('button', {
-      class: 'chip', 'aria-pressed': String(!!t.doneAt),
-      style: 'max-width:280px',
+      class: 'chip', 'aria-pressed': String(!!t.doneAt), style: 'max-width:280px',
       onclick: () => {
         Store.set((s) => { const x = s.tasks.find((y) => y.id === t.id); x.doneAt = x.doneAt ? null : Date.now(); });
         rerenderRunningChips();
       },
     }, (t.doneAt ? '✓ ' : '') + (t.title.length > 26 ? `${t.title.slice(0, 24)}…` : t.title)));
+}
 
-  return el('div', { class: 'session aurora-stage' },
-    aurora(),
-    sessionHead('Focus', Session.cfg.subjId),
-    el('div', { class: 'foot', style: 'flex-direction:column;gap:16px' },
-      el('div', { class: 'clock' }, '—'),
-      taskZip.length ? el('div', { class: 'chips', style: 'justify-content:center;max-width:100%' }, taskZip) : null,
-      el('div', { class: 'row', style: 'gap:12px;justify-content:center' }, soundsBtn, quitBtn),
-    )
+function sessionCore({ label, subject, note, clockClass = '', tone = '' }) {
+  const act = Store.activity(Session.cfg?.subjId);
+  const chips = taskChips();
+  return el('main', { class: 'sess-core' },
+    el('div', { class: 'sess-phase' }, label),
+    el('div', {
+      class: `sess-subject${tone ? ` ${tone}` : ''}`,
+      style: act?.hue != null ? `--h:${act.hue}` : '',
+    }, subject),
+    el('div', { class: `clock${clockClass ? ` ${clockClass}` : ''}` }, '—'),
+    pipsRow(),
+    note ? el('p', { class: 'sess-note' }, note) : null,
+    chips.length ? el('div', { class: 'chips sess-tasks' }, chips) : null
+  );
+}
+
+function quitButton() {
+  return el('button', {
+    class: 'btn btn-danger btn-block btn-quit',
+    onpointerdown: startQuitHold,
+  }, svg('x', 15), 'Quit — hold');
+}
+
+function runningScreen() {
+  if (Session.cfg.mode === 'stop') return stopRunningScreen();
+  const rounds = Session.cfg.rounds || 1;
+  const label = rounds > 1 ? `Focus · round ${Session.roundIdx} of ${rounds}` : 'Focus';
+  return el('div', { class: 'session' },
+    sessionChrome('Focus'),
+    sessionCore({ label, subject: nameOf(Session.cfg.subjId) }),
+    el('footer', { class: 'sess-foot' }, quitButton())
   );
 }
 
 /* ---------- stopwatch screens ---------- */
 
 function stopRunningScreen() {
-  const quitBtn = el('button', {
-    class: 'btn btn-danger btn-sm', style: 'border-radius:999px;padding:11px 20px',
-    onpointerdown: startQuitHold,
-  }, svg('x', 15), 'Quit — hold');
-
-  return el('div', { class: 'session aurora-stage' },
-    aurora(),
-    sessionHead('Focus — stopwatch', Session.cfg.subjId),
-    el('div', { class: 'foot', style: 'flex-direction:column;gap:16px' },
-      el('div', { class: 'clock stopwatch' }, '00:00'),
-      el('div', { class: 'muted tiny' }, 'Every second you are in here is banked. Pause is honest rest — it stops the count.'),
-      el('div', { class: 'row', style: 'gap:12px;justify-content:center' },
-        el('button', {
-          class: 'btn btn-primary', style: 'border-radius:999px;padding:11px 22px',
-          onclick: () => { pauseStop(); },
-        }, svg('caret', 15), 'Pause'),
-        quitBtn,
-      ),
+  return el('div', { class: 'session' },
+    sessionChrome('Focus', 'live'),
+    sessionCore({
+      label: 'Stopwatch',
+      subject: nameOf(Session.cfg.subjId),
+      note: 'Every second in here is banked. Pause is honest rest — it stops the count.',
+      clockClass: 'stopwatch',
+    }),
+    el('footer', { class: 'sess-foot sess-foot-split' },
+      el('button', { class: 'btn btn-primary', onclick: pauseStop }, svg('pause', 15), 'Pause'),
+      quitButton()
     )
   );
 }
 
 function pausedScreen() {
-  return el('div', { class: 'session' },
-    sessionHead('Paused', Session.cfg.subjId),
-    el('div', { class: 'foot', style: 'flex-direction:column;gap:16px' },
-      el('div', { class: 'clock stopwatch', style: 'color:var(--tx-2)' }, '00:00'),
-      el('div', { class: 'muted tiny' }, `Paused on the second. ${Session.pauseCount} pause${Session.pauseCount === 1 ? '' : 's'} so far.`),
-      el('div', { class: 'row', style: 'gap:12px;justify-content:center' },
-        el('button', {
-          class: 'btn btn-primary', style: 'border-radius:999px;padding:11px 22px',
-          onclick: () => { resumeStop(); },
-        }, svg('play', 15), 'Resume'),
-        el('button', {
-          class: 'btn btn-subtle', style: 'border-radius:999px;padding:11px 20px',
-          onclick: stopEndSheet,
-        }, svg('flame', 15), 'End'),
-      ),
+  return el('div', { class: 'session is-paused' },
+    sessionChrome('Paused'),
+    sessionCore({
+      label: 'Paused',
+      subject: nameOf(Session.cfg.subjId),
+      note: `Paused on the second. ${Session.pauseCount} pause${Session.pauseCount === 1 ? '' : 's'} so far.`,
+      clockClass: 'stopwatch is-muted',
+    }),
+    el('footer', { class: 'sess-foot sess-foot-split' },
+      el('button', { class: 'btn btn-primary', onclick: resumeStop }, svg('play', 15), 'Resume'),
+      el('button', { class: 'btn btn-subtle', onclick: stopEndSheet }, svg('flame', 15), 'End')
     )
   );
 }
@@ -754,19 +763,17 @@ function confirmQuit() {
 /* ---------- break screen ---------- */
 
 function breakScreen() {
-  const clock = el('div', { class: 'clock', style: 'color:var(--good)' }, '—');
-  return el('div', { class: 'session' },
-    el('div', { class: 'head' },
-      el('div', { class: 'phase' }, (Session.breakKind >= 10 ? 'Long break' : 'Short break')),
-      el('div', { class: 'subj' }, 'Water, stretch, window.'),
-      el('div', { class: 'muted tiny' }, `Next round: ${nameOf(Session.cfg.subjId)}`),
+  return el('div', { class: 'session is-break' },
+    sessionChrome('Break', 'good'),
+    el('main', { class: 'sess-core' },
+      el('div', { class: 'sess-phase' }, Session.breakKind >= 10 ? 'Long break' : 'Short break'),
+      el('div', { class: 'sess-subject' }, 'Step away'),
+      el('div', { class: 'clock is-good' }, '—'),
+      el('p', { class: 'sess-note' }, `Water, stretch, window. Next: ${nameOf(Session.cfg.subjId)}.`)
     ),
-    el('div', { class: 'foot', style: 'flex-direction:column;gap:16px' },
-      clock,
-      el('div', { class: 'row', style: 'gap:12px;justify-content:center' },
-        el('button', { class: 'btn btn-subtle', onclick: () => { Session.plannedEnd = Date.now(); finishBreak(); } }, 'Back to focus'),
-        el('button', { class: 'btn btn-ghost', onclick: confirmEndChain }, 'End here'),
-      ),
+    el('footer', { class: 'sess-foot sess-foot-split' },
+      el('button', { class: 'btn btn-subtle', onclick: () => { Session.plannedEnd = Date.now(); finishBreak(); } }, 'Back to focus'),
+      el('button', { class: 'btn btn-ghost', onclick: confirmEndChain }, 'End here')
     )
   );
 }
@@ -788,23 +795,27 @@ function doneScreen() {
   const c = Store.slipCountsOn(todayKey());
   const clean = c.slip === 0 && c.abandon === 0 && d.done;
   const bankedText = d.secs != null ? fmtWatch(d.secs) : fmtMin(d.mins);
-  return el('div', { class: 'card', style: 'text-align:center;margin-top:14vh' },
-    el('h2', {}, d.done ? 'Banked' : 'It happens'),
-    el('div', { style: 'font:600 46px "JetBrains Mono",monospace;color:var(--acc)' }, `+${bankedText}`),
-    el('div', { style: 'font:400 24px "Instrument Serif",serif;margin-top:4px' }, d.subjName || 'Session'),
-    el('p', { class: 'muted', style: 'margin-top:8px' },
-      d.done
-        ? clean ? 'Nothing broken. The streak stands.' : 'Rounds banked — but the honesty log still holds the slip.'
-        : 'Cut short and logged. Tomorrow can still be clean.'),
-    el('p', { class: 'tiny' }, `Focus today: ${fmtMin(d.today)}`),
-    el('div', { class: 'row', style: 'justify-content:center;gap:10px;margin-top:16px' },
-      el('button', {
-        class: 'btn btn-primary',
-        onclick: () => { Session.phase = 'idle'; renderHost(); },
-      }, 'Again'),
-      el('button', { class: 'btn btn-subtle', onclick: () => Router.go('/home') }, 'Home'),
-    ),
-    d.demo ? el('p', { class: 'tiny', style: 'margin-top:12px' }, 'Demo session — demo minutes are excluded from stats.') : null,
+  const meter = goalMeter({ label: 'Daily target' });
+  updateGoalMeter(meter, dailyTarget());
+  return el('div', { class: 'done-wrap' },
+    el('div', { class: 'done-card view-anim' },
+      el('div', { class: `done-kicker ${d.done ? 'is-good' : 'is-warn'}` }, d.done ? 'Session banked' : 'Session ended'),
+      el('div', { class: 'done-amount' }, `+${bankedText}`),
+      el('div', { class: 'done-subject' }, d.subjName || 'Session'),
+      el('p', { class: 'done-line' },
+        d.done
+          ? clean ? 'Nothing broken. The streak stands.' : 'Rounds banked — but the honesty log still holds the slip.'
+          : 'Cut short and logged. Tomorrow can still be clean.'),
+      meter,
+      el('div', { class: 'done-actions' },
+        el('button', {
+          class: 'btn btn-primary',
+          onclick: () => { Session.phase = 'idle'; renderHost(); },
+        }, 'Again'),
+        el('button', { class: 'btn btn-subtle', onclick: () => Router.go('/home') }, 'Home')
+      ),
+      d.demo ? el('p', { class: 'tiny done-demo' }, 'Demo session — demo minutes are excluded from stats.') : null
+    )
   );
 }
 
@@ -839,13 +850,16 @@ function showLeftVeil(awaySec) {
 
 function drawClock() {
   const node = document.querySelector('.session .clock');
-  if (!node) return;
-  if (Session.cfg?.mode === 'stop') {
-    node.textContent = fmtWatch(stopSeconds());
-    return;
+  if (node) {
+    if (Session.cfg?.mode === 'stop') {
+      node.textContent = fmtWatch(stopSeconds());
+    } else {
+      node.textContent = fmtClock(remaining());
+      if (Session.phase === 'running') node.classList.toggle('tensec', remaining() < 10);
+    }
   }
-  node.textContent = fmtClock(remaining());
-  if (Session.phase === 'running') node.classList.toggle('tensec', remaining() < 10);
+  const meter = document.querySelector('.session .goal-meter');
+  if (meter) updateGoalMeter(meter, dailyTarget());
 }
 
 /* ---------- mounting ---------- */
@@ -880,5 +894,6 @@ function mount() {
 
 function unmount() {
   document.body.dataset.mode = '';
+  document.querySelectorAll('body > .session').forEach((n) => n.remove());
   document.getElementById('leftveil')?.remove();
 }
