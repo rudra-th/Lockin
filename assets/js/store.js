@@ -179,7 +179,9 @@ const Store = {
   focusMinutesOn(dateKey) {
     let mins = 0;
     for (const sess of this.state.sessions) {
-      if (!sess.completed || sess.kind !== 'focus' || sess.demo) continue;
+      if (sess.demo || sess.kind !== 'focus') continue; // demo never happened
+      // aborted sessions keep their minutes — time actually spent is honest —
+      // they just never make the day clean (dayClean also demands zero slips)
       if (sess.day === dateKey) {
         mins += Math.max(0, Math.round((sess.end - sess.start) / 60000));
       }

@@ -53,7 +53,8 @@ class Server(socketserver.ThreadingTCPServer):
 
 if __name__ == "__main__":
     with Server(("", PORT), Handler) as httpd:
-        print(f"\n  Lockin → http://localhost:{PORT}\n  Ctrl+C to stop\n")
+        # ASCII only: Windows consoles (cp1252) crash on fancy glyphs in print()
+        print("\n  Lockin -> http://localhost:{0}\n  Ctrl+C to stop\n".format(PORT))
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

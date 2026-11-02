@@ -4,8 +4,9 @@
 
 import { Store, uid } from '../store.js';
 import { Router } from '../router.js';
-import { el } from '../util.js';
+import { el, todayKey, addDays } from '../util.js';
 import { svg } from '../icons.js';
+import { hint } from '../ui.js';
 import { startDemoSession } from './focus.js';
 
 export function initWalkthrough(Router) {

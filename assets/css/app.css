@@ -661,3 +661,52 @@ body[data-mode='onboard'] .tabbar { opacity: 0; pointer-events: none; }
   #view { max-width: 620px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
   :root { --slot: 34px; }
 }
+
+/* ---------- home: day shape + week strip ---------- */
+
+.shapewrap { margin-top: 16px; }
+.dayshape {
+  position: relative;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.dayshape .seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: hsl(var(--h) 42% 42% / 0.5);
+  border-left: 2px solid hsl(var(--h) 60% 60%);
+}
+.dayshape .nowmark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--warn);
+  box-shadow: 0 0 6px rgba(255, 120, 71, 0.6);
+  z-index: 2;
+}
+.shapehours {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font: 500 9.5px 'JetBrains Mono', monospace;
+  color: var(--tx-3);
+}
+.weekstrip { display: flex; gap: 8px; margin-top: 9px; }
+.wday { flex: 1; text-align: center; min-width: 0; }
+.wday i {
+  display: block;
+  height: 9px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+.wday.cleaned i { background: var(--good); border-color: var(--good); }
+.wday.broken i { background: var(--warn); border-color: var(--warn); }
+.wday.today i { border-color: var(--acc); box-shadow: 0 0 0 1.5px var(--acc-dim); }
+.wday .d { font: 500 9.5px 'JetBrains Mono', monospace; color: var(--tx-3); margin-top: 4px; }
+.wday.today .d { color: var(--acc); }

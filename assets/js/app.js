@@ -52,6 +52,13 @@ function markTabs() {
     else b.removeAttribute('aria-current');
   });
 }
+
+/* the shell's buttons only carry data-nav — routing lives here */
+$$('.tabbar button').forEach((b) => {
+  b.addEventListener('click', () => {
+    if (b.dataset.nav) Router.go(b.dataset.nav);
+  });
+});
 addEventListener('hashchange', markTabs);
 markTabs();
 

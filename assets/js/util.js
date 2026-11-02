@@ -16,8 +16,10 @@ export function $$(sel, root = document) {
 
 /**
  * el('div', {class: 'card', onclick: fn}, el('h2', {}, 'Title'))
- * Children may be strings (become text nodes) or nodes; '' spacers are dropped.
+ * Children may be strings, nodes, or our own svg() markup strings
+ * (parsed through a template — never arbitrary user data).
  */
+const _tpl = document.createElement('template');
 export function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -32,7 +34,14 @@ export function el(tag, attrs = {}, ...children) {
   }
   for (const c of children.flat(Infinity)) {
     if (c == null || c === '') continue;
-    node.append(c.nodeType ? c : document.createTextNode(String(c)));
+    if (c.nodeType) { node.append(c); continue; }
+    const s = String(c).trim();
+    if (s.startsWith('<svg') && s.endsWith('</svg>')) {
+      _tpl.innerHTML = s;
+      node.append(_tpl.content);
+      continue;
+    }
+    node.append(document.createTextNode(String(c)));
   }
   return node;
 }

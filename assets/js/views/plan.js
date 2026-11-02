@@ -239,7 +239,9 @@ function openBlockSheet(blockId) {
   const dur = el('div', { class: 'tiny', style: 'text-align:center;margin-top:2px' }, `${(e - s) * SLOT_MIN} min`);
 
   const commit = () => {
-    const fresh = Store.blocks(day).filter((x) => x.id !== blockId);
+    // drop the block being reshaped AND anything the new range overwrites —
+    // ids regenerate on every paint, so matching by id alone goes stale
+    const fresh = Store.blocks(day).filter((x) => x.id !== blockId && (x.e <= s || x.s >= e));
     Store.replaceRange(day, Store.paint(fresh, b.actId, s, e));
     timeSpan.textContent = `${slotsToT(s)}–${slotsToT(e)}`;
     dur.textContent = `${(e - s) * SLOT_MIN} min`;

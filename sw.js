@@ -1,7 +1,7 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.0.0';
+const VERSION = 'lockin.v1.0.8';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -61,18 +61,22 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  // Navigations: shell first, network fallback — the app is hash-routed,
-  // so one document serves every route, offline included.
+  // Navigations: the hash-routed shell owns '/' and '/index.html' — serve it
+  // cached-first, offline included. Aux pages (tests.html, …) go network-first,
+  // get remembered in the runtime cache, and fall back to the shell offline.
   if (req.mode === 'navigate') {
-    event.respondWith(
-      caches.match('./index.html').then(
-        (hit) => hit || fetch(req).then((res) => {
-          const copy = res.clone();
-          caches.open(RUNTIME).then((c) => c.put('./index.html', copy));
-          return res;
-        })
-      )
-    );
+    event.respondWith((async () => {
+      if (url.pathname === '/' || url.pathname === '/index.html') {
+        return (await caches.match('./index.html')) || fetch(req);
+      }
+      try {
+        const res = await fetch(req);
+        await caches.open(RUNTIME).then((c) => c.put(req, res.clone()));
+        return res;
+      } catch (_) {
+        return (await caches.match(req)) || (await caches.match('./index.html'));
+      }
+    })());
     return;
   }
 

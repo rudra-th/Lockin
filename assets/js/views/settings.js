@@ -31,10 +31,11 @@ function toggle(get, setfn) {
 }
 
 function stepper(get, setfn, opts) {
-  const { def, lo, hi, step = 1, suffix = '' } = opts;
+  const { def, lo, hi, step = 1, suffix = '', fmt = null } = opts;
+  const show = (v) => (fmt ? fmt(v) : `${v}${suffix}`);
   const wrap = el('div', { class: 'row', style: 'gap:6px' });
-  const val = el('span', { class: 'mono', style: 'min-width:64px;text-align:center;font-size:14px' }, `${get()}${suffix}`);
-  const redraw = () => { val.textContent = `${get()}${suffix}`; };
+  const val = el('span', { class: 'mono', style: 'min-width:64px;text-align:center;font-size:14px' }, show(get()));
+  const redraw = () => { val.textContent = show(get()); };
   const mk = (d, label) => el('button', {
     class: 'iconbtn', style: 'width:34px;height:34px', 'aria-label': label, innerHTML: svg(d > 0 ? 'plus' : 'minus', 15),
     onclick: () => { setfn(Math.max(lo, Math.min(hi, get() + d * step))); redraw(); },
@@ -61,14 +62,14 @@ function enforcementCard() {
           Notification.requestPermission();
         }
       })),
-    setrow('Daily focus goal', 'The ring you fill each day.', stepper(
+    setrow('Daily focus goal', 'The ring you fill each day. Set it in hours and minutes.', stepper(
       () => Store.state.settings.goalMin,
       (v) => Store.set((st) => { st.settings.goalMin = v; }),
-      { lo: 15, hi: 600, step: 15, suffix: 'm' })),
+      { lo: 15, hi: 600, step: 15, fmt: fmtMin })),
     setrow('Minimum for a clean day', 'Days with less real focus than this never count as clean, even without slips.',
       stepper(() => Store.state.settings.minClean,
         (v) => Store.set((st) => { st.settings.minClean = v; }),
-        { lo: 5, hi: 120, step: 5, suffix: 'm' })),
+        { lo: 5, hi: 120, step: 5, fmt: fmtMin })),
   );
 }
 

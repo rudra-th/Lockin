@@ -246,7 +246,7 @@ function finish(finished) {
 
 function abandon() {
   recordAborted(Session.cfg.subjId, Session.cfg.taskIds, Session.startedAt);
-  Store.logSlip('abandon', currentSessId, 0);
+  if (!Session.cfg?.demo) Store.logSlip('abandon', currentSessId, 0); // the demo never logs
   closeSheet();
   finish(false);
 }

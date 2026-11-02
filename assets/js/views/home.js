@@ -2,7 +2,7 @@
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, todayKey, prettyDate, slotsToT, fmtMin } from '../util.js';
+import { el, todayKey, prettyDate, slotsToT, fmtMin, addDays } from '../util.js';
 import { svg } from '../icons.js';
 
 let lastMin = 25;
@@ -41,6 +41,46 @@ function greeting() {
   return 'Still going';
 }
 
+const DAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+/* genuine 24h mini-map of today's plan, with a ticking now-marker */
+function dayShape(blocks, nowSlot) {
+  const strip = el('div', { class: 'dayshape' });
+  for (const b of blocks) {
+    const act = Store.activity(b.actId);
+    if (!act) continue;
+    strip.append(el('i', {
+      class: 'seg',
+      style: `--h:${act.hue};left:${(b.s / 48) * 100}%;width:${((b.e - b.s) / 48) * 100}%`,
+    }));
+  }
+  if (nowSlot >= 0 && nowSlot < 48) {
+    strip.append(el('i', { class: 'nowmark', style: `left:calc(${(nowSlot / 48) * 100}% - 1px)` }));
+  }
+  const hours = el('div', { class: 'shapehours' },
+    ['00', '06', '12', '18', '24'].map((h) => el('span', {}, h)));
+  return el('div', { class: 'shapewrap' }, strip, hours);
+}
+
+/* the honest week at a glance — lime is clean, orange is focused-but-broken */
+function weekStrip(t) {
+  const cols = [];
+  let cleanDays = 0;
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = addDays(t, -i);
+    const mins = Store.focusMinutesOn(d);
+    const clean = Store.dayClean(d);
+    if (clean) cleanDays += 1;
+    const dt = new Date(`${d}T12:00:00`);
+    const cls = clean ? ' cleaned' : (mins > 0 ? ' broken' : '');
+    cols.push(el('div', {
+      class: `wday${i === 0 ? ' today' : ''}${cls}`,
+      title: `${prettyDate(d)} · ${fmtMin(mins)} focused${clean ? ' · clean' : mins > 0 ? ' · fell short' : ''}`,
+    }, el('i'), el('span', { class: 'd' }, i === 0 ? 'Today' : DAY_LETTERS[dt.getDay()])));
+  }
+  return { strip: el('div', { class: 'weekstrip' }, cols), cleanDays };
+}
+
 function render(host) {
   const t = todayKey();
   const cfg = Store.state.settings;
@@ -54,6 +94,9 @@ function render(host) {
   const cur = blocks.find((b) => b.s <= nowSlot && nowSlot < b.e && Store.activity(b.actId)?.kind !== 'sleep');
   const next = blocks.find((b) => b.s > nowSlot);
   const live = Store.state.session;
+  const dayStat = Store.dayStats(t);
+  const plannedByAct = {};
+  for (const b of blocks) plannedByAct[b.actId] = (plannedByAct[b.actId] || 0) + (b.e - b.s) * 30;
 
   /* today card */
   const nowText = cur
@@ -66,6 +109,10 @@ function render(host) {
 
   const badges = el('div', { class: 'row', style: 'gap:7px;margin-top:10px;flex-wrap:wrap' },
     el('span', { class: 'pill acc', title: 'Clean days in a row' }, svg('flame', 12), ` ${streak} clean`),
+    dayStat.tally.study > 0
+      ? el('span', { class: 'pill', title: 'Study time actually on today\'s plan' },
+          svg('book', 12), ` ${fmtMin(dayStat.tally.study)} planned`)
+      : null,
     slips.slip + slips.abandon > 0
       ? el('span', { class: 'pill', style: 'color:var(--warn);border-color:color-mix(in srgb, var(--warn) 45%, transparent)' },
           `${slips.slip + slips.abandon} slip${slips.slip + slips.abandon === 1 ? '' : 's'} today`)
@@ -73,6 +120,13 @@ function render(host) {
     slips.rescue > 0
       ? el('span', { class: 'pill' }, `${slips.rescue} accident${slips.rescue === 1 ? '' : 's'} forgiven`)
       : null,
+  );
+
+  const week = weekStrip(t);
+  const weekHead = el('div', { class: 'row', style: 'margin-top:16px' },
+    el('span', { class: 'tiny', style: 'color:var(--tx-3)' }, 'Last 7 days'),
+    el('div', { class: 'sp' }),
+    el('span', { class: 'tiny', style: 'color:var(--tx-3)' }, `${week.cleanDays}/7 clean`),
   );
 
   const todayCard = el('div', { class: 'card' },
@@ -86,7 +140,10 @@ function render(host) {
         el('div', { class: 'muted', style: 'margin-top:4px' }, nowText),
         badges,
       )
-    )
+    ),
+    dayShape(blocks, nowSlot),
+    weekHead,
+    week.strip,
   );
 
   /* dive-in card */
@@ -99,7 +156,10 @@ function render(host) {
             lastMin = lastMin || 25;
             Router.go(`/focus?min=${lastMin}&subj=${a.id}`);
           },
-        }, el('i', { class: 'dot' }), a.name))
+        }, el('i', { class: 'dot' }), a.name,
+        plannedByAct[a.id] > 0
+          ? el('span', { class: 'tiny', style: 'color:var(--tx-3);font-family:"JetBrains Mono",monospace;font-size:10.5px;margin-left:5px' }, fmtMin(plannedByAct[a.id]))
+          : null))
       : el('button', { class: 'chip add', onclick: () => Router.go('/plan') }, el('i', { innerHTML: svg('plus', 14) }), 'Add your first subject on the Plan tab')
   );
 
