@@ -143,6 +143,30 @@ function lookCard() {
   );
 }
 
+/* ---------- profile (name + exam from the /setup questionnaire) ---------- */
+
+function profileCard() {
+  const p = Store.state.profile || { name: '', exam: '' };
+  const nameInp = el('input', { class: 'inp', maxlength: 24, value: p.name, autocomplete: 'off', spellcheck: 'false' });
+  const examInp = el('input', { class: 'inp', maxlength: 28, value: p.exam, autocomplete: 'off', spellcheck: 'false' });
+  const save = el('button', {
+    class: 'btn btn-subtle btn-block', style: 'margin-top:8px',
+    onclick: () => {
+      Store.setProfile(nameInp.value, examInp.value);
+      hint('Profile saved.');
+    },
+  }, svg('check', 16), 'Save profile');
+  return el('div', { class: 'card' },
+    el('h2', {}, 'Profile'),
+    el('p', { class: 'muted', style: 'margin:0 0 10px' }, 'Your name and exam personalize Home, the session screens and the seeds.'),
+    el('div', { style: `display:grid;grid-template-columns:1fr;gap:8px` },
+      el('div',{}, el('div', { class: 'tiny', style: 'color:var(--tx-3);margin-bottom:3px' }, 'Name'), nameInp),
+      el('div',{}, el('div', { class: 'tiny', style: 'color:var(--tx-3);margin-bottom:3px' }, 'Target exam'), examInp),
+    ),
+    save,
+  );
+}
+
 function dataCard() {
   const input = el('input', {
     type: 'file', accept: 'application/json,.json',
@@ -171,10 +195,7 @@ function dataCard() {
   const importBtn = el('button', { class: 'btn btn-subtle btn-block', onclick: () => input.click() }, svg('book', 16), 'Restore backup');
   const replayBtn = el('button', {
     class: 'btn btn-subtle btn-block',
-    onclick: () => {
-      Store.set((s) => { s.flags.onboarded = false; });
-      Router.go('/start?replay=1');
-    },
+    onclick: () => { Router.go('/start?replay=1'); },
   }, svg('play', 16), 'Rerun the beginner walkthrough');
 
   const wipeBtn = el('button', {
@@ -184,7 +205,7 @@ function dataCard() {
       el('div', { class: 'actions' },
         el('button', {
           class: 'btn btn-primary',
-          onclick: () => { Store.reset(); close(); Router.go('/start'); hint('Cleared.'); },
+          onclick: () => { Store.reset(); close(); Router.go('/setup'); hint('Cleared.'); },
         }, 'Wipe it'),
         el('button', { class: 'btn btn-subtle', onclick: () => close() }, 'Keep'),
       ),
@@ -231,6 +252,7 @@ function render(host) {
       ),
     ),
     enforcementCard(),
+    profileCard(),
     soundCard(),
     pomoCard(),
     lookCard(),

@@ -60,9 +60,18 @@ export function tToSlots(t) {
   return Math.max(0, Math.min(48, Math.round((h * 60 + (m || 0)) / 30)));
 }
 
-/** seconds → "mm:ss" / "h:mm:ss" */
+/** seconds → "mm:ss" / "h:mm:ss" (ceiling, for countdowns) */
 export function fmtClock(totalSec) {
   const s = Math.max(0, Math.ceil(totalSec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h ? `${h}:${pad2(m)}:${pad2(sec)}` : `${pad2(m)}:${pad2(sec)}`;
+}
+
+/** seconds elapsed → "00:00" / "1:02:05" (floor — for the up-counting stopwatch) */
+export function fmtWatch(totalSec) {
+  const s = Math.max(0, Math.floor(totalSec));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;

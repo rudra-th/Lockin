@@ -16,10 +16,28 @@ export function initWalkthrough(Router) {
 let step = 0;
 const LAST = 4;
 
+/* exam-aware subject seeding — the questionnaire feeds this */
+export function examSubjects(exam) {
+  const e = String(exam || '');
+  const table = [
+    [/jee/i, ['Physics', 'Chemistry', 'Maths']],
+    [/neet|aiims|medical/i, ['Physics', 'Chemistry', 'Biology']],
+    [/upsc|civil service/i, ['Polity', 'History', 'Current Affairs']],
+    [/cat|mba/i, ['Quant', 'DILR', 'English']],
+    [/clat|law/i, ['Legal Reasoning', 'English', 'GK']],
+    [/gate/i, ['Core Subject', 'Aptitude', 'Maths']],
+    [/board|sslc|cbse|icse|class/i, ['Maths', 'Science', 'English']],
+    [/ijf|olympiad|imo/i, ['Number Theory', 'Combinatorics', 'Algebra']],
+  ];
+  const hit = table.find(([re]) => re.test(e));
+  return hit ? hit[1] : ['Subject 1', 'Subject 2', 'Subject 3'];
+}
+
 function seedDay() {
   const t = todayKey();
   const tmr = addDays(t, 1);
-  const acts = ['Physics', 'Chemistry', 'Maths'].map((name, i) => ({
+  const names = examSubjects(Store.state.profile?.exam);
+  const acts = names.map((name, i) => ({
     id: uid('act'), name, kind: 'study', hue: [200, 265, 25][i],
   }));
   Store.set((s) => {
@@ -65,12 +83,14 @@ function footer(label) {
 /* ---------- slides ---------- */
 
 function slide0() {
+  const who = Store.state.profile?.name;
   return el('div', {},
     el('h2', {}, 'This is Lockin'),
+    who ? el('p', { class: 'tiny', style: 'margin-bottom:8px' }, `Welcome, ${who} — aiming at ${Store.state.profile.exam || 'your target'}.`) : null,
     el('p', {}, 'A day planner with a study clock that refuses to be casual about it. You plan the day once — Lockin runs it with you, block by block, and keeps the screen awake while you work.'),
     bullets([
       'Paint your day on a 24-hour grid',
-      'Run wake-locked focus sessions a phone can’t casually interrupt',
+      'Sessions as a timer, stopwatch, or Pomodoro rounds — wake-locked, un-casual',
       'Grow a streak of genuinely clean days',
     ]),
     footer('Next'),
@@ -146,7 +166,8 @@ function finish() {
   Store.set((s) => { s.flags.onboarded = true; });
   document.body.dataset.mode = '';
   Router.go('/home');
-  hint('Locked in. Paint the day, then run it.');
+  const who = Store.state.profile?.name;
+  hint(who ? `Locked in, ${who}. Paint the day, then run it.` : 'Locked in. Paint the day, then run it.');
 }
 
 /* ---------- render ---------- */

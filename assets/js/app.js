@@ -9,6 +9,7 @@ import { initFocus } from './views/focus.js';
 import { initStats } from './views/stats.js';
 import { initSettings } from './views/settings.js';
 import { initWalkthrough } from './views/walkthrough.js';
+import { initSetup } from './views/setup.js';
 
 Store.load();
 
@@ -32,12 +33,13 @@ initFocus(Router);
 initStats(Router);
 initSettings(Router);
 initWalkthrough(Router);
+initSetup(Router);
 
-/* a live session always owns the screen; otherwise first-run → walkthrough */
-if (Store.state.session && ['running', 'break'].includes(Store.state.session.phase)) {
+/* a live session always owns the screen; otherwise new users start with the 3-question setup */
+if (Store.state.session && ['running', 'break', 'paused'].includes(Store.state.session.phase)) {
   Router.go('/focus');
 } else if (!Store.state.flags.onboarded) {
-  Router.go('/start');
+  Router.go('/setup');
 }
 
 Router.start();

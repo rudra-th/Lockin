@@ -289,7 +289,7 @@ function openCopySheet() {
     const blocks = Store.blocks(day).map((b) => ({ ...b, id: freshId() }));
     const tasks = Store.tasksOn(day).map((t) => ({
       id: uid('tk'), date: key, title: t.title,
-      stages: t.stages.map((g) => ({ label: g.label, done: false })),
+      stages: (t.stages || []).map((g) => ({ label: g.label, done: false })),
       subjectId: t.subjectId, doneAt: null,
     }));
     Store.set((s) => {
@@ -341,7 +341,7 @@ function tasksList(tasks) {
 function taskRow(t) {
   const body = el('div', { class: 'body' }, el('div', { class: 'label' }, t.title));
 
-  if (t.stages.length) {
+  if ((t.stages || []).length) {
     const stages = el('div', { class: 'stages' });
     t.stages.forEach((g, gi) => {
       const box = el('input', {

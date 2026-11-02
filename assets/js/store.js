@@ -33,6 +33,7 @@ function blankState(subjects = []) {
     plans: {},
     sessions: [],
     slips: [],
+    profile: { name: '', exam: '' }, // filled by the /setup questionnaire
     settings: {
       theme: 'system',
       strict: true,
@@ -55,6 +56,7 @@ function blankState(subjects = []) {
 
 function migrate(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== VERSION) return null;
+  raw.profile = raw.profile || { name: '', exam: '' }; // v1 stores predate the questionnaire
   return raw;
 }
 
@@ -182,9 +184,12 @@ const Store = {
       if (sess.demo || sess.kind !== 'focus') continue; // demo never happened
       // aborted sessions keep their minutes — time actually spent is honest —
       // they just never make the day clean (dayClean also demands zero slips)
-      if (sess.day === dateKey) {
-        mins += Math.max(0, Math.round((sess.end - sess.start) / 60000));
-      }
+      if (sess.day !== dateKey) continue;
+      // stopwatch sessions carry exact studied seconds (pauses excluded);
+      // timer sessions derive minutes from wall clock
+      mins += sess.secs != null
+        ? Math.round(sess.secs / 60)
+        : Math.max(0, Math.round((sess.end - sess.start) / 60000));
     }
     return mins;
   },
@@ -195,6 +200,13 @@ const Store = {
       if (sl.day === dateKey) counts[sl.kind] += 1;
     }
     return counts;
+  },
+
+  setProfile(name, exam) {
+    this.set((s) => {
+      s.profile.name = String(name || '').trim().slice(0, 24);
+      s.profile.exam = String(exam || '').trim().slice(0, 28);
+    });
   },
 
   /** A day is "clean" when real focus happened and nothing was broken. */
@@ -223,7 +235,11 @@ const Store = {
       if (!sess.completed || sess.kind !== 'focus' || sess.demo) continue;
       if (sess.day < cutoff || sess.day > dateKey) continue;
       const key = sess.subjId || 'free';
-      map.set(key, (map.get(key) || 0) + (sess.end - sess.start) / 60000);
+      // stopwatch sessions bank exact seconds (pauses excluded); timer sessions
+      // borrow their wall-clock span
+      map.set(key, (map.get(key) || 0) + (sess.secs != null
+        ? sess.secs / 60
+        : (sess.end - sess.start) / 60000));
     }
     return map;
   },
@@ -254,5 +270,20 @@ const Store = {
     document.dispatchEvent(new CustomEvent('lockin:changed'));
   },
 };
+
+Store.load();
+
+/* Cross-tab convergence: another open tab may write the store (live-session
+   snapshots, settings flips). Adopt newer writes wholesale so two tabs share
+   one source of truth instead of blitting stale copies over each other. */
+self.addEventListener('storage', (ev) => {
+  if (ev.key !== null && ev.key !== KEY) return; // null key = clear()
+  let next = null;
+  try { next = migrate(JSON.parse(ev.newValue || 'null')); } catch (_) { return; }
+  if (!next) return;
+  if (JSON.stringify(next) === JSON.stringify(Store.state)) return; // no-op echo
+  Store.state = next;
+  document.dispatchEvent(new CustomEvent('lockin:changed'));
+});
 
 export { Store, KEY, VERSION, uid };

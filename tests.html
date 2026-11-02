@@ -28,7 +28,7 @@
 
   <script type="module">
     import { Store } from './assets/js/store.js';
-    import { el, slotsToT, tToSlots, fmtClock, fmtMin, todayKey, addDays, decideAway } from './assets/js/util.js';
+    import { el, slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, decideAway } from './assets/js/util.js';
     import { svg } from './assets/js/icons.js';
 
     const out = document.getElementById('out');
@@ -96,6 +96,11 @@
       eq(fmtMin(85), '1h 25m');
       eq(fmtMin(60), '1h');
       eq(fmtMin(7), '7m');
+    });
+    test('fmtWatch floors (stopwatch up-count)', () => {
+      eq(fmtWatch(0), '00:00');
+      eq(fmtWatch(62), '01:02');
+      eq(fmtWatch(3721), '1:02:01'); // 3721s = 1h 2m 1s — ceil would be wrong here
     });
     test('addDays month/year rollover', () => {
       eq(addDays('2026-11-30', 1), '2026-12-01');

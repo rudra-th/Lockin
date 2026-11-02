@@ -1,4 +1,7 @@
-/* Lockin — Home: today's shape, the goal ring, and the door into Study Mode. */
+/* Lockin — Home: "what should I be doing right now, and how is today going?"
+   Largest thing answers the first part (now/next + plan shape), the tile strip
+   answers the second (focused / streak / planned / week). One primary action:
+   Start Study Mode. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
@@ -13,26 +16,9 @@ export function initHome(Router) {
 
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 
-function ringFor(pct) {
-  const r = 44;
-  const c = 2 * Math.PI * r;
-  return el('div', { class: 'ringbox' },
-    el('svg', { width: 108, height: 108, viewBox: '0 0 108 108' },
-      el('circle', { class: 'track', cx: 54, cy: 54, r, fill: 'none', 'stroke-width': 9 }),
-      el('circle', {
-        class: 'bar', cx: 54, cy: 54, r, fill: 'none', 'stroke-width': 9,
-        'stroke-dasharray': String(c),
-        'stroke-dashoffset': String(c * (1 - clamp01(pct))),
-      })
-    ),
-    el('div', { class: 'center' },
-      `${Math.round(clamp01(pct) * 100)}%`,
-      el('small', {}, 'of goal')
-    )
-  );
-}
-
 function greeting() {
+  const who = Store.state.profile?.name;
+  if (who) return `Hey, ${who}`;
   const h = new Date().getHours();
   if (h < 5) return 'Up late';
   if (h < 12) return 'Good morning';
@@ -41,9 +27,108 @@ function greeting() {
   return 'Still going';
 }
 
-const DAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+function headSub(t) {
+  const exam = Store.state.profile?.exam;
+  return exam ? `${prettyDate(t)} · for ${exam}` : prettyDate(t);
+}
 
-/* genuine 24h mini-map of today's plan, with a ticking now-marker */
+/* ---------- tile strip: the numbers of today, as type (no icon tiles) ---------- */
+
+function tileStrip(t, focusMin, streak, cleanDays) {
+  const goal = Store.state.settings.goalMin;
+  const cells = [];
+  const dayStat = Store.dayStats(t);
+
+  cells.push({
+    label: 'Focused', value: fmtMin(focusMin),
+    caption: goal ? `of ${fmtMin(goal)} goal` : 'today',
+    bar: goal ? clamp01(focusMin / goal) : 0, // progress bar, ends labelled by caption + value
+  });
+  cells.push({
+    label: 'Streak', value: streak ? String(streak) : '0',
+    caption: streak ? 'clean days in a row' : 'no clean days yet',
+  });
+  cells.push({
+    label: 'Planned', value: dayStat.tally.study ? fmtMin(dayStat.tally.study) : '—',
+    caption: dayStat.tally.study ? 'study on today’s plan' : 'nothing on the plan',
+  });
+  cells.push({
+    label: 'This week', value: `${cleanDays}/7`,
+    caption: 'clean days',
+  });
+
+  return el('div', { class: 'tilestrip' },
+    cells.map((c) => el('div', { class: 'tile' },
+      el('div', { class: 'tlabel' }, c.label),
+      el('div', { class: 'tvalue' }, c.value),
+      c.bar != null
+        ? el('div', { class: 'tbar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(c.bar * 100)) },
+            el('i', { style: `width:${Math.round(c.bar * 100)}%` }))
+        : null,
+      el('div', { class: 'tcaption' }, c.caption),
+    )));
+}
+
+/* ---------- now / next hero: the screen's answer, largest ---------- */
+
+function finding(blocks, focusMin, goal) {
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const nowSlot = nowMin / 30;
+  const isStudy = (b) => Store.activity(b.actId)?.kind === 'study';
+
+  const ahead = blocks
+    .filter((b) => b.e > nowSlot && isStudy(b))
+    .reduce((a, b) => a + (b.e - Math.max(b.s, nowSlot)) * 30, 0);
+  const aheadText = fmtMin(Math.max(0, ahead));
+
+  if (!blocks.length) return 'Plan is empty — paint the day, then run it.';
+  if (goal && focusMin >= goal) return 'Goal met. Anything more is a bonus.';
+  if (!ahead) return 'Nothing left on the plan — the ring is still short of goal.';
+  return `${aheadText} of study still on today’s plan.`;
+}
+
+function heroBlocks(t, live) {
+  const blocks = Store.blocks(t);
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const nowSlot = nowMin / 30;
+  const vis = blocks.filter((b) => Store.activity(b.actId)?.kind !== 'sleep');
+  const cur = vis.find((b) => b.s <= nowSlot && nowSlot < b.e);
+  const next = vis.find((b) => b.s > nowSlot);
+  const liveAct = live && Store.state.session?.cfg
+    ? Store.activity(Store.state.session.cfg.subjId) : null;
+
+  /* headline — hue marks study subjects only (colour on data, not decoration) */
+  let big, hue, sub;
+  if (live) {
+    big = liveAct?.name || 'Focus';
+    hue = liveAct?.kind === 'study' ? liveAct.hue : null;
+    sub = (Store.state.session?.cfg?.mode === 'stop' ? 'Live stopwatch' : 'Live session') + ' — it holds the screen while you work.';
+  } else if (cur) {
+    const act = Store.activity(cur.actId);
+    big = act?.name || 'On plan';
+    hue = act?.kind === 'study' ? act.hue : null;
+    sub = `till ${slotsToT(cur.e)}`;
+  } else if (next) {
+    const act = Store.activity(next.actId);
+    big = act?.name || 'On plan';
+    hue = act?.kind === 'study' ? act.hue : null;
+    sub = `starts at ${slotsToT(next.s)}`;
+  } else {
+    big = blocks.length ? 'Nothing scheduled' : 'Nothing planned';
+    hue = null; // free time is neutral ink — the plan's colours stay off it
+    sub = blocks.length ? 'the rest of today is yours' : 'the day is untouched';
+  }
+
+  return el('div', { class: 'herorow' },
+    el('div', { class: 'gyro' },
+      el('div', { class: 'hlabel' }, live ? 'Running' : cur ? 'Right now' : next ? 'Next up' : 'Open day'),
+      el('div', { class: `hbig${hue ? ' hue' : ''}`, style: hue ? `--h:${hue}` : 'color:var(--tx)' }, big),
+      el('div', { class: 'hsub' }, sub),
+    ),
+  );
+}
+
+/* the 24h mini-map — Lockin's signature element, promoted */
 function dayShape(blocks, nowSlot) {
   const strip = el('div', { class: 'dayshape' });
   for (const b of blocks) {
@@ -62,9 +147,15 @@ function dayShape(blocks, nowSlot) {
   return el('div', { class: 'shapewrap' }, strip, hours);
 }
 
-/* the honest week at a glance — lime is clean, orange is focused-but-broken */
-function weekStrip(t) {
-  const cols = [];
+/* honest week: 7 cells, tick for clean, hollow for fell-short, blank for untouched */
+const DAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+/* compact minutes for the rail's tiny cells: 0m, 45m, 1h, 1h35 — title carries exact */
+const railMin = (m) => (m < 60 ? `${m}m`
+  : `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`);
+
+function weekRail(t) {
+  const cells = [];
   let cleanDays = 0;
   for (let i = 6; i >= 0; i -= 1) {
     const d = addDays(t, -i);
@@ -72,130 +163,90 @@ function weekStrip(t) {
     const clean = Store.dayClean(d);
     if (clean) cleanDays += 1;
     const dt = new Date(`${d}T12:00:00`);
-    const cls = clean ? ' cleaned' : (mins > 0 ? ' broken' : '');
-    cols.push(el('div', {
-      class: `wday${i === 0 ? ' today' : ''}${cls}`,
+    const cls = clean ? 'cleaned' : (mins > 0 ? 'broken' : 'flat');
+    cells.push(el('div', {
+      class: `wday ${cls}${i === 0 ? ' today' : ''}`,
       title: `${prettyDate(d)} · ${fmtMin(mins)} focused${clean ? ' · clean' : mins > 0 ? ' · fell short' : ''}`,
-    }, el('i'), el('span', { class: 'd' }, i === 0 ? 'Today' : DAY_LETTERS[dt.getDay()])));
+    },
+      el('i', { class: 'tick' }),
+      el('span', { class: 'm' }, mins ? railMin(mins) : '0m'),
+      el('span', { class: 'd' }, i === 0 ? 'Today' : DAY_LETTERS[dt.getDay()]),
+    ));
   }
-  return { strip: el('div', { class: 'weekstrip' }, cols), cleanDays };
+  return { rail: el('div', { class: 'weekstrip' }, cells), cleanDays };
 }
+
+/* ---------- render ---------- */
 
 function render(host) {
   const t = todayKey();
   const cfg = Store.state.settings;
   const focusMin = Store.focusMinutesOn(t);
-  const slips = Store.slipCountsOn(t);
   const streak = Store.streakUpTo(t);
   const subjects = Store.subjects();
   const blocks = Store.blocks(t);
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const nowSlot = nowMin / 30;
-  const cur = blocks.find((b) => b.s <= nowSlot && nowSlot < b.e && Store.activity(b.actId)?.kind !== 'sleep');
-  const next = blocks.find((b) => b.s > nowSlot);
-  const live = Store.state.session;
-  const dayStat = Store.dayStats(t);
+  const live = Store.state.session
+    && ['running', 'break', 'paused'].includes(Store.state.session.phase);
   const plannedByAct = {};
   for (const b of blocks) plannedByAct[b.actId] = (plannedByAct[b.actId] || 0) + (b.e - b.s) * 30;
 
-  /* today card */
-  const nowText = cur
-    ? `Now: ${Store.activity(cur.actId)?.name} till ${slotsToT(cur.e)}`
-    : next
-      ? `Next: ${Store.activity(next.actId)?.name} at ${slotsToT(next.s)}`
-      : blocks.length
-        ? 'Plan done for today'
-        : 'Nothing planned yet';
+  const week = weekRail(t);
 
-  const badges = el('div', { class: 'row', style: 'gap:7px;margin-top:10px;flex-wrap:wrap' },
-    el('span', { class: 'pill acc', title: 'Clean days in a row' }, svg('flame', 12), ` ${streak} clean`),
-    dayStat.tally.study > 0
-      ? el('span', { class: 'pill', title: 'Study time actually on today\'s plan' },
-          svg('book', 12), ` ${fmtMin(dayStat.tally.study)} planned`)
-      : null,
-    slips.slip + slips.abandon > 0
-      ? el('span', { class: 'pill', style: 'color:var(--warn);border-color:color-mix(in srgb, var(--warn) 45%, transparent)' },
-          `${slips.slip + slips.abandon} slip${slips.slip + slips.abandon === 1 ? '' : 's'} today`)
-      : null,
-    slips.rescue > 0
-      ? el('span', { class: 'pill' }, `${slips.rescue} accident${slips.rescue === 1 ? '' : 's'} forgiven`)
-      : null,
-  );
-
-  const week = weekStrip(t);
-  const weekHead = el('div', { class: 'row', style: 'margin-top:16px' },
-    el('span', { class: 'tiny', style: 'color:var(--tx-3)' }, 'Last 7 days'),
-    el('div', { class: 'sp' }),
-    el('span', { class: 'tiny', style: 'color:var(--tx-3)' }, `${week.cleanDays}/7 clean`),
-  );
-
-  const todayCard = el('div', { class: 'card' },
-    el('h2', {}, 'Today'),
-    el('div', { class: 'row', style: 'gap:16px' },
-      ringFor(cfg.goalMin ? focusMin / cfg.goalMin : 0),
-      el('div', { class: 'grow', style: 'min-width:0' },
-        el('div', { style: 'font:600 22px "Instrument Serif", serif;white-space:nowrap' },
-          fmtMin(focusMin),
-          el('span', { class: 'muted', style: 'font:500 13px Inter, sans-serif;margin-left:6px' }, `of ${fmtMin(cfg.goalMin)}`)),
-        el('div', { class: 'muted', style: 'margin-top:4px' }, nowText),
-        badges,
-      )
-    ),
-    dayShape(blocks, nowSlot),
-    weekHead,
-    week.strip,
-  );
-
-  /* dive-in card */
+  /* subject pick — planned minutes ride along as honest mono suffixes */
   const subjectChips = el('div', { class: 'chips' },
     subjects.length
       ? subjects.map((a) => el('button', {
           class: 'chip', style: `--h:${a.hue}`,
           'aria-pressed': 'false',
-          onclick: () => {
-            lastMin = lastMin || 25;
-            Router.go(`/focus?min=${lastMin}&subj=${a.id}`);
-          },
+          onclick: () => Router.go(`/focus?min=${lastMin}&subj=${a.id}`),
         }, el('i', { class: 'dot' }), a.name,
         plannedByAct[a.id] > 0
-          ? el('span', { class: 'tiny', style: 'color:var(--tx-3);font-family:"JetBrains Mono",monospace;font-size:10.5px;margin-left:5px' }, fmtMin(plannedByAct[a.id]))
+          ? el('span', { class: 'small', style: 'color:var(--tx-2);font-family:"JetBrains Mono",monospace;font-size:11px;margin-left:2px' }, fmtMin(plannedByAct[a.id]))
           : null))
-      : el('button', { class: 'chip add', onclick: () => Router.go('/plan') }, el('i', { innerHTML: svg('plus', 14) }), 'Add your first subject on the Plan tab')
+      : [el('button', { class: 'chip add', onclick: () => Router.go('/plan') },
+          el('i', { innerHTML: svg('plus', 14) }), 'Add your first subject on the Plan tab')],
   );
 
-  const quick = el('div', { class: 'card tight' },
-    el('h2', {}, 'Dive in'),
-    el('div', { class: 'chips', style: 'margin-bottom:12px' },
-      [25, 45, 50, 90].map((m) =>
-        el('button', {
-          class: 'chip', 'aria-pressed': String(m === lastMin),
-          onclick: () => { lastMin = m; rerender(); },
-        }, `${m}m`))),
-    subjectChips
-  );
-
-  const door = el('button', {
-    class: 'btn btn-primary btn-block',
-    onclick: () => Router.go(live ? '/focus' : `/focus?min=${lastMin}`),
-  },
-    svg('lock', 18),
-    live ? 'Back to live session' : 'Start Study Mode',
-    el('span', { class: 'tiny', style: 'margin-left:2px' }, live ? '' : `· ${lastMin}m`));
+  const startBtn = live
+    ? el('button', {
+        class: 'btn btn-primary btn-block',
+        onclick: () => Router.go('/focus'),
+      }, svg('play', 17), 'Back to the live session')
+    : el('button', {
+        class: 'btn btn-primary btn-block',
+        onclick: () => Router.go(`/focus?min=${lastMin}`),
+      }, svg('lock', 18), 'Start Study Mode',
+      el('span', { class: 'mono', style: 'font-size:12.5px;opacity:0.75' }, `· ${lastMin}m`));
 
   host.append(el('section', { class: 'view-anim stagger' },
     el('div', { class: 'app-head' },
       el('div', { class: 'grow' },
         el('h1', {}, greeting()),
-        el('div', { class: 'sub' }, prettyDate(t)),
+        el('div', { class: 'sub' }, headSub(t)),
       ),
       el('button', {
         class: 'iconbtn', 'aria-label': 'Open the planner', innerHTML: svg('book'),
         onclick: () => Router.go('/plan'),
       }),
     ),
-    todayCard,
-    quick,
-    door,
+    tileStrip(t, focusMin, streak, week.cleanDays),
+    el('div', { class: 'card hero' },
+      heroBlocks(t, live),
+      el('div', { class: 'hfine' }, finding(blocks, focusMin, cfg.goalMin)),
+      dayShape(blocks, nowSlot),
+      subjects.length ? el('div', { style: 'margin:6px 0 2px' }, subjectChips) : null,
+      startBtn,
+    ),
+    el('div', { class: 'card week' },
+      el('div', { class: 'row', style: 'margin-bottom:10px' },
+        el('b', { class: 'ptitle' }, 'Streak week'),
+        el('div', { class: 'sp' }),
+        el('span', { class: 'tiny' }, `${week.cleanDays}/7 clean`),
+      ),
+      week.rail,
+    ),
   ));
 }
 
