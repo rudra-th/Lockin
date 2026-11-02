@@ -21,7 +21,7 @@
 <body>
   <main>
     <h1>Self-check</h1>
-    <div class="sub">Pure-logic asserts for the planner grid, clean-day streaks, and Strict Mode's accident window.</div>
+    <div class="sub">Pure-logic asserts for the planner grid, clean-day streaks, and Strict Mode's accident window. Runs on an in-memory copy — your real data is never touched.</div>
     <div id="out"></div>
     <a class="btn btn-subtle btn-back" href="index.html#/settings">Back to Lockin</a>
   </main>
@@ -51,29 +51,32 @@
       if (sa !== sb) throw new Error(`${msg}: expected ${sb}, got ${sa}`);
     }
 
-    /* The clean-day tests rewrite sessions and slips directly. Snapshot every
-       lockin.* key first and restore them when the run ends, pass or fail, so
-       the visitor's real planner, streaks and honesty log are untouched. */
-    const backup = new Map();
-    const lockinKeys = () => {
-      const ks = [];
-      for (let i = 0; i < localStorage.length; i += 1) {
-        const k = localStorage.key(i);
-        if (k.startsWith('lockin.')) ks.push(k);
-      }
-      return ks;
+    /* The clean-day tests rewrite sessions and slips directly, so they run
+       against an in-memory copy of the visitor's lockin.* keys. Nothing here
+       ever writes real localStorage: no test fixture can leak into the real
+       planner, and an open app tab in another tab never hears a storage
+       event, so it cannot adopt (and re-persist) test data either. */
+    const sandbox = new Map();
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('lockin.')) sandbox.set(k, localStorage.getItem(k));
+    }
+    const realGet = Storage.prototype.getItem;
+    const realSet = Storage.prototype.setItem;
+    const realDel = Storage.prototype.removeItem;
+    const mine = (k) => typeof k === 'string' && k.startsWith('lockin.');
+    Storage.prototype.getItem = function (k) {
+      if (mine(k)) return sandbox.has(k) ? sandbox.get(k) : null;
+      return realGet.call(this, k);
     };
-    for (const k of lockinKeys()) backup.set(k, localStorage.getItem(k));
-    const restore = () => {
-      for (const k of lockinKeys()) {
-        if (!backup.has(k)) localStorage.removeItem(k);
-      }
-      for (const [k, v] of backup) localStorage.setItem(k, v);
+    Storage.prototype.setItem = function (k, v) {
+      if (mine(k)) { sandbox.set(k, String(v)); return; }
+      return realSet.call(this, k, v);
     };
-    // catastrophic escapes (module-level throws) restore too — the trailing
-    // restore() handles the normal path
-    addEventListener('error', restore);
-    addEventListener('unhandledrejection', restore);
+    Storage.prototype.removeItem = function (k) {
+      if (mine(k)) { sandbox.delete(k); return; }
+      return realDel.call(this, k);
+    };
 
     Store.load();
     group_('Slot and time math');
@@ -238,7 +241,7 @@
     out.prepend(summary);
     if (group.textContent === '') group.remove();
     document.title = fail ? `Self-check ✗ ${fail}` : `Self-check ✓ ${pass}`;
-    restore(); // hand the visitor's real store back, whatever the outcome
+    /* Nothing to restore: every write above landed in the memory sandbox. */
   </script>
 </body>
 </html>
