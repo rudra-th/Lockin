@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Lockin — self-check</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <style>
+    body { padding: 22px 16px 40px; }
+    h1 { font: 400 30px 'Instrument Serif', serif; margin: 0 0 2px; }
+    .sub { color: var(--tx-2); font-size: 13px; margin-bottom: 16px; }
+    .res { padding: 9px 12px; border-radius: 10px; font-size: 13.5px; margin-bottom: 6px;
+           border: 1px solid var(--line); background: var(--panel); }
+    .res.ok    { border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+    .res.bad   { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+    .res small { color: var(--tx-3); display: block; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+    #summary { font: 600 15px 'JetBrains Mono', monospace; margin-bottom: 12px; }
+    .btn-back { margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Self-check</h1>
+    <div class="sub">Pure-logic asserts for the planner grid, clean-day streaks, and Strict Mode's accident window.</div>
+    <div id="out"></div>
+    <a class="btn btn-subtle btn-back" href="index.html#/settings">Back to Lockin</a>
+  </main>
+
+  <script type="module">
+    import { Store } from './assets/js/store.js';
+    import { el, slotsToT, tToSlots, fmtClock, fmtMin, todayKey, addDays, decideAway } from './assets/js/util.js';
+
+    const out = document.getElementById('out');
+    let pass = 0, fail = 0, group = null;
+
+    function group_(name) {
+      group = el('div', { class: 'res', style: 'background:var(--panel-2);font-weight:600' }, name);
+      out.append(group);
+    }
+    function ok(name) { pass += 1; out.append(el('div', { class: 'res ok' }, '✓ ' + name)); }
+    function bad(name, err) {
+      fail += 1;
+      out.append(el('div', { class: 'res bad' }, '✗ ' + name, el('small', {}, String(err && err.message || err))));
+    }
+    function test(name, fn) {
+      try { fn(); ok(name); } catch (e) { bad(name, e); }
+    }
+    function eq(a, b, msg = 'eq') {
+      const sa = JSON.stringify(a), sb = JSON.stringify(b);
+      if (sa !== sb) throw new Error(`${msg}: expected ${sb}, got ${sa}`);
+    }
+
+    Store.load(); // fresh state for clean-day tests; tests never persist junk beyond this page's own storage
+    group_('Slot and time math');
+    test('slotsToT anchors', () => {
+      eq(slotsToT(0), '00:00');
+      eq(slotsToT(1), '00:30');
+      eq(slotsToT(16), '08:00');
+      eq(slotsToT(47), '23:30');
+      eq(slotsToT(48), '00:00'); // 24:00 wraps to midnight label
+    });
+    test('tToSlots roundtrip', () => {
+      eq(tToSlots('08:00'), 16);
+      eq(tToSlots('25:30'), 48);   // clamped
+      eq(tToSlots('-4:00'), 0);    // clamped
+      eq(slotsToT(tToSlots('14:30')), '14:30');
+    });
+    test('fmt helpers', () => {
+      eq(fmtClock(125), '02:05');
+      eq(fmtClock(3725), '1:02:05');
+      eq(fmtMin(85), '1h 25m');
+      eq(fmtMin(60), '1h');
+      eq(fmtMin(7), '7m');
+    });
+    test('addDays month/year rollover', () => {
+      eq(addDays('2026-11-30', 1), '2026-12-01');
+      eq(addDays('2024-02-28', 1), '2024-02-29'); // leap year
+      eq(addDays('2026-03-01', -1), '2026-02-28');
+    });
+
+    group_('Planner grid operations');
+    test('paint fills empty range', () => {
+      const list = Store.paint([], 'a', 4, 8);
+      eq(list.length, 1);
+      eq([list[0].s, list[0].e, list[0].actId], [4, 8, 'a']);
+    });
+    test('paint merges same-activity neighbours', () => {
+      const list = Store.paint([{ id: 'x', actId: 'a', s: 4, e: 8 }], 'a', 8, 10);
+      eq(list.length, 1);
+      eq([list[0].s, list[0].e, list[0].actId], [4, 10, 'a']);
+    });
+    test('paint splits a different activity', () => {
+      const list = Store.paint([{ id: 'x', actId: 'b', s: 0, e: 12 }], 'a', 4, 8);
+      eq(list.map((b) => [b.actId, b.s, b.e]), [['b', 0, 4], ['a', 4, 8], ['b', 8, 12]]);
+    });
+    test('erode removes a middle span', () => {
+      const list = Store.erode([{ id: 'x', actId: 'b', s: 0, e: 12 }], 4, 8);
+      eq(list.map((b) => [b.s, b.e]), [[0, 4], [8, 12]]);
+    });
+    test('erode swallows whole blocks', () => {
+      eq(Store.erode([{ id: 'x', actId: 'b', s: 2, e: 6 }], 0, 12), []);
+    });
+
+    group_('Clean days & streaks');
+    const T = todayKey();
+    const Y = addDays(T, -1), Y2 = addDays(T, -2);
+    function mkSession(day, mins, { demo = false, completed = true } = {}) {
+      return { id: `t_${day}_${mins}`, day, start: Date.now() - mins * 60000, end: Date.now(),
+               kind: 'focus', completed, demo, subjectId: null, taskIds: [] };
+    }
+    test('no focus → not clean', () => {
+      Store.set((s) => { s.sessions = []; s.slips = []; s.settings.minClean = 15; });
+      eq(Store.dayClean(T), false);
+    });
+    test('focus ≥ minimum, no slips → clean', () => {
+      Store.set((s) => { s.sessions = [mkSession(T, 30)]; s.slips = []; });
+      eq(Store.dayClean(T), true);
+      eq(Store.focusMinutesOn(T), 30);
+    });
+    test('demo minutes never count', () => {
+      Store.set((s) => { s.sessions = [mkSession(T, 30), mkSession(T, 90, { demo: true })]; });
+      eq(Store.focusMinutesOn(T), 30);
+    });
+    test('a slip breaks the clean day', () => {
+      Store.set((s) => { s.slips = [{ id: 'sl1', day: T, kind: 'slip', awaySec: 40, sessId: null, ts: Date.now() }]; });
+      eq(Store.dayClean(T), false);
+    });
+    test('streak counts yesterday + day before', () => {
+      Store.set((s) => {
+        s.sessions = [mkSession(Y, 30), mkSession(Y2, 30)];
+        s.slips = [];
+      });
+      eq(Store.dayClean(Y), true);
+      eq(Store.streakUpTo(T), 2); // today is in progress, not yet counted
+    });
+    test('streak stops at the first broken day', () => {
+      Store.set((s) => {
+        s.sessions = [mkSession(Y, 30), mkSession(Y2, 30)];
+        s.slips = [{ id: 'sl2', day: Y, kind: 'abandon', awaySec: 0, sessId: null, ts: Date.now() }];
+      });
+      eq(Store.streakUpTo(T), 0);
+    });
+    test('abort keeps minutes but breaks cleanliness', () => {
+      Store.set((s) => {
+        s.sessions = [{ ...mkSession(T, 20), completed: false }];
+        s.slips = [{ id: 'sl3', day: T, kind: 'abandon', awaySec: 0, sessId: null, ts: Date.now() }];
+      });
+      eq(Store.focusMinutesOn(T), 20);
+      eq(Store.dayClean(T), false);
+    });
+
+    group_('Strict Mode accident window');
+    test('≤10s away is a rescue when rescues remain', () => {
+      eq(decideAway({ awaySec: 3, usedRescues: 0 }), 'rescue');
+      eq(decideAway({ awaySec: 10, usedRescues: 2, graceSec: 10, cap: 3 }), 'rescue'); // boundary
+    });
+    test('>10s away is a slip', () => {
+      eq(decideAway({ awaySec: 10.5, usedRescues: 0 }), 'slip');
+      eq(decideAway({ awaySec: 600, usedRescues: 0 }), 'slip');
+    });
+    test('rescue cap exhausted → even 1s away is a slip', () => {
+      eq(decideAway({ awaySec: 2, usedRescues: 3 }), 'slip');
+      eq(decideAway({ awaySec: 2, usedRescues: 4 }), 'slip');
+    });
+    test('grace/cap are configurable', () => {
+      eq(decideAway({ awaySec: 20, usedRescues: 9, graceSec: 25, cap: 10 }), 'rescue');
+    });
+
+    group_('DOM factory');
+    test('el() builds nodes with class, attrs, children', () => {
+      const node = el('button', { class: 'chip', 'aria-label': 'go', onclick: () => 1 }, 'hi', el('i', { class: 'dot' }));
+      eq(node.className, 'chip');
+      eq(node.getAttribute('aria-label'), 'go');
+      eq(node.textContent, 'hi');
+      eq(node.children.length, 1); // the <i>
+      eq(typeof node.onclick, 'function'); // mapped through addEventListener
+    });
+
+    group_('');
+    const summary = el('div', { id: 'summary' },
+      pass + fail === 0 ? 'no asserts ran' : `${pass}/${pass + fail} passed`,
+      fail ? el('span', { style: 'color:var(--warn)' }, ` · ${fail} failed`) : el('span', { style: 'color:var(--good)' }, ' · all good'));
+    out.prepend(summary);
+    if (group.textContent === '') group.remove();
+    document.title = fail ? `Self-check ✗ ${fail}` : `Self-check ✓ ${pass}`;
+  </script>
+</body>
+</html>

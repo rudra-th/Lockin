@@ -1,0 +1,13 @@
+## scratch
+.superpowers/
+
+## editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+## python
+__pycache__/
+*.pyc
