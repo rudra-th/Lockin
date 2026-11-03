@@ -156,3 +156,7 @@ One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settin
 ## Status
 
 v1.4.0 — Plan became **Schedule**: recurring local-time blocks with a 24-hour day ring, per-block alarms, a reminder five minutes before (adjustable), and global alarm controls in Settings. The browser extension packs the same block list for Chrome. v1.3.0 made Study Mode subject-free and added the earned exit; v1.2.0 brought tasks, removed demo mode and rebuilt Stats. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.
+
+## License
+
+[MIT](LICENSE) © 2026 Rudra Thorat. Use it, fork it, ship it; keep the notice.
