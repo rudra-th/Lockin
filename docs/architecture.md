@@ -92,7 +92,7 @@ One web key: `lockin.store.v1`. Store migrations are additive and run on load.
 Export/import is manual JSON from Settings. The extension uses one key,
 `lockin.ext`, in `chrome.storage.local`.
 
-## Sync (planned, not shipped in 1.4.0)
+## Sync (planned, not shipped in 1.4.1)
 
 - Google sign-in identifies the user; Firestore documents are keyed by
   `request.auth.uid`.

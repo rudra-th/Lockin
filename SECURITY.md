@@ -27,7 +27,7 @@ window to ship a fix before publishing details.
 The current web build is local-first: one `localStorage` key
 (`lockin.store.v1`) holds tasks, schedules, sessions, slips and settings. The
 extension keeps its state under `lockin.ext` in `chrome.storage.local`. Neither
-surface sends data to a server in 1.4.0.
+surface sends data to a server in 1.4.1.
 
 Exports are plain JSON and may contain your study history. Treat them like a
 diary; do not attach them to public issues.
@@ -41,7 +41,7 @@ is still in the repository's history.
 
 ## Planned sync
 
-Google sign-in and Firestore sync are not shipped in 1.4.0. The design is
+Google sign-in and Firestore sync are not shipped in 1.4.1. The design is
 documented in [`docs/privacy.md`](docs/privacy.md). When it ships, the security
 review must cover the Firestore rules (including `list` denial), the random
 space code, token handling in the extension, and the fact that v1 stores

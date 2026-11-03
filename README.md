@@ -30,7 +30,7 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 - **Session survives everything** — a running session is snapshotted to storage on every change; close the tab, crash, reload — reopen and the clock is still true (wall-clock math, not setInterval accumulation), and an away-episode that bracketed the reload is processed exactly once.
 - **Stats** — today's goal ring and streak, all-time totals, a 7-day bar chart with the daily goal line, task completion, a weekday-aligned 13-week clean-day heatmap, recent sessions and the full Honesty Log. Honest empty states when there is nothing to measure yet.
 - **Strict Mode is a switch, not a trap** — off means tracking only: no away slips and no quit slips, ever. **Earned exit** (15 minutes by default, 5–60 or off) makes ending after real work neutral in either mode. Daily goal, clean-day minimum, earned-exit bar and rescue rules: all visible, all adjustable in Settings.
-- **First-run film** — six full-bleed scenes that ask your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, and a daily study bar; then the honest rules. No demo session, no seeded schedule. Rerunnable from Settings.
+- **First-run film** — seven full-bleed scenes that ask your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, a daily study bar, and the permissions the schedule needs — notifications on the web; notifications, exact alarms and usage access on Android. Every ask is optional, shows live status, and links to the system setting if it is denied. Then the honest rules. No demo session, no seeded schedule. Rerunnable from Settings.
 - **Exam countdown on Home** — “182 days left until NEET”, with the approximate month; it turns warm inside 30 days and asks for a new date once the exam passes.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
 
@@ -155,7 +155,7 @@ One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settin
 
 ## Status
 
-v1.4.0 — Plan became **Schedule**: recurring local-time blocks with a 24-hour day ring, per-block alarms, a reminder five minutes before (adjustable), and global alarm controls in Settings. The browser extension packs the same block list for Chrome. v1.3.0 made Study Mode subject-free and added the earned exit; v1.2.0 brought tasks, removed demo mode and rebuilt Stats. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.
+v1.4.1 — the opening film now asks for the permissions the schedule needs: notifications on the web; notifications, exact alarms and usage access on Android, each with live status and a route to the system setting. v1.4.0 made Plan **Schedule**: recurring local-time blocks with a 24-hour day ring, per-block alarms, a reminder five minutes before (adjustable), and global alarm controls in Settings. The browser extension packs the same block list for Chrome. v1.3.0 made Study Mode subject-free and added the earned exit; v1.2.0 brought tasks, removed demo mode and rebuilt Stats. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.
 
 ## License
 

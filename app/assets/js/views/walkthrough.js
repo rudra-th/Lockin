@@ -9,6 +9,10 @@ import { Router } from '../router.js';
 import { el, daysUntil } from '../util.js';
 import { svg } from '../icons.js';
 import { hint } from '../ui.js';
+import {
+  isNative, nativeStatus, requestNotifications, openNotificationSettings,
+  openExactAlarmSettings, openUsageAccessSettings,
+} from '../native.js';
 import { GRACE_SEC, RESCUE_CAP } from './focus.js';
 import {
   PRIMARY_EXAMS, MORE_EXAMS, MONTHS, examById, examByName, examDateFor,
@@ -28,6 +32,7 @@ const state = {
 
 let scenes = [];
 let idx = 0;
+let sceneCleanup = null;
 
 function readProfile() {
   const p = Store.state.profile || {};
@@ -379,17 +384,159 @@ function strictScene() {
   ];
 }
 
+/* ---------- permissions ---------- */
+
+function permissionRow(icon, name, desc) {
+  const pill = el('span', { class: 'film-perm-pill', hidden: true }, 'On');
+  const btn = el('button', { class: 'btn btn-subtle btn-sm', disabled: true }, 'Check');
+  const row = el('div', { class: 'film-perm' },
+    el('span', { class: 'film-perm-icon', innerHTML: svg(icon, 18) }),
+    el('div', { class: 'film-perm-txt' },
+      el('b', {}, name),
+      el('span', {}, desc),
+    ),
+    el('div', { class: 'film-perm-act' }, pill, btn),
+  );
+  return { row, pill, btn };
+}
+
+function paintPerm(item, { on = false, blocked = false, label = 'Allow', blockedLabel = 'Blocked', action = 'Settings', onClick = null } = {}) {
+  item.pill.hidden = !on && !blocked;
+  item.pill.textContent = blocked ? blockedLabel : 'On';
+  item.pill.classList.toggle('on', on);
+  item.btn.hidden = on;
+  item.btn.textContent = blocked ? action : label;
+  item.btn.disabled = false;
+  item.btn.onclick = onClick;
+}
+
+function permissionsScene() {
+  const native = isNative;
+  const notif = permissionRow('bell', 'Notifications', 'Block starts, five-minute warnings and the end of a round.');
+  const exact = permissionRow('clock', 'Alarms & reminders', 'Ring at the exact minute, even when Lockin is closed.');
+  const usage = permissionRow('grid', 'Usage access', 'A private 7-day screen-time panel on this device.');
+  const list = el('div', { class: 'film-perms' },
+    notif.row,
+    native ? exact.row : null,
+    native ? usage.row : null,
+  );
+
+  let notifDenied = false;
+
+  function paintWeb() {
+    if (!('Notification' in window)) {
+      paintPerm(notif, {
+        blocked: true, blockedLabel: 'Unavailable', action: 'Why?',
+        onClick: () => hint('This browser does not support notifications.'),
+      });
+      return;
+    }
+    if (!window.isSecureContext) {
+      paintPerm(notif, {
+        blocked: true, blockedLabel: 'Needs HTTPS', action: 'Why?',
+        onClick: () => hint('Notifications need HTTPS or localhost.'),
+      });
+      return;
+    }
+    const permission = Notification.permission;
+    if (permission === 'granted') {
+      paintPerm(notif, { on: true });
+    } else if (permission === 'denied') {
+      paintPerm(notif, {
+        blocked: true, action: 'Help',
+        onClick: () => hint('Allow notifications for this site in your browser settings.'),
+      });
+    } else {
+      paintPerm(notif, {
+        label: 'Allow',
+        onClick: async () => {
+          notif.btn.disabled = true;
+          try { await Notification.requestPermission(); } catch (_) { /* denied is a valid answer */ }
+          paintWeb();
+        },
+      });
+    }
+  }
+
+  async function askNativeNotifications() {
+    notif.btn.disabled = true;
+    try { await requestNotifications(); } catch (_) { /* denied is a valid answer */ }
+    const status = await nativeStatus();
+    notifDenied = !status?.notifications;
+    paintNative();
+  }
+
+  async function paintNative() {
+    const status = await nativeStatus();
+    if (!status) {
+      paintPerm(notif, {
+        blocked: true, blockedLabel: 'Unavailable', action: 'Settings',
+        onClick: () => openNotificationSettings(),
+      });
+      paintPerm(exact, {
+        blocked: true, blockedLabel: 'Unavailable', action: 'Settings',
+        onClick: () => openExactAlarmSettings(),
+      });
+      paintPerm(usage, {
+        blocked: true, blockedLabel: 'Unavailable', action: 'Settings',
+        onClick: () => openUsageAccessSettings(),
+      });
+      return;
+    }
+    if (status.notifications) {
+      paintPerm(notif, { on: true });
+    } else if (notifDenied) {
+      paintPerm(notif, {
+        blocked: true, action: 'Settings',
+        onClick: () => openNotificationSettings(),
+      });
+    } else {
+      paintPerm(notif, { label: 'Allow', onClick: askNativeNotifications });
+    }
+    if (status.exact) paintPerm(exact, { on: true });
+    else paintPerm(exact, { label: 'Open', onClick: () => openExactAlarmSettings() });
+    if (status.usage) paintPerm(usage, { on: true });
+    else paintPerm(usage, { label: 'Open', onClick: () => openUsageAccessSettings() });
+  }
+
+  const refresh = async () => {
+    if (!document.contains(list)) {
+      if (sceneCleanup) { sceneCleanup(); sceneCleanup = null; }
+      return;
+    }
+    if (native) await paintNative();
+    else paintWeb();
+  };
+  const onVisible = () => { if (!document.hidden) refresh(); };
+  addEventListener('visibilitychange', onVisible);
+  sceneCleanup = () => removeEventListener('visibilitychange', onVisible);
+  setTimeout(refresh, 0);
+
+  return [
+    kicker('Stay on time'),
+    title('Let Lockin ', el('em', {}, 'reach you.')),
+    lede(native
+      ? 'Notifications, exact alarms and usage access. All three are optional — the clock still runs without them.'
+      : 'Notifications are optional. They arrive while Lockin is open; a closed tab cannot ring.'),
+    list,
+    el('p', { class: 'film-fine' }, native
+      ? 'Nothing here leaves the phone. Change any permission later in Settings → Android.'
+      : 'Android adds exact alarms that ring when the app is closed. On the web, the alarm needs a live Lockin tab.'),
+  ];
+}
+
 /* ---------- render ---------- */
 
 const RENDERERS = {
   intro: introScene, name: nameScene, exam: examScene,
   date: dateScene, hours: hoursScene, strict: strictScene,
+  permissions: permissionsScene,
 };
 
 function buildScenes(replay) {
   const hasProfile = !!(state.name && state.exam && state.examDate);
-  const full = ['intro', 'name', 'exam', 'date', 'hours', 'strict'];
-  return replay && hasProfile ? ['intro', 'strict'] : full;
+  const full = ['intro', 'name', 'exam', 'date', 'hours', 'strict', 'permissions'];
+  return replay && hasProfile ? ['intro', 'strict', 'permissions'] : full;
 }
 
 function sceneFooter(kind) {
@@ -407,6 +554,12 @@ function sceneFooter(kind) {
   }
   if (kind === 'strict') {
     return [
+      primary('Continue', () => go(idx + 1)),
+      ghost('Back', () => go(idx - 1)),
+    ];
+  }
+  if (kind === 'permissions') {
+    return [
       primary('Start using Lockin', finish),
       ghost('Back', () => go(idx - 1)),
     ];
@@ -415,6 +568,7 @@ function sceneFooter(kind) {
 }
 
 function render() {
+  if (sceneCleanup) { sceneCleanup(); sceneCleanup = null; }
   document.body.dataset.mode = 'onboard';
   const host = document.getElementById('view');
   host.textContent = '';
@@ -458,5 +612,6 @@ function mount(host, params) {
 }
 
 function unmount() {
+  if (sceneCleanup) { sceneCleanup(); sceneCleanup = null; }
   document.body.dataset.mode = '';
 }

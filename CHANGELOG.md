@@ -3,6 +3,23 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.4.1 — 2026-11-04
+
+### Opening film
+
+- New seventh scene, **Let Lockin reach you**: the first run now asks for the
+  permissions the schedule needs instead of leaving them buried in Settings.
+- **Web** asks for notifications from a real tap and says plainly that they
+  arrive only while a Lockin tab is open.
+- **Android** shows notifications, exact alarms and usage access in one place.
+  Each row has a live On/Blocked state, requests what it can, and opens the
+  matching system screen when Android will not ask again.
+- Statuses refresh when you come back from a system setting. Every ask is
+  optional; **Start using Lockin** never depends on a grant.
+- Replaying the film from Settings includes the permission scene, so a denied
+  permission can be fixed without hunting.
+- Service worker bumped to `lockin.v1.4.1`; Android `versionCode` 141.
+
 ## 1.4.0 — 2026-11-03
 
 ### Schedule
