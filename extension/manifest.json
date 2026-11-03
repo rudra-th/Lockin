@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Lockin — Block & Track",
+  "short_name": "Lockin",
+  "version": "1.0.0",
+  "description": "The blocking and screen-time half of Lockin. Block distracting sites, see where the day went. The study clock lives in the app.",
+  "minimum_chrome_version": "110",
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Lockin",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["blocked.html", "blocked.css", "fonts/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

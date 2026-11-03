@@ -30,13 +30,33 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 - **Exam countdown on Home** — “182 days left until NEET”, with the approximate month; it turns warm inside 30 days and asks for a new date once the exam passes.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
 
+## Three surfaces, one repo
+
+| Surface | What it is | Where |
+|---|---|---|
+| **Web app** | The whole study clock: tasks, Study Mode, earned exit, Stats, Honesty Log. Installable, offline. | `app/` → **[lockin.surge.sh](https://lockin.surge.sh)** |
+| **Browser extension** | Only blocking and screen time. No timer, no tasks, no streaks. | `extension/` → pack with `node tools/pack-extension.mjs` |
+| **Android app** | The next surface: device-wide blocking, exact alarms, usage access. | `android/` (in progress) |
+
+The web app is the source of truth for a study session. The extension is deliberately the smaller instrument — it holds the block list and counts the active Chrome tab, and says so in its own README.
+
 ## Run it
 
 ```bash
-python serve.py        # → http://localhost:4173
+python serve.py        # → http://localhost:4173, serving app/
 ```
 
-Any static file server works; the service worker needs a secure context, and `localhost` counts. For the real test, open it on your phone (same LAN, via `python serve.py <port>` + your machine's IP) and **Install** from the browser menu.
+Any static file server works; the service worker needs a secure context, and `localhost` counts. To serve the repo root instead (docs, extension source), pass it explicitly: `python serve.py 4173 .`.
+
+For the real test, open it on your phone (same LAN, via `python serve.py <port>` + your machine's IP) and **Install** from the browser menu.
+
+### Extension
+
+```bash
+node tools/pack-extension.mjs
+```
+
+Open `chrome://extensions`, enable **Developer mode**, **Load unpacked**, pick `dist/extension`. The pack step copies the shared core and the UI fonts into the package; Chrome does not resolve imports outside an extension folder.
 
 ## Self-check
 
@@ -45,25 +65,41 @@ Any static file server works; the service worker needs a secure context, and `lo
 ## Structure
 
 ```
-index.html              app shell + tab bar
-manifest.webmanifest    PWA identity
-sw.js                   offline-first service worker
-favicon.svg             brand glyph source
-assets/
-  css/app.css           whole design system (tokens → components)
-  js/
-    store.js            versioned localStorage store + session math
-    exams.js            exam catalogue + rough-date math
-    util.js             time/date helpers + decideAway (enforcement math)
-    router.js           hash router
-    ui.js               shared sheet, hint and daily-goal meter widgets
-    install.js          beforeinstallprompt plumbing
-    tasks.js            shared task row / add-form / list controls
-    app.js              bootstrap: theme, routes, live-session resume
-    icons.js            inline SVG set
-    views/              home · plan · focus · stats · settings · walkthrough
-tools/gen-icons.ps1     regenerates the PNG icon set (GDI+, no deps)
-serve.py                tiny dev server (no-store headers, SW scope)
+app/                    the web app — also the future Capacitor webDir
+  index.html            shell + tab bar
+  manifest.webmanifest  PWA identity
+  sw.js                 offline-first service worker
+  favicon.svg           brand glyph source
+  assets/
+    css/app.css         whole design system (tokens → components)
+    js/
+      store.js          versioned localStorage store + session math
+      exams.js          exam catalogue + rough-date math
+      util.js           DOM helpers, re-exporting the pure core
+      router.js         hash router
+      ui.js             shared sheet, hint and daily-goal meter widgets
+      install.js        beforeinstallprompt plumbing
+      tasks.js          shared task row / add-form / list controls
+      app.js            bootstrap: theme, routes, live-session resume
+      icons.js          inline SVG set
+      views/            home · plan · focus · stats · settings · walkthrough
+  core/                 pure, no DOM, no storage — shared by every surface
+    time.js             date keys, clock formatting, day math
+    honesty.js          accident window, earned exit, free stop
+  tests.html            pure-logic asserts
+extension/              Chrome: blocking + active-tab screen time
+  manifest.json         MV3, storage · alarms · tabs · declarativeNetRequest
+  background.js         tab tracking, block rules, badge countdown
+  popup.html/js/css     today's screen time + the block switch
+  blocked.html/js/css   where a blocked site lands
+  README.md             build, load, honest limits
+android/                Capacitor project (next)
+tools/
+  pack-extension.mjs    stages dist/extension (copies app/core + fonts)
+  gen-icons.ps1         regenerates the PWA icon set (GDI+, no deps)
+  gen-extension-icons.ps1
+serve.py                dev server (defaults to app/, no-store headers)
+docs/                   privacy, permissions, store notes (next)
 ```
 
 ## Data

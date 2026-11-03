@@ -14,7 +14,7 @@ $lime    = '#C6F24E'
 $limeTop = '#D9FF6E'
 $limeBot = '#93BE1F'
 
-$dir = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')) 'assets\icons'
+$dir = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')) 'app\assets\icons'
 if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
 
 function New-Icon {

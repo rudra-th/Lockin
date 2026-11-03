@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blocked — Lockin</title>
+  <link rel="stylesheet" href="blocked.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="glyph" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="32" cy="35" r="20"/>
+        <path d="M32 35V24"/>
+        <path d="M32 15l-3-3M35 12l-3 3M26 12h12"/>
+        <path d="M48 18l4-4M52 22l4-4" opacity=".45"/>
+      </svg>
+    </div>
+    <p class="kicker">On your list</p>
+    <h1 class="lede">Not now.</h1>
+    <p class="site" id="site">this site</p>
+    <p class="left" id="left">—</p>
+    <div class="actions">
+      <button class="primary" id="close" type="button">Close this tab</button>
+      <button class="quiet" id="end" type="button">End the block</button>
+    </div>
+    <p class="foot" id="foot">The block is yours. It ends when the timer does.</p>
+  </main>
+  <script type="module" src="blocked.js"></script>
+</body>
+</html>

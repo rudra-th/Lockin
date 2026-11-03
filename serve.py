@@ -2,7 +2,10 @@
 """
 Tiny static server for Lockin.
 
-    python serve.py [port]
+    python serve.py [port] [root]
+
+`root` defaults to `app/`, the web surface. Pass `.` to serve the repo root
+(for example while checking docs or the extension page).
 
 Service workers require a secure context — http://localhost counts as one,
 so this is enough to exercise the full PWA behaviour (install prompt,
@@ -15,7 +18,8 @@ import sys
 import os
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4173
-ROOT = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else os.path.join(REPO, "app")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

@@ -53,5 +53,3 @@ serviceAccount*.json
 .firebase/
 secrets/
 
-## generated at pack time
-extension/core/
