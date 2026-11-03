@@ -1,7 +1,7 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.3.1';
+const VERSION = 'lockin.v1.4.0';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -13,6 +13,7 @@ const PRECACHE = [
   './assets/css/app.css',
   './core/time.js',
   './core/honesty.js',
+  './core/schedule.js',
   './assets/js/store.js',
   './assets/js/exams.js',
   './assets/js/util.js',
@@ -21,9 +22,11 @@ const PRECACHE = [
   './assets/js/ui.js',
   './assets/js/install.js',
   './assets/js/tasks.js',
+  './assets/js/controls.js',
+  './assets/js/alarms.js',
   './assets/js/app.js',
   './assets/js/views/home.js',
-  './assets/js/views/plan.js',
+  './assets/js/views/schedule.js',
   './assets/js/views/focus.js',
   './assets/js/views/stats.js',
   './assets/js/views/settings.js',
@@ -97,4 +100,20 @@ self.addEventListener('fetch', (event) => {
       })
     )
   );
+});
+
+/* Tapping a schedule notification brings the app forward, or opens it at
+   the schedule when no Lockin window is alive. */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const alive = windows.find((c) => 'focus' in c);
+    if (alive) {
+      await alive.focus();
+      alive.postMessage({ type: 'open-schedule' });
+      return;
+    }
+    await self.clients.openWindow('./index.html#/schedule');
+  })());
 });

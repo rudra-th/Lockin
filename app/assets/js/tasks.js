@@ -1,4 +1,4 @@
-/* Lockin — shared task controls: add, tick, remove. Used by Plan and Home. */
+/* Lockin — shared task controls: add, tick, remove. Used by Schedule and Home. */
 
 import { Store, uid } from './store.js';
 import { el } from './util.js';

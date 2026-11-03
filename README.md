@@ -12,7 +12,7 @@ Regain, Forest, Opal and friends block apps or grow trees. Lockin is doing a dif
 
 | | Lockin's deal |
 |---|---|
-| Plans | Today and tomorrow's tasks, written by you — no sample data, no default timetable |
+| Schedule | Recurring blocks, an alarm when one starts, a reminder five minutes before, and today/tomorrow's tasks — no sample data |
 | Enforces | Study Mode holds a full-bleed session screen, keeps the screen awake, and **logs a slip** if you leave mid-focus for more than 10 seconds — or quit before your earned-exit bar |
 | Forgives | Away under 10s? Forgiven — 3 free accidents a day. End a session after 15 minutes of real work? Neutral — no slip, no broken streak |
 | Remembers | Every slip, early quit and rescued accident goes into the Honesty Log. An earned end is recorded as neutral. The streak of *genuinely clean days* is earned, never bought |
@@ -21,12 +21,12 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 
 ## What's inside
 
-- **Plan** — a task list for today and tomorrow, with add, tick and delete. Tasks are yours; nothing is preloaded. The 24-hour timetable is parked behind a visible “coming soon” card while it is rebuilt.
+- **Schedule** — recurring local-time blocks with a 24-hour day ring, a live “next block” hero, and the day's tasks. Each block has a name, start and end (overnight allowed), days of the week, an on/off switch, an alarm at the start and an adjustable reminder (5 minutes by default, 0–30). The alarm rings in-app, chimes, vibrates and sends a system notification while Lockin is open; the Android build will add exact alarms for when it is closed.
 - **Study Mode** — set up on one quiet screen (daily target, Timer or Stopwatch, length with projected end, tasks); preset lengths (10–90 min) or ×3 Pomodoro with configurable focus/short/long breaks; a hold-the-ring intention screen (latches Screen Wake Lock + notification permission in one gesture); the running room keeps the app identity and a live **daily-target meter** (banked today + this session) on screen; attach today's tasks and tick them mid-session; quitting under the earned-exit bar requires a 2.4-second hold + explicit confirm, then it's logged. Once you've banked the bar (15 minutes by default), the control becomes a neutral one-tap **End session** that breaks nothing.
 - **Session survives everything** — a running session is snapshotted to storage on every change; close the tab, crash, reload — reopen and the clock is still true (wall-clock math, not setInterval accumulation), and an away-episode that bracketed the reload is processed exactly once.
 - **Stats** — today's goal ring and streak, all-time totals, a 7-day bar chart with the daily goal line, task completion, a weekday-aligned 13-week clean-day heatmap, recent sessions and the full Honesty Log. Honest empty states when there is nothing to measure yet.
 - **Strict Mode is a switch, not a trap** — off means tracking only: no away slips and no quit slips, ever. **Earned exit** (15 minutes by default, 5–60 or off) makes ending after real work neutral in either mode. Daily goal, clean-day minimum, earned-exit bar and rescue rules: all visible, all adjustable in Settings.
-- **First-run film** — six full-bleed scenes that ask your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, and a daily study bar; then the honest rules. No demo session, no seeded plan. Rerunnable from Settings.
+- **First-run film** — six full-bleed scenes that ask your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, and a daily study bar; then the honest rules. No demo session, no seeded schedule. Rerunnable from Settings.
 - **Exam countdown on Home** — “182 days left until NEET”, with the approximate month; it turns warm inside 30 days and asks for a new date once the exam passes.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
 
@@ -80,12 +80,15 @@ app/                    the web app — also the future Capacitor webDir
       ui.js             shared sheet, hint and daily-goal meter widgets
       install.js        beforeinstallprompt plumbing
       tasks.js          shared task row / add-form / list controls
+      controls.js       shared settings row, toggle and stepper
+      alarms.js         schedule alarm engine, chime, overlay, reminder toast
       app.js            bootstrap: theme, routes, live-session resume
       icons.js          inline SVG set
-      views/            home · plan · focus · stats · settings · walkthrough
+      views/            home · schedule · focus · stats · settings · walkthrough
   core/                 pure, no DOM, no storage — shared by every surface
     time.js             date keys, clock formatting, day math
     honesty.js          accident window, earned exit, free stop
+    schedule.js         recurring block math, occurrences, alarm events
   tests.html            pure-logic asserts
 extension/              Chrome: blocking + active-tab screen time
   manifest.json         MV3, storage · alarms · tabs · declarativeNetRequest
@@ -108,4 +111,4 @@ One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settin
 
 ## Status
 
-v1.3.0 — Study Mode no longer asks for a subject; the clock starts with one button. Earned exit makes stopping neutral after 15 minutes (adjustable, or off) and inside the first 20 seconds, while early quits still land in the Honesty Log. v1.2.0 brought tasks, removed demo mode and the seeded subjects, and rebuilt Stats around all-time focus, goal days, task completion and an aligned heatmap. The opening film is six scenes and no longer seeds a sample day. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.
+v1.4.0 — Plan became **Schedule**: recurring local-time blocks with a 24-hour day ring, per-block alarms, a reminder five minutes before (adjustable), and global alarm controls in Settings. The browser extension packs the same block list for Chrome. v1.3.0 made Study Mode subject-free and added the earned exit; v1.2.0 brought tasks, removed demo mode and rebuilt Stats. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.

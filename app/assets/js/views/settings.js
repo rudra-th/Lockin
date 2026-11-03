@@ -7,48 +7,11 @@ import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
 import { tryInstall } from '../install.js';
 import { examByName } from '../exams.js';
+import { group, setrow, toggle, stepper } from '../controls.js';
+import { ensureAlarmPermission } from '../alarms.js';
 
 export function initSettings(Router) {
   Router.register('/settings', { mount, unmount: null });
-}
-
-function group(label, ...cards) {
-  return el('section', { class: 'setgroup' },
-    el('div', { class: 'setgroup-label' }, label),
-    ...cards
-  );
-}
-
-function setrow(title, desc, control) {
-  return el('div', { class: 'setrow' },
-    el('div', { class: 'txt' }, el('b', {}, title), el('span', {}, desc)),
-    control
-  );
-}
-
-function toggle(get, setfn) {
-  const b = el('button', {
-    class: 'switch', role: 'switch', 'aria-checked': String(get()),
-    onclick: () => {
-      setfn();
-      b.setAttribute('aria-checked', String(get()));
-    },
-  });
-  return b;
-}
-
-function stepper(get, setfn, opts) {
-  const { def, lo, hi, step = 1, suffix = '', fmt = null } = opts;
-  const show = (v) => (fmt ? fmt(v) : `${v}${suffix}`);
-  const wrap = el('div', { class: 'stepper' });
-  const val = el('span', { class: 'stepper-val' }, show(get()));
-  const redraw = () => { val.textContent = show(get()); };
-  const mk = (d, label) => el('button', {
-    class: 'iconbtn stepper-btn', 'aria-label': label, innerHTML: svg(d > 0 ? 'plus' : 'minus', 15),
-    onclick: () => { setfn(Math.max(lo, Math.min(hi, get() + d * step))); redraw(); },
-  });
-  wrap.append(mk(-1, 'Decrease'), val, mk(+1, 'Increase'));
-  return wrap;
 }
 
 function enforcementCard() {
@@ -100,6 +63,32 @@ function pomoCard() {
       () => Store.state.settings.pomo.long,
       (v) => Store.set((st) => { st.settings.pomo.long = v; }),
       { lo: 10, hi: 45, step: 5, suffix: 'm' })),
+  );
+}
+
+function alarmsCard() {
+  const s = Store.state.settings;
+  return el('div', { class: 'card' },
+    el('h2', {}, 'Schedule alarms'),
+    setrow('Ring at block start',
+      'A full-screen alarm, a system notification and a chime when a scheduled block begins.',
+      toggle(() => s.scheduleAlarms, () => {
+        Store.set((st) => { st.settings.scheduleAlarms = !st.settings.scheduleAlarms; });
+        if (Store.state.settings.scheduleAlarms) ensureAlarmPermission();
+      })),
+    setrow('Default reminder',
+      'New blocks remind you this many minutes before they start. Each block can override it.',
+      stepper(() => Store.state.settings.remindDefault,
+        (v) => Store.set((st) => { st.settings.remindDefault = v; }),
+        { lo: 0, hi: 30, step: 5, fmt: (v) => (v === 0 ? 'Off' : `${v} min before`) })),
+    setrow('Alarm sound',
+      'Three soft notes at the start, one at the reminder.',
+      toggle(() => s.alarmSound, () => Store.set((st) => { st.settings.alarmSound = !st.settings.alarmSound; }))),
+    setrow('Vibrate',
+      'A short pattern on phones that support it.',
+      toggle(() => s.alarmVibrate, () => Store.set((st) => { st.settings.alarmVibrate = !st.settings.alarmVibrate; }))),
+    el('p', { class: 'tiny', style: 'margin:12px 0 0' },
+      'The web build rings while Lockin is open. The Android build adds exact alarms that ring when it is closed.'),
   );
 }
 
@@ -236,6 +225,7 @@ function render(host) {
       ),
     ),
     group('Focus', enforcementCard(), pomoCard()),
+    group('Schedule', alarmsCard()),
     group('You', profileCard(), lookCard()),
     group('Your data', dataCard()),
     group('About', aboutCard()),

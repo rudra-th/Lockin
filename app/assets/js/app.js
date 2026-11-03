@@ -4,11 +4,12 @@ import { Store } from './store.js';
 import { Router } from './router.js';
 import { $$ } from './util.js';
 import { initHome } from './views/home.js';
-import { initPlan } from './views/plan.js';
+import { initSchedule } from './views/schedule.js';
 import { initFocus } from './views/focus.js';
 import { initStats } from './views/stats.js';
 import { initSettings } from './views/settings.js';
 import { initWalkthrough } from './views/walkthrough.js';
+import { startAlarms } from './alarms.js';
 
 Store.load();
 
@@ -27,7 +28,7 @@ document.addEventListener('lockin:changed', applyTheme); // Settings theme switc
 /* ---------- routes ---------- */
 
 initHome(Router);
-initPlan(Router);
+initSchedule(Router);
 initFocus(Router);
 initStats(Router);
 initSettings(Router);
@@ -42,6 +43,7 @@ if (Store.state.session && ['running', 'break', 'paused'].includes(Store.state.s
 
 Router.start();
 applyTheme();
+startAlarms();
 
 /* ---------- tab bar ---------- */
 
@@ -69,4 +71,7 @@ setTimeout(markTabs, 0);
 
 if ('serviceWorker' in navigator) {
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  navigator.serviceWorker.addEventListener('message', (ev) => {
+    if (ev.data?.type === 'open-schedule') Router.go('/schedule');
+  });
 }

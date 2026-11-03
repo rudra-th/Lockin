@@ -18,10 +18,11 @@ The extension makes **no network requests**. Its only data is the `lockin.ext` k
 
 | Capability | Why | Notes |
 |---|---|---|
-| `localStorage` | The whole store: tasks, sessions, slips, settings. | One key, `lockin.store.v1`. Export/import is manual. |
-| Service worker | Offline shell and cache. | Same-origin only. |
+| `localStorage` | The whole store: tasks, recurring schedules, sessions, slips, settings. | One key, `lockin.store.v1`. Export/import is manual. |
+| Service worker | Offline shell, cache, and the notification click target. | Same-origin only. |
 | Screen Wake Lock | Keep the phone awake during a session. | Released when the session ends or the tab hides. |
-| Notifications | Round and session notices. | Opt-in, requested inside the hold-to-start gesture. |
+| Notifications | Round notices, schedule alarms and the five-minute reminder. | Opt-in, requested from a real click. A web app can only ring while a Lockin page is alive; Android adds exact alarms. |
+| Web Audio | The alarm chime. | Generated in the page; no audio file and no microphone. |
 
 No account, no analytics, no third-party requests. Fonts are self-hosted.
 

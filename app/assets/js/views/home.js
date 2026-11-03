@@ -193,8 +193,8 @@ function render(host) {
         el('div', { class: 'sub' }, prettyDate(t)),
       ),
       el('button', {
-        class: 'iconbtn', 'aria-label': 'Open Plan', innerHTML: svg('book'),
-        onclick: () => Router.go('/plan'),
+        class: 'iconbtn', 'aria-label': 'Open Schedule', innerHTML: svg('calendar'),
+        onclick: () => Router.go('/schedule'),
       }),
     ),
     band,
@@ -216,8 +216,8 @@ function render(host) {
       }),
       el('button', {
         class: 'btn btn-subtle btn-block', style: 'margin-top:10px',
-        onclick: () => Router.go('/plan'),
-      }, svg('book', 16), 'Plan tomorrow'),
+        onclick: () => Router.go('/schedule'),
+      }, svg('calendar', 16), 'Schedule tomorrow'),
     ),
     el('div', { class: 'card week' },
       el('div', { class: 'row', style: 'margin-bottom:10px' },

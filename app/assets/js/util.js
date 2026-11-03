@@ -3,6 +3,7 @@
 
 export * from '../../core/time.js';
 export * from '../../core/honesty.js';
+export * from '../../core/schedule.js';
 
 /* ---------- dom ---------- */
 

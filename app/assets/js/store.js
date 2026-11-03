@@ -1,4 +1,4 @@
-import { todayKey, addDays } from './util.js';
+import { todayKey, addDays, normalizeSchedule } from './util.js';
 
 const KEY = 'lockin.store.v1';
 const VERSION = 1;
@@ -26,6 +26,7 @@ function blankState() {
     ],
     tasks: [],
     plans: {},
+    schedules: [],
     sessions: [],
     slips: [],
     profile: { name: '', exam: '', examId: '', examDate: '' }, // filled by the opening film
@@ -37,6 +38,10 @@ function blankState() {
       goalMin: 120,
       minClean: 15,
       exitGraceMin: 15,
+      scheduleAlarms: true,
+      alarmSound: true,
+      alarmVibrate: true,
+      remindDefault: 5,
       pomo: { focus: 25, short: 5, long: 15 },
     },
     session: null, // live-session runtime snapshot (see focus.js)
@@ -65,6 +70,16 @@ function migrate(raw) {
   /* v1.3: real work buys an honest exit. Default 15 min; 0 keeps the old rule. */
   raw.settings = raw.settings || {};
   if (typeof raw.settings.exitGraceMin !== 'number') raw.settings.exitGraceMin = 15;
+
+  /* v1.4: recurring schedule blocks with per-block alarms. */
+  raw.schedules = (Array.isArray(raw.schedules) ? raw.schedules : [])
+    .map(normalizeSchedule)
+    .filter(Boolean);
+  raw.schedules.forEach((s) => { if (!s.id) s.id = uid('sch'); });
+  if (typeof raw.settings.scheduleAlarms !== 'boolean') raw.settings.scheduleAlarms = true;
+  if (typeof raw.settings.alarmSound !== 'boolean') raw.settings.alarmSound = true;
+  if (typeof raw.settings.alarmVibrate !== 'boolean') raw.settings.alarmVibrate = true;
+  if (typeof raw.settings.remindDefault !== 'number') raw.settings.remindDefault = 5;
   return raw;
 }
 
@@ -100,6 +115,44 @@ const Store = {
   /* ---------- activities ---------- */
   activity(id) {
     return this.state.activities.find((a) => a.id === id) || null;
+  },
+
+  /* ---------- schedules ---------- */
+
+  /** Recurring blocks, earliest first. */
+  schedules() {
+    return this.state.schedules.slice().sort((a, b) => a.start.localeCompare(b.start));
+  },
+
+  schedule(id) {
+    return this.state.schedules.find((s) => s.id === id) || null;
+  },
+
+  /** Create or update from a plain object; returns the schedule id. */
+  saveSchedule(input) {
+    const clean = normalizeSchedule(input);
+    if (!clean) return null;
+    if (clean.id && this.schedule(clean.id)) {
+      this.set((st) => {
+        const i = st.schedules.findIndex((s) => s.id === clean.id);
+        if (i >= 0) st.schedules[i] = { ...st.schedules[i], ...clean };
+      });
+      return clean.id;
+    }
+    clean.id = uid('sch');
+    this.set((st) => st.schedules.push(clean));
+    return clean.id;
+  },
+
+  deleteSchedule(id) {
+    this.set((st) => { st.schedules = st.schedules.filter((s) => s.id !== id); });
+  },
+
+  toggleSchedule(id) {
+    this.set((st) => {
+      const s = st.schedules.find((x) => x.id === id);
+      if (s) s.enabled = !s.enabled;
+    });
   },
 
   /* ---------- day grid ---------- */

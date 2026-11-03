@@ -445,7 +445,7 @@ function renderHost() {
 function setupScreen() {
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
   const pomoSettings = Store.state.settings.pomo || { focus: 25, short: 5, long: 15 };
-  let min = Number(q.get('min')) || pomoSettings.focus || 25;
+  let min = Math.max(1, Math.min(180, Number(q.get('min')) || pomoSettings.focus || 25));
   let rounds = 1;
   let pomo = false;
   let mode = q.get('mode') === 'stop' ? 'stop' : (Store.state.settings.lastMode === 'stop' ? 'stop' : 'timer');
@@ -525,7 +525,11 @@ function setupScreen() {
     proj.textContent = projectedEnd();
   }
 
-  [10, 25, 45, 50, 90].forEach((m) => {
+  /* A session launched from an alarm carries the block's remaining length.
+     Show it as its own chip so the choice is visible, not just implicit. */
+  const presetMins = [10, 25, 45, 50, 90];
+  if (!presetMins.includes(min)) presetMins.push(min);
+  presetMins.sort((a, b) => a - b).forEach((m) => {
     const b = el('button', {
       class: 'len', dataset: { min: String(m) }, 'aria-pressed': 'false',
       onclick: () => selectMin(m),

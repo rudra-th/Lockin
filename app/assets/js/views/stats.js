@@ -221,7 +221,7 @@ function taskCard() {
             el('i', { style: `width:${Math.round(pct * 100)}%` })),
         ),
       )
-    : el('div', { class: 'empty' }, 'No tasks in the last 7 days. Add them on Plan — today or tomorrow.');
+    : el('div', { class: 'empty' }, 'No tasks in the last 7 days. Add them on Schedule — today or tomorrow.');
 
   return el('div', { class: 'card' },
     el('h2', {}, 'Tasks · last 7 days'),
@@ -231,8 +231,8 @@ function taskCard() {
           'Every task counts once, whether it was finished on time or late.')
       : el('button', {
           class: 'btn btn-subtle btn-block', style: 'margin-top:10px',
-          onclick: () => Router.go('/plan'),
-        }, svg('book', 16), 'Open Plan'),
+          onclick: () => Router.go('/schedule'),
+        }, svg('calendar', 16), 'Open Schedule'),
   );
 }
 

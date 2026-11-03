@@ -169,6 +169,10 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== 'sync') return false;
+  /* The popup and the blocked page write chrome.storage directly. Drop the
+     worker's cached copy before rebuilding, or it rebuilds from stale state
+     and the block the user just started never reaches the ruleset. */
+  state = null;
   syncRules().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
   return true;
 });
