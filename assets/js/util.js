@@ -122,6 +122,14 @@ export function prettyDate(key) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+/** whole calendar days from today to key — 0 means today, negative means past */
+export function daysUntil(key, from = new Date()) {
+  if (!key) return null;
+  const target = parseKey(key);
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  return Math.round((target - today) / 86400000);
+}
+
 /* ---------- enforcement math (pure — see tests.html) ---------- */
 
 /**

@@ -402,36 +402,82 @@ function setupScreen() {
     x.day === todayKey() && x.kind === 'focus' && !x.demo).length;
   const todayMins = Store.focusMinutesOn(todayKey());
   const goal = Store.state.settings.goalMin || 120;
+  const pct = Math.min(100, Math.round((todayMins / Math.max(1, goal)) * 100));
 
-  const meter = goalMeter({ label: 'Daily target' });
-  updateGoalMeter(meter, { total: todayMins, goal });
+  /* one quiet line, not another card */
+  const goalLine = el('div', {
+    class: `study-goal${pct >= 100 ? ' is-met' : ''}`,
+    role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct),
+    'aria-label': `Daily target: ${fmtMin(todayMins)} of ${fmtMin(goal)}`,
+  },
+    el('span', { class: 'sg-label' }, 'Today'),
+    el('div', { class: 'sg-track' }, el('i', { style: `width:${pct}%` })),
+    el('span', { class: 'sg-num' }, el('b', {}, fmtMin(todayMins)), el('span', {}, ` / ${fmtMin(goal)}`)),
+  );
 
-  const presetChips = el('div', { class: 'chips' });
-  function selectMin(m) {
-    min = m;
-    for (const c of presetChips.children) {
-      if (c.dataset.min) c.setAttribute('aria-pressed', String(Number(c.dataset.min) === m));
-    }
-  }
-  [10, 25, 45, 50, 90].forEach((m) => {
-    presetChips.append(el('button', {
-      class: 'chip', dataset: { min: String(m) },
-      'aria-pressed': String(m === min),
-      onclick: () => selectMin(m),
-    }, `${m}m`));
-  });
+  /* mode is one big two-way switch — no label needed */
+  const modePick = el('div', { class: 'mode-pick', role: 'group', 'aria-label': 'Session mode' },
+    ['timer', 'stop'].map((m) => el('button', {
+      class: `mode-card${mode === m ? ' is-on' : ''}`,
+      'aria-pressed': String(mode === m),
+      onclick: () => {
+        if (mode === m) return;
+        Store.set((s) => { s.settings.lastMode = m; });
+        renderHost();
+      },
+    },
+      el('span', { class: 'mc-name' }, m === 'timer' ? 'Timer' : 'Stopwatch'),
+      el('span', { class: 'mc-desc' }, m === 'timer' ? 'Ends on its own' : 'Counts up, open-ended'),
+    )));
 
+  const lenBtns = [];
+  const proj = el('span', { class: 'len-proj' });
   const pomoChip = el('button', {
-    class: 'chip', 'aria-pressed': 'false',
+    class: 'pomo-chip', 'aria-pressed': 'false',
     onclick: () => {
       pomo = !pomo;
       rounds = pomo ? 3 : 1;
-      pomoChip.setAttribute('aria-pressed', String(pomo));
       if (pomo) selectMin(pomoSettings.focus || 25);
-      hint(pomo ? `Pomodoro: ${pomoSettings.focus}m focus + breaks, ×3` : 'One round, one finish');
+      paintLen();
+      hint(pomo ? `Pomodoro: ${min}m focus + breaks, ×3` : 'One round, one finish');
     },
   }, svg('flame', 13), 'Pomodoro ×3');
-  presetChips.append(pomoChip);
+
+  function selectMin(m) {
+    min = m;
+    paintLen();
+  }
+
+  function projectedEnd() {
+    const now = new Date();
+    let total = pomo ? min * rounds : min;
+    if (pomo) {
+      for (let i = 1; i < rounds; i += 1) total += i % 2 ? pomoSettings.short : pomoSettings.long;
+    }
+    const end = new Date(now.getTime() + total * 60000);
+    const sameDay = end.toDateString() === now.toDateString();
+    return `ends ≈ ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${sameDay ? '' : ' tomorrow'}`;
+  }
+
+  function paintLen() {
+    lenBtns.forEach((b) => {
+      const on = Number(b.dataset.min) === min;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    pomoChip.classList.toggle('is-on', pomo);
+    pomoChip.setAttribute('aria-pressed', String(pomo));
+    proj.textContent = projectedEnd();
+  }
+
+  [10, 25, 45, 50, 90].forEach((m) => {
+    const b = el('button', {
+      class: 'len', dataset: { min: String(m) }, 'aria-pressed': 'false',
+      onclick: () => selectMin(m),
+    }, el('b', {}, String(m)), el('span', {}, 'm'));
+    lenBtns.push(b);
+  });
+  paintLen();
 
   const subjectRow = () => {
     const subjChips = el('div', { class: 'chips' });
@@ -446,18 +492,8 @@ function setupScreen() {
     return subjChips;
   };
 
-  const modeSeg = el('div', { class: 'segmented' },
-    ['timer', 'stop'].map((m) => el('button', {
-      class: 'seg-btn', 'aria-pressed': String(mode === m),
-      onclick: () => {
-        if (mode === m) return;
-        Store.set((s) => { s.settings.lastMode = m; });
-        renderHost();
-      },
-    }, m === 'timer' ? 'Timer' : 'Stopwatch')));
-
   const startBtn = el('button', {
-    class: 'btn btn-primary btn-block setup-start',
+    class: 'btn btn-primary btn-block study-start',
     onclick: () => {
       if (!subjId) { hint('Pick a subject first.'); return; }
       if (mode === 'stop') {
@@ -471,13 +507,13 @@ function setupScreen() {
       else begin();
     },
   }, svg('lock', 18), strictOn()
-    ? (mode === 'stop' ? 'Arm the stopwatch' : 'Set the intention')
-    : (mode === 'stop' ? 'Start the stopwatch' : 'Start session'));
+    ? (mode === 'stop' ? 'Arm the stopwatch' : 'Set the timer')
+    : (mode === 'stop' ? 'Start the stopwatch' : 'Start the timer'));
 
   const taskChipRow = tasksToday.length
     ? el('div', { class: 'chips' }, tasksToday.map((t) => {
         const chip = el('button', {
-          class: 'chip', style: 'max-width:300px',
+          class: 'chip', style: 'max-width:300px', 'aria-pressed': 'false',
           onclick: () => {
             if (pickedTasks.has(t.id)) { pickedTasks.delete(t.id); chip.setAttribute('aria-pressed', 'false'); }
             else { pickedTasks.add(t.id); chip.setAttribute('aria-pressed', 'true'); }
@@ -487,43 +523,57 @@ function setupScreen() {
       }))
     : null;
 
-  return el('section', { class: 'setup' },
-    el('div', { class: 'app-head' },
+  const taskPanel = taskChipRow
+    ? el('div', { class: 'attach-panel', hidden: true }, taskChipRow)
+    : null;
+
+  const attach = tasksToday.length
+    ? el('button', {
+        class: 'attach-row', 'aria-expanded': 'false',
+        onclick: () => {
+          const open = taskPanel.hidden;
+          taskPanel.hidden = !open;
+          attach.setAttribute('aria-expanded', String(open));
+          attach.classList.toggle('is-open', open);
+        },
+      },
+        el('span', { class: 'ar-left' }, `${tasksToday.length} task${tasksToday.length === 1 ? '' : 's'} today`),
+        el('span', { class: 'ar-act' }, 'Attach', el('i', { class: 'ar-caret', innerHTML: svg('caret', 14) })),
+      )
+    : null;
+
+  const footNote = doneToday
+    ? `Session ${doneToday + 1} today · ${fmtMin(todayMins)} banked`
+    : 'First session today';
+
+  return el('section', { class: 'study' },
+    el('div', { class: 'app-head study-head' },
       el('div', { class: 'grow' },
         el('h1', {}, 'Study Mode'),
         el('div', { class: 'sub' },
           strictOn()
-            ? `Strict is on — leaving for more than ${GRACE_SEC}s is a slip.`
-            : 'Strict is off — tracked, not enforced.'),
+            ? `Strict · leaving for over ${GRACE_SEC}s is a slip.`
+            : 'Strict off · tracked, not enforced.'),
       ),
     ),
-    meter,
-    el('div', { class: 'card setup-card' },
-      el('div', { class: 'setup-row' },
-        el('div', { class: 'setup-labels' },
-          el('span', { class: 'setup-label' }, 'Mode'),
-          el('span', { class: 'setup-hint' },
-            mode === 'timer' ? 'A fixed length that ends on its own.' : 'Open-ended — seconds count up.')),
-        modeSeg),
-      mode === 'stop'
-        ? el('p', { class: 'muted setup-note' },
-            'Start it, work, pause or lay it down whenever. The seconds you run are the seconds that count.')
-        : el('div', { class: 'setup-block' },
-            el('span', { class: 'setup-label' }, 'Length'),
-            presetChips),
-      el('div', { class: 'setup-block' },
-        el('span', { class: 'setup-label' }, 'Subject'),
-        subjects.length
-          ? subjectRow()
-          : el('p', { class: 'muted' }, 'No subjects yet — add them on the Plan tab, then come back.')),
-      taskChipRow ? el('div', { class: 'setup-block' },
-        el('span', { class: 'setup-label' }, 'Attach today’s tasks'),
-        taskChipRow) : null,
+    goalLine,
+    modePick,
+    mode === 'stop'
+      ? el('p', { class: 'study-open' },
+          'No length. Start it, work, pause or lay it down whenever. The seconds you run are the seconds that count.')
+      : el('div', { class: 'study-len' },
+          el('div', { class: 'len-row' }, lenBtns),
+          el('div', { class: 'len-meta' }, pomoChip, proj)),
+    el('div', { class: 'study-subjects', role: 'group', 'aria-label': 'Subject' },
+      subjects.length
+        ? subjectRow()
+        : el('p', { class: 'study-empty' }, 'No subjects yet — add them on the Plan tab, then come back.')),
+    attach,
+    taskPanel,
+    el('div', { class: 'study-foot' },
+      el('p', { class: 'study-note' }, footNote),
       startBtn,
-      doneToday
-        ? el('p', { class: 'setup-foot tiny' }, `Session ${doneToday + 1} today · ${fmtMin(todayMins)} already banked`)
-        : el('p', { class: 'setup-foot tiny' }, `Under ${GRACE_SEC}s away is forgiven, ${RESCUE_CAP} times a day.`),
-    )
+    ),
   );
 }
 
@@ -812,7 +862,7 @@ function doneScreen() {
           class: 'btn btn-primary',
           onclick: () => { Session.phase = 'idle'; renderHost(); },
         }, 'Again'),
-        el('button', { class: 'btn btn-subtle', onclick: () => Router.go('/home') }, 'Home')
+        el('button', { class: 'btn btn-subtle', onclick: () => { Session.phase = 'idle'; Router.go('/home'); } }, 'Home')
       ),
       d.demo ? el('p', { class: 'tiny done-demo' }, 'Demo session — demo minutes are excluded from stats.') : null
     )

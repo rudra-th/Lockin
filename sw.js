@@ -1,7 +1,7 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.0.19';
+const VERSION = 'lockin.v1.1.0';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -12,6 +12,7 @@ const PRECACHE = [
   './favicon.svg',
   './assets/css/app.css',
   './assets/js/store.js',
+  './assets/js/exams.js',
   './assets/js/util.js',
   './assets/js/router.js',
   './assets/js/icons.js',
@@ -23,12 +24,15 @@ const PRECACHE = [
   './assets/js/views/focus.js',
   './assets/js/views/stats.js',
   './assets/js/views/settings.js',
-  './assets/js/views/setup.js',
   './assets/js/views/walkthrough.js',
-  './assets/fonts/inter-latin.woff2',
-  './assets/fonts/inter-latin-ext.woff2',
-  './assets/fonts/jetbrains-mono-latin.woff2',
-  './assets/fonts/instrument-serif-latin.woff2',
+  './assets/fonts/hanken-grotesk-latin.woff2',
+  './assets/fonts/hanken-grotesk-latin-ext.woff2',
+  './assets/fonts/fraunces-latin.woff2',
+  './assets/fonts/fraunces-latin-ext.woff2',
+  './assets/fonts/fraunces-italic-latin.woff2',
+  './assets/fonts/ibm-plex-mono-400.woff2',
+  './assets/fonts/ibm-plex-mono-500.woff2',
+  './assets/fonts/ibm-plex-mono-600.woff2',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/icons/icon-maskable-192.png',

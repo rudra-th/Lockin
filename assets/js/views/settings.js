@@ -6,6 +6,7 @@ import { el, fmtMin } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
 import { tryInstall } from '../install.js';
+import { examByName } from '../exams.js';
 
 export function initSettings(Router) {
   Router.register('/settings', { mount, unmount: null });
@@ -114,25 +115,30 @@ function lookCard() {
   );
 }
 
-/* ---------- profile (name + exam from the /setup questionnaire) ---------- */
+/* ---------- profile (name, exam and date from the opening film) ---------- */
 
 function profileCard() {
-  const p = Store.state.profile || { name: '', exam: '' };
+  const p = Store.state.profile || { name: '', exam: '', examDate: '' };
   const nameInp = el('input', { class: 'inp', maxlength: 24, value: p.name, autocomplete: 'off', spellcheck: 'false' });
   const examInp = el('input', { class: 'inp', maxlength: 28, value: p.exam, autocomplete: 'off', spellcheck: 'false' });
+  const dateInp = el('input', { class: 'inp', type: 'date', value: p.examDate || '' });
   const save = el('button', {
     class: 'btn btn-subtle btn-block', style: 'margin-top:8px',
     onclick: () => {
-      Store.setProfile(nameInp.value, examInp.value);
+      const exam = examInp.value.trim();
+      const cat = examByName(exam);
+      Store.setProfile(nameInp.value, exam, dateInp.value,
+        cat ? cat.id : (exam ? 'custom' : ''));
       hint('Profile saved.');
     },
   }, svg('check', 16), 'Save profile');
   return el('div', { class: 'card' },
     el('h2', {}, 'Profile'),
-    el('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Your name and exam personalize Home, the session screens and the seeds.'),
+    el('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Your name, exam and rough date personalize Home, the session screens and the seeds.'),
     el('div', { class: 'fields' },
       el('label', { class: 'field' }, el('span', {}, 'Name'), nameInp),
       el('label', { class: 'field' }, el('span', {}, 'Target exam'), examInp),
+      el('label', { class: 'field' }, el('span', {}, 'Approx. exam date'), dateInp),
     ),
     save,
   );
@@ -176,7 +182,7 @@ function dataCard() {
       el('div', { class: 'actions' },
         el('button', {
           class: 'btn btn-primary',
-          onclick: () => { Store.reset(); close(); Router.go('/setup'); hint('Cleared.'); },
+          onclick: () => { Store.reset(); close(); Router.go('/start'); hint('Cleared.'); },
         }, 'Wipe it'),
         el('button', { class: 'btn btn-subtle', onclick: () => close() }, 'Keep'),
       ),

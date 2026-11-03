@@ -7,14 +7,14 @@
   <link rel="stylesheet" href="assets/css/app.css">
   <style>
     body { padding: 22px 16px 40px; }
-    h1 { font: 400 30px 'Instrument Serif', serif; margin: 0 0 2px; }
+    h1 { font: 400 30px 'Fraunces', serif; margin: 0 0 2px; }
     .sub { color: var(--tx-2); font-size: 13px; margin-bottom: 16px; }
     .res { padding: 9px 12px; border-radius: 10px; font-size: 13.5px; margin-bottom: 6px;
            border: 1px solid var(--line); background: var(--panel); }
     .res.ok    { border-color: color-mix(in srgb, var(--good) 45%, transparent); }
     .res.bad   { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
-    .res small { color: var(--tx-3); display: block; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
-    #summary { font: 600 15px 'JetBrains Mono', monospace; margin-bottom: 12px; }
+    .res small { color: var(--tx-3); display: block; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+    #summary { font: 600 15px 'IBM Plex Mono', monospace; margin-bottom: 12px; }
     .btn-back { margin-top: 14px; }
   </style>
 </head>
@@ -28,7 +28,8 @@
 
   <script type="module">
     import { Store } from './assets/js/store.js';
-    import { el, slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, decideAway } from './assets/js/util.js';
+    import { el, slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, daysUntil, decideAway } from './assets/js/util.js';
+    import { examById, examDateFor, expectedYear, subjectsForExam } from './assets/js/exams.js';
     import { svg } from './assets/js/icons.js';
 
     const out = document.getElementById('out');
@@ -109,6 +110,33 @@
       eq(addDays('2026-11-30', 1), '2026-12-01');
       eq(addDays('2024-02-28', 1), '2024-02-29'); // leap year
       eq(addDays('2026-03-01', -1), '2026-02-28');
+    });
+
+    group_('Exam date math');
+    test('daysUntil counts whole local days', () => {
+      eq(daysUntil('2026-11-03', new Date(2026, 10, 3, 0, 1)), 0);
+      eq(daysUntil('2026-11-04', new Date(2026, 10, 3, 23, 59)), 1);
+      eq(daysUntil('2026-11-02', new Date(2026, 10, 3, 12, 0)), -1);
+      eq(daysUntil('2027-05-04', new Date(2026, 10, 3)), 182);
+    });
+    test('examDateFor keeps the usual day, uses the 1st elsewhere', () => {
+      eq(examDateFor(examById('neet'), 4, 2027), '2027-05-04');
+      eq(examDateFor(examById('neet'), 5, 2027), '2027-06-01');
+      eq(examDateFor(null, 4, 2027), '2027-05-01');
+    });
+    test('examDateFor clamps impossible days', () => {
+      eq(examDateFor({ month: 1, day: 30 }, 1, 2027), '2027-02-28');
+      eq(examDateFor({ month: 1, day: 30 }, 1, 2028), '2028-02-29');
+    });
+    test('expectedYear rolls an exam month forward, not backward', () => {
+      const nov = new Date(2026, 10, 3); // Nov 3 2026
+      eq(expectedYear(4, 4, nov), 2027);  // May already gone
+      eq(expectedYear(11, 1, nov), 2026); // December still ahead
+    });
+    test('exam seeds follow the target', () => {
+      eq(subjectsForExam('NEET'), ['Physics', 'Chemistry', 'Biology']);
+      eq(subjectsForExam('JEE (Mains)'), ['Physics', 'Chemistry', 'Maths']);
+      eq(subjectsForExam('Some Custom Exam').length, 3);
     });
 
     group_('Planner grid operations');

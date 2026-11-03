@@ -33,7 +33,7 @@ function blankState(subjects = []) {
     plans: {},
     sessions: [],
     slips: [],
-    profile: { name: '', exam: '' }, // filled by the /setup questionnaire
+    profile: { name: '', exam: '', examId: '', examDate: '' }, // filled by the opening film
     settings: {
       theme: 'system',
       strict: true,
@@ -53,7 +53,11 @@ function blankState(subjects = []) {
 
 function migrate(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== VERSION) return null;
-  raw.profile = raw.profile || { name: '', exam: '' }; // v1 stores predate the questionnaire
+  raw.profile = raw.profile || {}; // v1 stores predate the opening film
+  if (typeof raw.profile.name !== 'string') raw.profile.name = '';
+  if (typeof raw.profile.exam !== 'string') raw.profile.exam = '';
+  if (typeof raw.profile.examId !== 'string') raw.profile.examId = '';
+  if (typeof raw.profile.examDate !== 'string') raw.profile.examDate = '';
   return raw;
 }
 
@@ -199,10 +203,13 @@ const Store = {
     return counts;
   },
 
-  setProfile(name, exam) {
+  setProfile(name, exam, examDate = '', examId = '') {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(examDate || '')) ? examDate : '';
     this.set((s) => {
       s.profile.name = String(name || '').trim().slice(0, 24);
       s.profile.exam = String(exam || '').trim().slice(0, 28);
+      s.profile.examDate = date;
+      s.profile.examId = String(examId || '').trim().slice(0, 24);
     });
   },
 

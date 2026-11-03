@@ -5,8 +5,9 @@
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, todayKey, prettyDate, slotsToT, fmtMin, addDays } from '../util.js';
+import { el, todayKey, prettyDate, slotsToT, fmtMin, addDays, daysUntil } from '../util.js';
 import { svg } from '../icons.js';
+import { formatExamMonth } from '../exams.js';
 
 let lastMin = 25;
 
@@ -28,8 +29,57 @@ function greeting() {
 }
 
 function headSub(t) {
-  const exam = Store.state.profile?.exam;
-  return exam ? `${prettyDate(t)} · for ${exam}` : prettyDate(t);
+  return prettyDate(t);
+}
+
+/* ---------- the exam band: one countdown, no card pile ---------- */
+
+function examBand() {
+  const p = Store.state.profile || {};
+  if (!p.exam && !p.examDate) return null;
+
+  const days = p.examDate ? daysUntil(p.examDate) : null;
+  const past = days != null && days < 0;
+  const close = days != null && days >= 0 && days <= 30;
+  const exam = p.exam || 'your exam';
+
+  let num = '—';
+  let line;
+  let sub;
+  if (days == null) {
+    line = el('span', {}, 'Add the exam date');
+    sub = `${exam} · days left will live here`;
+  } else if (past) {
+    line = el('span', {}, 'Exam passed — update the date');
+    sub = `${exam} · ${formatExamMonth(p.examDate)}`;
+  } else if (days === 0) {
+    num = '0';
+    line = el('span', {}, 'Exam day · ', el('em', {}, exam));
+    sub = 'Today. Everything you have.';
+  } else {
+    num = String(days);
+    line = el('span', {}, `day${days === 1 ? '' : 's'} left until `, el('em', {}, exam));
+    sub = formatExamMonth(p.examDate);
+  }
+
+  let aria;
+  if (days == null) aria = `Add the exam date for ${exam} in Settings`;
+  else if (past) aria = `${exam} exam date has passed — update it in Settings`;
+  else if (days === 0) aria = `${exam} is today — edit in Settings`;
+  else aria = `${days} day${days === 1 ? '' : 's'} until ${exam} — edit in Settings`;
+
+  return el('button', {
+    class: `exambar${close ? ' is-close' : ''}${past ? ' is-past' : ''}`,
+    onclick: () => Router.go('/settings'),
+    'aria-label': aria,
+  },
+    el('span', { class: 'eb-num' }, num),
+    el('span', { class: 'eb-txt' },
+      el('b', { class: 'eb-line' }, line),
+      el('span', { class: 'eb-date' }, sub),
+    ),
+    el('span', { class: 'eb-go', innerHTML: svg('chevR', 16) }),
+  );
 }
 
 /* ---------- tile strip: the numbers of today, as type (no icon tiles) ---------- */
@@ -193,6 +243,7 @@ function render(host) {
   for (const b of blocks) plannedByAct[b.actId] = (plannedByAct[b.actId] || 0) + (b.e - b.s) * 30;
 
   const week = weekRail(t);
+  const band = examBand();
 
   /* subject pick — planned minutes ride along as honest mono suffixes */
   const subjectChips = el('div', { class: 'chips' },
@@ -203,7 +254,7 @@ function render(host) {
           onclick: () => Router.go(`/focus?min=${lastMin}&subj=${a.id}`),
         }, el('i', { class: 'dot' }), a.name,
         plannedByAct[a.id] > 0
-          ? el('span', { class: 'small', style: 'color:var(--tx-2);font-family:"JetBrains Mono",monospace;font-size:11px;margin-left:2px' }, fmtMin(plannedByAct[a.id]))
+          ? el('span', { class: 'small', style: 'color:var(--tx-2);font-family:var(--font-mono);font-size:11px;margin-left:2px' }, fmtMin(plannedByAct[a.id]))
           : null))
       : [el('button', { class: 'chip add', onclick: () => Router.go('/plan') },
           el('i', { innerHTML: svg('plus', 14) }), 'Add your first subject on the Plan tab')],
@@ -231,6 +282,7 @@ function render(host) {
         onclick: () => Router.go('/plan'),
       }),
     ),
+    band,
     tileStrip(t, focusMin, streak, week.cleanDays),
     el('div', { class: 'card hero' },
       heroBlocks(t, live),

@@ -20,11 +20,13 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 ## What's inside
 
 - **Plan** — 48 half-hour slots, tap-tap painting per subject, block editor (stretch/shrink/rename/delete), copy day → tomorrow / next week, per-day tasks with staged subtasks.
-- **Study Mode** — preset lengths (10–90 min) or ×3 Pomodoro with configurable focus/short/long breaks; a hold-the-ring intention screen (latches Screen Wake Lock + notification permission in one gesture); the running room keeps the app identity and a live **daily-target meter** (banked today + this session) on screen; attach today's tasks and tick them mid-session; quit requires a 2.4-second hold + explicit confirm, then it's logged.
+- **Study Mode** — set up on one quiet screen (daily target, Timer or Stopwatch, length with projected end, subject, tasks); preset lengths (10–90 min) or ×3 Pomodoro with configurable focus/short/long breaks; a hold-the-ring intention screen (latches Screen Wake Lock + notification permission in one gesture); the running room keeps the app identity and a live **daily-target meter** (banked today + this session) on screen; attach today's tasks and tick them mid-session; quit requires a 2.4-second hold + explicit confirm, then it's logged.
 - **Session survives everything** — a running session is snapshotted to storage every change; close the tab, crash, reload — reopen and the clock is still true (wall-clock math, not setInterval accumulation), and an away-episode that bracketed the reload is processed exactly once.
 - **Stats** — daily goal ring, 7-day bars, subject split, 13-week clean-day heatmap (lime = clean, orange = focused but broken), full session log and Honesty Log.
 - **Strict Mode is a switch, not a trap** — off means tracking only. Daily goal, clean-day minimum, rescue rules: all visible, all adjustable in Settings.
-- **First-run walkthrough** — five screens that tell the truth (including what a web app *can't* do), seed a believable sample day, and run a safe 2-minute demo session that never logs slips and never touches your stats. Rerunnable from Settings.
+- **First-run film** — seven full-bleed scenes that ask your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, and a daily study bar; then the honest rules, a believable sample day, and a safe 2-minute demo session that never logs slips and never touches your stats. Rerunnable from Settings.
+- **Exam countdown on Home** — “182 days left until NEET”, with the approximate month; it turns warm inside 30 days and asks for a new date once the exam passes.
+- **Exam-aware seeds** — the sample plan, subjects and tasks follow the exam you picked, and can be edited like any other.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
 
 ## Run it
@@ -50,6 +52,7 @@ assets/
   css/app.css           whole design system (tokens → components)
   js/
     store.js            versioned localStorage store + pure grid math
+    exams.js            exam catalogue, seeded subjects, rough-date math
     util.js             time/slot/date helpers + decideAway (enforcement math)
     router.js           hash router
     ui.js               shared sheet, hint and daily-goal meter widgets
@@ -63,8 +66,8 @@ serve.py                tiny dev server (no-store headers, SW scope)
 
 ## Data
 
-One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settings; "Erase all data" is real and re-runs the walkthrough.
+One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settings; "Erase all data" is real and re-runs the opening film.
 
 ## Status
 
-v1.0.18 — a quieter, flatter production pass: audio removed entirely, the session room keeps the app's brand and daily target visible, and no OS fullscreen yank. Desktop + Android Chrome/Edge get the full experience (wake lock, install); iOS gets the PWA-shell session.
+v1.1.0 — the opening film, the exam clock and a quieter Study Mode. The first run now asks who you are, what you're aiming at, roughly when, and what a good day looks like; Home keeps the countdown. Study Mode setup became type and hairlines instead of cards. New type system: Fraunces for moments, Hanken Grotesk for the interface, IBM Plex Mono for figures. Desktop + Android Chrome/Edge get the full experience (wake lock, install); iOS gets the PWA-shell session.
