@@ -10,6 +10,7 @@ import { Router } from './router.js';
 import { el, eventsBetween, spanLabel, daysLabel } from './util.js';
 import { svg } from './icons.js';
 import { closeSheet } from './ui.js';
+import { isNative, requestNotifications } from './native.js';
 
 const FIRED_KEY = 'lockin.alarms.fired.v1';
 const LOOKBACK_MS = 4 * 60000;
@@ -144,7 +145,9 @@ function ringStart(ev) {
     el('p', { class: 'alarm-days' }, daysLabel(schedule.days)),
     el('div', { class: 'alarm-actions' }, primary,
       el('button', { class: 'btn btn-subtle', onclick: closeAlarm }, 'Not now')),
-    el('p', { class: 'alarm-foot' }, 'Rings while Lockin is open. The Android build rings when it is not.'),
+    el('p', { class: 'alarm-foot' }, isNative
+      ? 'Android exact alarms ring even when Lockin is closed.'
+      : 'Rings while Lockin is open. The Android build rings when it is not.'),
   );
 
   overlay = el('div', {
@@ -199,7 +202,9 @@ function remember(key) {
 function check() {
   if (!Store.state?.settings?.scheduleAlarms) return;
   const now = new Date();
-  const events = eventsBetween(Store.schedules(), new Date(now.getTime() - LOOKBACK_MS), new Date(now.getTime() + 1000));
+  const events = eventsBetween(Store.schedules(), new Date(now.getTime() - LOOKBACK_MS), new Date(now.getTime() + 1000))
+    /* "Alarm at start" is per block; a reminder still fires when it is off. */
+    .filter((ev) => ev.kind === 'remind' || ev.occ.schedule.alarm !== false);
 
   let start = null;
   let remind = null;
@@ -226,6 +231,10 @@ function check() {
 /** Ask for notification permission from a real click, never on load. */
 export function ensureAlarmPermission() {
   primeAudio();
+  if (isNative) {
+    requestNotifications();
+    return;
+  }
   if (!('Notification' in window)) return;
   if (Notification.permission === 'default') Notification.requestPermission().catch(() => {});
 }

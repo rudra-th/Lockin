@@ -24,6 +24,7 @@ const PRECACHE = [
   './assets/js/tasks.js',
   './assets/js/controls.js',
   './assets/js/alarms.js',
+  './assets/js/native.js',
   './assets/js/app.js',
   './assets/js/views/home.js',
   './assets/js/views/schedule.js',

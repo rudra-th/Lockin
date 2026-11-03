@@ -9,6 +9,10 @@ import { tryInstall } from '../install.js';
 import { examByName } from '../exams.js';
 import { group, setrow, toggle, stepper } from '../controls.js';
 import { ensureAlarmPermission } from '../alarms.js';
+import {
+  isNative, nativeStatus, requestNotifications, openNotificationSettings,
+  openExactAlarmSettings, openUsageAccessSettings, queryUsage,
+} from '../native.js';
 
 export function initSettings(Router) {
   Router.register('/settings', { mount, unmount: null });
@@ -89,6 +93,106 @@ function alarmsCard() {
       toggle(() => s.alarmVibrate, () => Store.set((st) => { st.settings.alarmVibrate = !st.settings.alarmVibrate; }))),
     el('p', { class: 'tiny', style: 'margin:12px 0 0' },
       'The web build rings while Lockin is open. The Android build adds exact alarms that ring when it is closed.'),
+  );
+}
+
+/* ---------- Android shell (only rendered inside the APK) ---------- */
+
+function pill(on, onText = 'On', offText = 'Off') {
+  return el('span', { class: `native-pill${on ? ' on' : ''}` }, on ? onText : offText);
+}
+
+function nativeCard() {
+  if (!isNative) return null;
+
+  const exactPill = pill(false, 'Exact', 'Inexact');
+  const notifPill = pill(false);
+  const usagePill = pill(false);
+  const exactBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openExactAlarmSettings() }, 'Settings');
+  const usageBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openUsageAccessSettings() }, 'Open');
+  const notifBtn = el('button', { class: 'btn btn-subtle btn-sm' }, 'Allow');
+
+  const refresh = async () => {
+    if (!document.contains(exactPill)) {
+      removeEventListener('visibilitychange', onVisible);
+      return;
+    }
+    const st = await nativeStatus();
+    if (!st) return;
+    exactPill.textContent = st.exact ? 'Exact' : 'Inexact';
+    exactPill.classList.toggle('on', st.exact);
+    notifPill.textContent = st.notifications ? 'On' : 'Off';
+    notifPill.classList.toggle('on', st.notifications);
+    usagePill.textContent = st.usage ? 'On' : 'Off';
+    usagePill.classList.toggle('on', st.usage);
+    notifBtn.textContent = st.notifications ? 'Settings' : 'Allow';
+    notifBtn.onclick = st.notifications
+      ? () => openNotificationSettings()
+      : async () => { await requestNotifications(); refresh(); };
+  };
+
+  const onVisible = () => { if (!document.hidden) refresh(); };
+  addEventListener('visibilitychange', onVisible);
+  setTimeout(refresh, 0); // the card is appended right after this returns
+
+  return el('div', { class: 'card' },
+    el('h2', {}, 'Android'),
+    setrow('Alarms & reminders',
+      'Exact alarms ring at the scheduled minute even when Lockin is closed. Without this permission Android may delay them.',
+      el('div', { class: 'native-ctrl' }, exactPill, exactBtn)),
+    setrow('Notifications',
+      'The alarm and reminder arrive as notifications. Android asks once.',
+      el('div', { class: 'native-ctrl' }, notifPill, notifBtn)),
+    setrow('Usage access',
+      'Reads per-app foreground time for the screen-time panel. Lockin can open the setting, but only you can grant it.',
+      el('div', { class: 'native-ctrl' }, usagePill, usageBtn)),
+    el('p', { class: 'tiny', style: 'margin:12px 0 0' },
+      'Lockin reads how long an app was in the foreground. It does not read page content, keystrokes or files.'),
+  );
+}
+
+function screenTimeCard() {
+  if (!isNative) return null;
+
+  const out = el('div', { class: 'native-usage' });
+  const btn = el('button', {
+    class: 'btn btn-subtle btn-block',
+    onclick: async () => {
+      btn.disabled = true;
+      btn.textContent = 'Reading usage…';
+      renderUsage(await queryUsage(7));
+      btn.disabled = false;
+      btn.textContent = 'Refresh 7-day screen time';
+    },
+  }, svg('clock', 16), 'Scan 7-day screen time');
+
+  function renderUsage(rows) {
+    out.replaceChildren();
+    if (!rows.length) {
+      out.append(el('p', { class: 'muted', style: 'margin:0' },
+        'Nothing to show yet. Grant usage access above, then scan.'));
+      return;
+    }
+    const total = rows.reduce((sum, row) => sum + row.ms, 0);
+    const max = Math.max(...rows.map((row) => row.ms), 1);
+    out.append(el('div', { class: 'native-total' },
+      el('span', {}, 'Last 7 days'),
+      el('b', {}, fmtMin(Math.round(total / 60000)))));
+    for (const row of rows.slice(0, 8)) {
+      out.append(el('div', { class: 'native-usage-row' },
+        el('b', {}, row.label),
+        el('span', {}, row.ms < 60000 ? '<1m' : fmtMin(Math.round(row.ms / 60000))),
+        el('div', { class: 'native-usage-bar' },
+          el('i', { style: `width:${Math.max(2, Math.round((row.ms / max) * 100))}%` }))));
+    }
+  }
+
+  return el('div', { class: 'card' },
+    el('h2', {}, 'Screen time'),
+    el('p', { class: 'muted', style: 'margin:0 0 12px' },
+      'Per-app foreground time from Android’s usage access. It stays on this device.'),
+    btn,
+    out,
   );
 }
 
@@ -226,6 +330,7 @@ function render(host) {
     ),
     group('Focus', enforcementCard(), pomoCard()),
     group('Schedule', alarmsCard()),
+    ...(isNative ? [group('Android', nativeCard(), screenTimeCard())] : []),
     group('You', profileCard(), lookCard()),
     group('Your data', dataCard()),
     group('About', aboutCard()),

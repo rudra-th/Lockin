@@ -2310,9 +2310,55 @@ body[data-mode='onboard'] #view {
 }
 .alarm-toast-x:hover { color: var(--tx); }
 
+/* Android shell — permission pills and the screen-time panel */
+.native-ctrl { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.native-pill {
+  font: 500 9.5px/1 var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+.native-pill.on {
+  color: var(--acc);
+  border-color: color-mix(in srgb, var(--acc) 42%, var(--line));
+}
+.native-usage { display: grid; gap: 12px; margin-top: 14px; }
+.native-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.native-total span { font: 500 10px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tx-3); }
+.native-total b { font: 500 15px/1 var(--font-mono); color: var(--tx); }
+.native-usage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  align-items: baseline;
+}
+.native-usage-row b { font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.native-usage-row span { font: 500 11px/1 var(--font-mono); color: var(--tx-2); }
+.native-usage-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.native-usage-bar i { display: block; height: 100%; border-radius: 99px; background: var(--acc); }
+
 @media (max-width: 380px) {
   .sched-hero { grid-template-columns: minmax(0, 1fr) 128px; }
   .sched-empty .btn { margin-left: 0; }
+  .native-ctrl { gap: 6px; }
+  .native-pill { display: none; }
 }
 
 @media (min-width: 760px) {

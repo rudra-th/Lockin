@@ -1,0 +1,66 @@
+name: Bug report
+description: Something broke, rang at the wrong time, or does not match the docs.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not attach a personal JSON export or a
+        keystore. For a security issue, use the Security tab instead.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - Web app (PWA)
+        - Browser extension
+        - Android shell
+        - Docs / repository
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "1.4.0 / 9b1fbe8"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do?
+      description: The shortest set of steps that reproduces it.
+      placeholder: |
+        1. Open Schedule
+        2. Add a block at ...
+        3. Reload
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+      description: Include console errors or a screenshot if you can. Redact personal data.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser / OS / device
+      placeholder: "Chrome 142, Windows 11 / Pixel 8, Android 16"
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

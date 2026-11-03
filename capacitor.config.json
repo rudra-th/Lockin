@@ -1,0 +1,11 @@
+{
+  "appId": "com.lockin.app",
+  "appName": "Lockin",
+  "webDir": "app",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

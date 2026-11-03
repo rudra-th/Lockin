@@ -10,6 +10,7 @@ import { initStats } from './views/stats.js';
 import { initSettings } from './views/settings.js';
 import { initWalkthrough } from './views/walkthrough.js';
 import { startAlarms } from './alarms.js';
+import { startNative, isNative } from './native.js';
 
 Store.load();
 
@@ -44,6 +45,7 @@ if (Store.state.session && ['running', 'break', 'paused'].includes(Store.state.s
 Router.start();
 applyTheme();
 startAlarms();
+startNative();
 
 /* ---------- tab bar ---------- */
 
@@ -67,9 +69,11 @@ markTabs();
 /* re-mark after Router render settles (router renders on the same event) */
 setTimeout(markTabs, 0);
 
-/* ---------- service worker (offline shell) ---------- */
+/* ---------- service worker (offline shell) ----------
+   The Capacitor shell already ships the files locally; a worker there would
+   only add a stale-cache layer between the app and its own assets. */
 
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !isNative) {
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   navigator.serviceWorker.addEventListener('message', (ev) => {
     if (ev.data?.type === 'open-schedule') Router.go('/schedule');

@@ -1,0 +1,22 @@
+{
+  "name": "lockin",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "description": "A study-first focus app: recurring schedule blocks, alarms, wake-locked Study Mode and an honest slip log.",
+  "scripts": {
+    "check": "node tools/check.mjs",
+    "pack:extension": "node tools/pack-extension.mjs",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "android:build": "node tools/android-build.mjs",
+    "android:icons": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/gen-android-icons.ps1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0"
+  }
+}

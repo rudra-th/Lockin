@@ -1,0 +1,56 @@
+name: Feature request
+description: Propose a change that fits Lockin's honest, local-first design.
+title: "[idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Lockin is deliberately small. The best requests name the problem, not
+        only the screen. Read `docs/architecture.md` and `docs/privacy.md`
+        first — proposals that fork the UI or make a claim the platform cannot
+        keep will be challenged.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - Web app (PWA)
+        - Browser extension
+        - Android shell
+        - Sync / account
+        - Docs / repository
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is hard today? Who is it hard for?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The smallest useful version
+      description: What could ship first without forking the app?
+    validations:
+      required: true
+  - type: textarea
+    id: honesty
+    attributes:
+      label: Platform limits
+      description: What can the platform actually do? What must the UI admit?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I read the architecture and privacy docs.
+          required: true
+        - label: I searched existing issues.
+          required: true
