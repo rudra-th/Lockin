@@ -134,7 +134,7 @@ function profileCard() {
   }, svg('check', 16), 'Save profile');
   return el('div', { class: 'card' },
     el('h2', {}, 'Profile'),
-    el('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Your name, exam and rough date personalize Home, the session screens and the seeds.'),
+    el('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Your name, exam and rough date personalize Home, the session screens and your stats.'),
     el('div', { class: 'fields' },
       el('label', { class: 'field' }, el('span', {}, 'Name'), nameInp),
       el('label', { class: 'field' }, el('span', {}, 'Target exam'), examInp),
@@ -173,12 +173,12 @@ function dataCard() {
   const replayBtn = el('button', {
     class: 'btn btn-subtle btn-block',
     onclick: () => { Router.go('/start?replay=1'); },
-  }, svg('play', 16), 'Rerun the beginner walkthrough');
+  }, svg('play', 16), 'Rerun the opening walkthrough');
 
   const wipeBtn = el('button', {
     class: 'btn btn-danger btn-block',
     onclick: () => openSheet('Delete everything?', (close) => [
-      el('p', { class: 'muted' }, 'Plans, sessions, streaks — gone for good. Export a backup first if any of it matters.'),
+      el('p', { class: 'muted' }, 'Tasks, subjects, sessions, streaks — gone for good. Export a backup first if any of it matters.'),
       el('div', { class: 'actions' },
         el('button', {
           class: 'btn btn-primary',
@@ -214,6 +214,8 @@ function aboutCard() {
     el('div', { class: 'about-mark' }, el('i', { class: 'brand-dot' })),
     el('div', { class: 'about-name' }, 'Lockin'),
     el('div', { class: 'tiny' }, 'Focus, strictly. Built for one thing — study.'),
+    el('div', { class: 'tiny', style: 'margin-top:4px' },
+      el('a', { href: 'https://lockin.surge.sh', style: 'color:var(--tx-2)' }, 'lockin.surge.sh')),
     el('div', { class: 'row', style: 'justify-content:center;gap:8px;margin-top:12px' },
       el('a', { class: 'chip', href: 'tests.html', style: 'text-decoration:none' }, 'Run the self-check'),
     ),

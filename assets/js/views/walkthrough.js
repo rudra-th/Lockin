@@ -1,18 +1,18 @@
 /* Lockin — the opening film.
    First run is one continuous piece: the name, the exam, the rough date, the
-   daily target, the honest rules, then a two-minute demo. Full-bleed scenes,
-   one idea at a time. Rerunnable from Settings (personalization is skipped
-   when the profile is already known). */
+   daily target, then the honest rules. Full-bleed scenes, one idea at a time.
+   Rerunnable from Settings (personalization is skipped when the profile is
+   already known). */
 
-import { Store, uid } from '../store.js';
+import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, todayKey, addDays, daysUntil } from '../util.js';
+import { el, daysUntil } from '../util.js';
 import { svg } from '../icons.js';
 import { hint } from '../ui.js';
-import { startDemoSession, GRACE_SEC, RESCUE_CAP } from './focus.js';
+import { GRACE_SEC, RESCUE_CAP } from './focus.js';
 import {
   PRIMARY_EXAMS, MORE_EXAMS, MONTHS, examById, examByName, examDateFor,
-  expectedYear, formatExamMonth, subjectsForExam,
+  expectedYear, formatExamMonth,
 } from '../exams.js';
 
 export function initWalkthrough(Router) {
@@ -62,42 +62,6 @@ function syncProfile() {
   Store.setProfile(state.name, state.exam, state.examDate || '', state.examId);
 }
 
-/* ---------- day seeding (after the exam is known) ---------- */
-
-function seedDay() {
-  if (Store.state.flags.seeded) return;
-  const t = todayKey();
-  const tmr = addDays(t, 1);
-  const names = subjectsForExam(Store.state.profile?.exam);
-  const acts = names.map((name, i) => ({
-    id: uid('act'), name, kind: 'study', hue: [200, 265, 25][i],
-  }));
-  Store.set((s) => {
-    s.activities.push(...acts);
-    s.plans[t] = [
-      { id: uid('blk'), actId: acts[0].id, s: 16, e: 20 },  // 08:00–10:00
-      { id: uid('blk'), actId: 'rest',  s: 20, e: 21 },
-      { id: uid('blk'), actId: acts[1].id, s: 21, e: 25 },  // 10:30–12:30
-      { id: uid('blk'), actId: 'meal',  s: 25, e: 27 },
-      { id: uid('blk'), actId: acts[2].id, s: 27, e: 33 },  // 13:30–16:30
-      { id: uid('blk'), actId: 'free',  s: 33, e: 44 },
-    ];
-    s.plans[tmr] = [
-      { id: uid('blk'), actId: acts[0].id, s: 16, e: 20 },
-      { id: uid('blk'), actId: acts[1].id, s: 21, e: 25 },
-    ];
-    s.tasks.push(
-      {
-        id: uid('tk'), date: t, title: 'Solve 20 mechanics problems',
-        stages: [{ label: 'Kinematics sheet', done: false }, { label: 'Newton laws — 8 problems', done: false }],
-        subjectId: null, doneAt: null,
-      },
-      { id: uid('tk'), date: t, title: 'Revise organic reaction map', stages: [], subjectId: null, doneAt: null },
-    );
-    s.flags.seeded = true;
-  });
-}
-
 /* ---------- navigation ---------- */
 
 function go(n) {
@@ -108,18 +72,10 @@ function go(n) {
 }
 
 function finish() {
-  seedDay();
   Store.set((s) => { s.flags.onboarded = true; });
   document.body.dataset.mode = '';
   Router.go('/home');
-  hint(state.name ? `Locked in, ${state.name}.` : 'Locked in. Paint the day, then run it.');
-}
-
-function startDemo() {
-  syncProfile();
-  Store.set((s) => { s.settings.goalMin = Math.max(1, state.hours) * 60; });
-  seedDay();
-  startDemoSession(Store.subjects()[0]?.id);
+  hint(state.name ? `Locked in, ${state.name}. Add a task, then start the clock.` : 'Locked in. Add a task, then start the clock.');
 }
 
 /* ---------- tiny building blocks ---------- */
@@ -157,9 +113,9 @@ function introScene() {
   return [
     kicker('A study clock, not a tracker'),
     title('Study has ', el('em', {}, 'a shape.')),
-    lede('Plan the day once. Then run it block by block — the clock stays awake, the plan stays in front of you, and the app remembers when you leave.'),
+    lede('Set a daily target. Then run it in Study Mode — the clock stays awake, the target stays in front of you, and the app remembers when you leave.'),
     el('div', { class: 'film-meta' },
-      el('span', {}, 'Plan'), el('i'), el('span', {}, 'Focus'), el('i'), el('span', {}, 'Honest stats')),
+      el('span', {}, 'Focus'), el('i'), el('span', {}, 'Daily tasks'), el('i'), el('span', {}, 'Honest stats')),
   ];
 }
 
@@ -174,7 +130,7 @@ function nameScene() {
   return [
     kicker('First, the name'),
     title('What should we ', el('em', {}, 'call you?')),
-    lede('It personalizes the greeting, the session screens and the sample day. It stays on this device — no account, no cloud.'),
+    lede('It personalizes the greeting, the session screens and your stats. It stays on this device — no account, no cloud.'),
     el('label', { class: 'film-field' }, input),
   ];
 }
@@ -272,7 +228,7 @@ function examScene() {
   return [
     kicker('The target'),
     title('What are you ', el('em', {}, 'aiming at?')),
-    lede('Pick the exam. The sample plan seeds itself around it — and Home keeps the countdown.'),
+    lede('Pick the exam. Home keeps the countdown — no date knowledge beyond the rough month.'),
     primaryWrap,
     moreBtn,
     moreWrap,
@@ -423,30 +379,17 @@ function strictScene() {
   ];
 }
 
-function demoScene() {
-  const subj = Store.subjects()[0];
-  return [
-    kicker('The real thing, at two minutes'),
-    title('Try the ', el('em', {}, 'room.')),
-    el('div', { class: 'demo-line' },
-      el('span', { class: 'demo-clock' }, '02:00'),
-      el('span', { class: 'demo-subject', style: subj ? `--h:${subj.hue}` : '' }, subj ? subj.name : 'Study'),
-    ),
-    lede('A real session at demo size. The demo never logs a slip — wander off if you like. Hold the ring to go in.'),
-  ];
-}
-
 /* ---------- render ---------- */
 
 const RENDERERS = {
   intro: introScene, name: nameScene, exam: examScene,
-  date: dateScene, hours: hoursScene, strict: strictScene, demo: demoScene,
+  date: dateScene, hours: hoursScene, strict: strictScene,
 };
 
 function buildScenes(replay) {
   const hasProfile = !!(state.name && state.exam && state.examDate);
-  if (!replay) return ['intro', 'name', 'exam', 'date', 'hours', 'strict', 'demo'];
-  return hasProfile ? ['intro', 'strict', 'demo'] : ['intro', 'name', 'exam', 'date', 'hours', 'strict', 'demo'];
+  const full = ['intro', 'name', 'exam', 'date', 'hours', 'strict'];
+  return replay && hasProfile ? ['intro', 'strict'] : full;
 }
 
 function sceneFooter(kind) {
@@ -464,14 +407,8 @@ function sceneFooter(kind) {
   }
   if (kind === 'strict') {
     return [
-      primary('Understood', () => go(idx + 1)),
+      primary('Start using Lockin', finish),
       ghost('Back', () => go(idx - 1)),
-    ];
-  }
-  if (kind === 'demo') {
-    return [
-      primary('Start the 2-minute demo', startDemo),
-      ghost('Take me Home', finish),
     ];
   }
   return [];

@@ -16,7 +16,7 @@ let currentSessId = null;
 
 const Session = {
   phase: 'idle',                 // idle | armed | running | paused | break | done | aborted
-  cfg: null,                     // {min, subjId, taskIds, rounds, demo, mode: 'timer'|'stop'}
+  cfg: null,                     // {min, subjId, taskIds, rounds, mode: 'timer'|'stop'}
   startedAt: 0,
   plannedEnd: 0,
   roundIdx: 1,
@@ -71,7 +71,7 @@ const strictOn = () => !!Store.state.settings.strict;
 
 function onVisibility() {
   if (document.visibilityState === 'hidden') {
-    if (Session.phase === 'running' && strictOn() && !Session.cfg?.demo) {
+    if (Session.phase === 'running' && strictOn()) {
       Store.set((s) => { if (s.session) s.session.goneAt = Date.now(); });
     }
   } else {
@@ -81,7 +81,7 @@ function onVisibility() {
       drawClock();
       if (Session.cfg?.mode === 'stop') snapshot();
     }
-    if (Session.phase === 'running' && strictOn() && !Session.cfg?.demo) processBack();
+    if (Session.phase === 'running' && strictOn()) processBack();
   }
 }
 
@@ -216,7 +216,6 @@ function completeRound() {
     end: Session.plannedEnd,
     kind: 'focus',
     completed: true,
-    demo: !!Session.cfg.demo,
   }));
   notify(`Round done — ${Session.cfg.min} min banked`);
 
@@ -245,7 +244,6 @@ function recordAborted(subjectId, taskIds, start) {
     completed: false,
     aborted: true,
     secs,
-    demo: !!Session.cfg?.demo,
   }));
   return id;
 }
@@ -295,7 +293,6 @@ function finish(finished) {
       kind: 'focus',
       completed: !!finished,
       aborted: !finished,
-      demo: !!Session.cfg?.demo,
     }));
   }
   const minsStudied = finished
@@ -306,7 +303,6 @@ function finish(finished) {
     subjName: nameOf(Session.cfg?.subjId),
     mins: minsStudied,
     secs, // stopwatch precision for the done screen
-    demo: !!Session.cfg?.demo,
     today: Store.focusMinutesOn(todayKey()),
   };
   Session.phase = finished ? 'done' : 'aborted';
@@ -317,7 +313,7 @@ function finish(finished) {
 
 function abandon() {
   recordAborted(Session.cfg.subjId, Session.cfg.taskIds, Session.startedAt);
-  if (!Session.cfg?.demo) Store.logSlip('abandon', currentSessId, 0); // the demo never logs
+  Store.logSlip('abandon', currentSessId, 0);
   closeSheet();
   finish(false);
 }
@@ -337,24 +333,6 @@ function notify(body) {
 
 export function initFocus(Router) {
   Router.register('/focus', { mount, unmount });
-}
-
-/**
- * Walkthrough hook: a 2-minute demo session — real engine, safe rules.
- * Demo sessions never log slips and are excluded from all stats.
- */
-export function startDemoSession(subjId) {
-  Session.cfg = {
-    min: 2,
-    subjId: subjId || Store.subjects()[0]?.id || null,
-    taskIds: [],
-    rounds: 1,
-    demo: true,
-    mode: 'timer',
-  };
-  Store.set((s) => { s.flags.onboarded = true; }); // they've seen enough to not re-board next load
-  Router.go('/focus');
-  begin();
 }
 
 const nameOf = (subjId) => (Store.activity(subjId)?.name || 'Study');
@@ -399,7 +377,7 @@ function setupScreen() {
 
   /* today counter — how many real sessions already banked today */
   const doneToday = Store.state.sessions.filter((x) =>
-    x.day === todayKey() && x.kind === 'focus' && !x.demo).length;
+    x.day === todayKey() && x.kind === 'focus').length;
   const todayMins = Store.focusMinutesOn(todayKey());
   const goal = Store.state.settings.goalMin || 120;
   const pct = Math.min(100, Math.round((todayMins / Math.max(1, goal)) * 100));
@@ -479,36 +457,84 @@ function setupScreen() {
   });
   paintLen();
 
-  const subjectRow = () => {
-    const subjChips = el('div', { class: 'chips' });
-    subjects.forEach((a) => {
-      const chip = el('button', {
-        class: 'chip', style: `--h:${a.hue}`,
-        'aria-pressed': String(a.id === subjId),
-        onclick: () => { subjId = a.id; syncPressed(subjChips, chip); },
-      }, el('i', { class: 'dot' }), a.name);
-      subjChips.append(chip);
-    });
-    return subjChips;
-  };
+  const subjectWrap = el('div', { class: 'study-subjects', role: 'group', 'aria-label': 'Subject' });
+  const subjChips = el('div', { class: 'chips' });
+  const subjectNote = el('p', { class: 'study-empty' },
+    'No subjects yet — add your first one. It stays yours, and you can remove it any time.');
+  const addChip = el('button', {
+    class: 'chip add', type: 'button',
+    onclick: addSubjectFlow,
+  }, el('i', { innerHTML: svg('plus', 14) }), 'New subject');
 
+  function makeChip(a) {
+    return el('button', {
+      class: 'chip', style: `--h:${a.hue}`, dataset: { subj: a.id },
+      'aria-pressed': String(a.id === subjId),
+      onclick: () => { subjId = a.id; paintSubjects(); },
+    }, el('i', { class: 'dot' }), a.name);
+  }
+
+  subjects.forEach((a) => subjChips.append(makeChip(a)));
+  subjChips.append(addChip);
+
+  function startLabel() {
+    if (!subjId) return 'Add a subject to start';
+    if (strictOn()) return mode === 'stop' ? 'Arm the stopwatch' : 'Set the timer';
+    return mode === 'stop' ? 'Start the stopwatch' : 'Start the timer';
+  }
+
+  function paintSubjects() {
+    [...subjChips.querySelectorAll('[data-subj]')].forEach((c) => {
+      c.setAttribute('aria-pressed', String(c.dataset.subj === subjId));
+    });
+    subjectNote.hidden = subjects.length > 0;
+    startBtn.disabled = !subjId;
+    startBtnLabel.textContent = startLabel();
+  }
+
+  function addSubjectFlow() {
+    openSheet('Add a subject', (close) => {
+      const input = el('input', {
+        class: 'inp', placeholder: 'Name the subject', maxlength: 24,
+        autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Subject name',
+      });
+      const form = el('form', {
+        onsubmit: (ev) => {
+          ev.preventDefault();
+          const act = Store.addSubject(input.value);
+          if (!act) { hint('Give the subject a name.'); return; }
+          if (!subjects.some((x) => x.id === act.id)) subjects.push(act);
+          subjId = act.id;
+          subjChips.insertBefore(makeChip(act), addChip);
+          paintSubjects();
+          close();
+          hint(`${act.name} added.`);
+        },
+      },
+        input,
+        el('button', { type: 'submit', class: 'btn btn-primary', style: 'margin-top:10px' }, svg('plus', 16), 'Add subject'),
+      );
+      setTimeout(() => input.focus(), 160);
+      return form;
+    });
+  }
+
+  const startBtnLabel = el('span', {}, startLabel());
   const startBtn = el('button', {
     class: 'btn btn-primary btn-block study-start',
     onclick: () => {
-      if (!subjId) { hint('Pick a subject first.'); return; }
+      if (!subjId) { hint('Add or pick a subject first.'); return; }
       if (mode === 'stop') {
         Store.set((s) => { s.settings.lastMode = 'stop'; });
-        Session.cfg = { min: 0, subjId, taskIds: [...pickedTasks], rounds: 1, demo: false, mode: 'stop' };
+        Session.cfg = { min: 0, subjId, taskIds: [...pickedTasks], rounds: 1, mode: 'stop' };
       } else {
         Store.set((s) => { s.settings.lastMode = 'timer'; });
-        Session.cfg = { min, subjId, taskIds: [...pickedTasks], rounds, demo: false, mode: 'timer' };
+        Session.cfg = { min, subjId, taskIds: [...pickedTasks], rounds, mode: 'timer' };
       }
       if (strictOn()) { Session.phase = 'armed'; renderHost(); }
       else begin();
     },
-  }, svg('lock', 18), strictOn()
-    ? (mode === 'stop' ? 'Arm the stopwatch' : 'Set the timer')
-    : (mode === 'stop' ? 'Start the stopwatch' : 'Start the timer'));
+  }, svg('lock', 18), startBtnLabel);
 
   const taskChipRow = tasksToday.length
     ? el('div', { class: 'chips' }, tasksToday.map((t) => {
@@ -546,6 +572,8 @@ function setupScreen() {
     ? `Session ${doneToday + 1} today · ${fmtMin(todayMins)} banked`
     : 'First session today';
 
+  paintSubjects();
+
   return el('section', { class: 'study' },
     el('div', { class: 'app-head study-head' },
       el('div', { class: 'grow' },
@@ -565,9 +593,7 @@ function setupScreen() {
           el('div', { class: 'len-row' }, lenBtns),
           el('div', { class: 'len-meta' }, pomoChip, proj)),
     el('div', { class: 'study-subjects', role: 'group', 'aria-label': 'Subject' },
-      subjects.length
-        ? subjectRow()
-        : el('p', { class: 'study-empty' }, 'No subjects yet — add them on the Plan tab, then come back.')),
+      subjChips, subjectNote),
     attach,
     taskPanel,
     el('div', { class: 'study-foot' },
@@ -575,13 +601,6 @@ function setupScreen() {
       startBtn,
     ),
   );
-}
-
-function syncPressed(group, active) {
-  for (const c of group.children) {
-    if (c === active) c.setAttribute('aria-pressed', 'true');
-    else c.setAttribute('aria-pressed', 'false');
-  }
 }
 
 /* ---------- armed (intention) screen ---------- */
@@ -863,8 +882,7 @@ function doneScreen() {
           onclick: () => { Session.phase = 'idle'; renderHost(); },
         }, 'Again'),
         el('button', { class: 'btn btn-subtle', onclick: () => { Session.phase = 'idle'; Router.go('/home'); } }, 'Home')
-      ),
-      d.demo ? el('p', { class: 'tiny done-demo' }, 'Demo session — demo minutes are excluded from stats.') : null
+      )
     )
   );
 }

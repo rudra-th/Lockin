@@ -1,7 +1,7 @@
 {
   "name": "Lockin — Focus, strictly",
   "short_name": "Lockin",
-  "description": "A study-first focus PWA: paint your day on a 24-hour grid, run wake-locked Study Mode sessions with real Strict enforcement and an honest slip log.",
+  "description": "A study-first focus PWA: keep a daily task list, run wake-locked Study Mode sessions with real Strict enforcement, and track an honest slip log. Installable, offline, no account.",
   "id": "lockin-app",
   "start_url": "./",
   "scope": "./",
@@ -21,7 +21,7 @@
     {
       "name": "Plan today",
       "short_name": "Plan",
-      "description": "Open the 24-hour planner",
+      "description": "Open today's tasks and tomorrow's",
       "url": "./#/plan",
       "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },

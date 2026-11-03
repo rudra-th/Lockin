@@ -18,7 +18,7 @@ function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function blankState(subjects = []) {
+function blankState() {
   return {
     v: VERSION,
     createdAt: Date.now(),
@@ -27,7 +27,6 @@ function blankState(subjects = []) {
       { id: 'rest',  name: 'Rest',  kind: 'rest',  hue: GENERIC_HUES.rest },
       { id: 'meal',  name: 'Meals', kind: 'meal',  hue: GENERIC_HUES.meal },
       { id: 'free',  name: 'Free',  kind: 'free',  hue: GENERIC_HUES.free },
-      ...subjects.map((name, i) => ({ id: uid('act'), name, kind: 'study', hue: SUBJECT_HUES[i % SUBJECT_HUES.length] })),
     ],
     tasks: [],
     plans: {},
@@ -46,7 +45,6 @@ function blankState(subjects = []) {
     session: null, // live-session runtime snapshot (see focus.js)
     flags: {
       onboarded: false,
-      seeded: false,
     },
   };
 }
@@ -58,6 +56,14 @@ function migrate(raw) {
   if (typeof raw.profile.exam !== 'string') raw.profile.exam = '';
   if (typeof raw.profile.examId !== 'string') raw.profile.examId = '';
   if (typeof raw.profile.examDate !== 'string') raw.profile.examDate = '';
+
+  /* Demo sessions are gone from the product. Old ones were explicitly
+     excluded from every statistic, so drop them instead of letting the
+     removed flag make them count as real focus. */
+  raw.sessions = (raw.sessions || []).filter((s) => !s.demo);
+  raw.sessions.forEach((s) => { delete s.demo; });
+  raw.flags = raw.flags || {};
+  delete raw.flags.seeded;
   return raw;
 }
 
@@ -96,14 +102,30 @@ const Store = {
   },
 
   subjects() {
-    return this.state.activities.filter((a) => a.kind === 'study');
+    return this.state.activities.filter((a) => a.kind === 'study' && !a.archived);
   },
 
   addSubject(name) {
+    const clean = String(name || '').trim().slice(0, 24);
+    if (!clean) return null;
+    const existing = this.subjects().find((a) => a.name.toLowerCase() === clean.toLowerCase());
+    if (existing) return existing;
     const hue = SUBJECT_HUES[this.subjects().length % SUBJECT_HUES.length];
-    const act = { id: uid('act'), name: name.trim().slice(0, 24), kind: 'study', hue };
+    const act = { id: uid('act'), name: clean, kind: 'study', hue };
     this.set((s) => s.activities.push(act));
     return act;
+  },
+
+  /* Removal is an archive, never a delete: old sessions and slips must keep
+     resolving the subject's name and colour in Stats. */
+  archiveSubject(id) {
+    const act = this.activity(id);
+    if (!act || act.kind !== 'study') return false;
+    this.set((s) => {
+      const target = s.activities.find((a) => a.id === id);
+      if (target) target.archived = true;
+    });
+    return true;
   },
 
   /* ---------- day grid ---------- */
@@ -179,20 +201,26 @@ const Store = {
   },
 
   /* ---------- sessions ---------- */
+
+  /** minutes a session actually banked — stopwatch seconds win over wall clock */
+  sessionMins(sess) {
+    if (!sess) return 0;
+    const mins = sess.secs != null
+      ? sess.secs / 60
+      : Math.max(0, (sess.end - sess.start) / 60000);
+    return Number.isFinite(mins) ? mins : 0;
+  },
+
   focusMinutesOn(dateKey) {
     let mins = 0;
     for (const sess of this.state.sessions) {
-      if (sess.demo || sess.kind !== 'focus') continue; // demo never happened
+      if (sess.kind !== 'focus') continue;
       // aborted sessions keep their minutes — time actually spent is honest —
       // they just never make the day clean (dayClean also demands zero slips)
       if (sess.day !== dateKey) continue;
-      // stopwatch sessions carry exact studied seconds (pauses excluded);
-      // timer sessions derive minutes from wall clock
-      mins += sess.secs != null
-        ? Math.round(sess.secs / 60)
-        : Math.max(0, Math.round((sess.end - sess.start) / 60000));
+      mins += this.sessionMins(sess);
     }
-    return mins;
+    return Math.round(mins);
   },
 
   slipCountsOn(dateKey) {
@@ -236,14 +264,10 @@ const Store = {
     const map = new Map();
     const cutoff = addDays(dateKey, -(days - 1));
     for (const sess of this.state.sessions) {
-      if (!sess.completed || sess.kind !== 'focus' || sess.demo) continue;
+      if (sess.kind !== 'focus') continue;
       if (sess.day < cutoff || sess.day > dateKey) continue;
-      const key = sess.subjId || 'free';
-      // stopwatch sessions bank exact seconds (pauses excluded); timer sessions
-      // borrow their wall-clock span
-      map.set(key, (map.get(key) || 0) + (sess.secs != null
-        ? sess.secs / 60
-        : (sess.end - sess.start) / 60000));
+      const key = sess.subjectId || sess.subjId || 'free';
+      map.set(key, (map.get(key) || 0) + this.sessionMins(sess));
     }
     return map;
   },
@@ -269,7 +293,7 @@ const Store = {
   },
 
   reset() {
-    this.state = blankState(); // seeded=false → the walkthrough re-seeds its sample day
+    this.state = blankState();
     this.persist();
     document.dispatchEvent(new CustomEvent('lockin:changed'));
   },
