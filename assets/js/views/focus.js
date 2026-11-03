@@ -3,7 +3,7 @@
 
 import { Store, uid } from '../store.js';
 import { Router } from '../router.js';
-import { el, fmtClock, fmtWatch, fmtMin, todayKey, decideAway } from '../util.js';
+import { el, fmtClock, fmtWatch, fmtMin, todayKey, decideAway, earnedExit, FREE_EXIT_SEC } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
 
@@ -16,7 +16,7 @@ let currentSessId = null;
 
 const Session = {
   phase: 'idle',                 // idle | armed | running | paused | break | done | aborted
-  cfg: null,                     // {min, subjId, taskIds, rounds, mode: 'timer'|'stop'}
+  cfg: null,                     // {min, taskIds, rounds, mode: 'timer'|'stop'}
   startedAt: 0,
   plannedEnd: 0,
   roundIdx: 1,
@@ -68,6 +68,51 @@ export function resumeFromSnapshot() {
 /* ---------- strict enforcement ---------- */
 
 const strictOn = () => !!Store.state.settings.strict;
+
+/* ---------- earned exit ----------
+   Real work buys the right to stop. At `exitGraceMin` the quit control stops
+   being a punishment: no slip, no broken day. 0 turns the rule off. */
+
+const exitGraceMin = () => Number(Store.state.settings.exitGraceMin) || 0;
+const graceOn = () => exitGraceMin() > 0;
+
+function sessionElapsedSec() {
+  if (Session.cfg?.mode === 'stop') return stopSeconds();
+  const banked = Math.max(0, Session.roundIdx - 1) * (Session.cfg?.min || 0) * 60;
+  return banked + Math.max(0, (Date.now() - Session.startedAt) / 1000);
+}
+
+const earnedNow = () => earnedExit(sessionElapsedSec(), exitGraceMin());
+
+/* The first seconds are an accident window, not a decision. */
+const freeNow = () => sessionElapsedSec() < FREE_EXIT_SEC;
+
+function exitHintText() {
+  if (freeNow()) return `Free to stop — under ${FREE_EXIT_SEC}s`;
+  if (!graceOn()) return '';
+  if (earnedNow()) return 'Earned exit — stopping now breaks nothing';
+  const left = Math.max(1, Math.ceil((exitGraceMin() * 60 - sessionElapsedSec()) / 60));
+  return `Earned exit in ${left}m`;
+}
+
+function exitHint() {
+  /* With Strict off nothing is enforced, so there is nothing to earn. */
+  if (!strictOn()) return null;
+  if (!graceOn() && !freeNow()) return null;
+  const cls = `sess-exit${freeNow() ? ' is-free' : ''}${earnedNow() ? ' is-earned' : ''}`;
+  return el('div', { class: cls }, exitHintText());
+}
+
+function updateExitUi() {
+  const note = document.querySelector('.sess-exit');
+  if (note) {
+    note.textContent = exitHintText();
+    note.classList.toggle('is-free', freeNow());
+    note.classList.toggle('is-earned', earnedNow());
+  }
+  const btn = document.querySelector('.btn-quit');
+  if (btn) paintQuit(btn);
+}
 
 function onVisibility() {
   if (document.visibilityState === 'hidden') {
@@ -194,6 +239,7 @@ function tick() {
     else finishBreak();
   }
   drawClock();
+  updateExitUi();
 }
 
 function remaining() {
@@ -210,7 +256,6 @@ function completeRound() {
   Store.set((s) => s.sessions.push({
     id,
     day: todayKey(),
-    subjectId: Session.cfg.subjId || null,
     taskIds: Session.cfg.taskIds || [],
     start: Session.startedAt,
     end: Session.plannedEnd,
@@ -229,21 +274,34 @@ function completeRound() {
   }
 }
 
-function recordAborted(subjectId, taskIds, start) {
+function recordAborted(taskIds, start) {
   if (Session.cfg?.mode === 'stop') return null; // stopwatch writes its record in finish()
   const id = currentSessId;
-  const secs = Session.cfg?.mode === 'stop' ? stopSeconds() : null;
   Store.set((s) => s.sessions.push({
     id,
     day: todayKey(),
-    subjectId: subjectId || null,
     taskIds: taskIds || [],
     start,
     end: Date.now(),
     kind: 'focus',
     completed: false,
     aborted: true,
-    secs,
+  }));
+  return id;
+}
+
+/* An earned end is not an abort: the minutes count, the day can stay clean. */
+function recordEarned(taskIds, start) {
+  const id = currentSessId;
+  Store.set((s) => s.sessions.push({
+    id,
+    day: todayKey(),
+    taskIds: taskIds || [],
+    start,
+    end: Date.now(),
+    kind: 'focus',
+    completed: false,
+    earned: true,
   }));
   return id;
 }
@@ -273,47 +331,70 @@ function finishBreak() {
   }
 }
 
-function finish(finished) {
+function finish(finished, opts = {}) {
+  const earned = !!opts.earned;
+  const discard = !!opts.discard;
   clearInterval(timer);
   timer = null;
   releaseAll();
   const stopMode = Session.cfg?.mode === 'stop';
   const secs = stopMode ? stopSeconds() : null;
   /* stopwatch sessions write their record here — engine never hits completeRound
-     (timer rounds record there); aborted or logged, the banked seconds count */
-  if (stopMode) {
+     (timer rounds record there); earned ends count, discards do not */
+  if (stopMode && !discard) {
     Store.set((s) => s.sessions.push({
       id: currentSessId,
       day: todayKey(),
-      subjectId: Session.cfg.subjId || null,
       taskIds: Session.cfg.taskIds || [],
       start: Session.watchStart,
       end: Date.now(),
       secs,
       kind: 'focus',
-      completed: !!finished,
-      aborted: !finished,
+      completed: !!(finished || earned),
+      aborted: !finished && !earned,
+      ...(earned ? { earned: true } : {}),
     }));
   }
-  const minsStudied = finished
-    ? (stopMode ? Math.round(secs / 60) : Session.cfg.min * Math.max(1, Session.roundIdx))
-    : (stopMode ? Math.round(secs / 60) : Math.max(0, Math.round((Date.now() - Session.startedAt) / 60000)));
+  const minsStudied = discard
+    ? 0
+    : finished
+      ? (stopMode ? Math.round(secs / 60) : Session.cfg.min * Math.max(1, Session.roundIdx))
+      : (stopMode ? Math.round(secs / 60) : Math.max(0, Math.round((Date.now() - Session.startedAt) / 60000)));
   Session.lastDone = {
     done: !!finished,
-    subjName: nameOf(Session.cfg?.subjId),
+    earned,
+    discarded: discard,
     mins: minsStudied,
     secs, // stopwatch precision for the done screen
     today: Store.focusMinutesOn(todayKey()),
   };
-  Session.phase = finished ? 'done' : 'aborted';
+  Session.phase = (finished || earned) ? 'done' : 'aborted';
   clearSnapshot();
   if (finished) notify('Session done. Clean slate kept.');
+  else if (earned) notify('Session banked. Nothing broken.');
   renderHost();
 }
 
 function abandon() {
-  recordAborted(Session.cfg.subjId, Session.cfg.taskIds, Session.startedAt);
-  Store.logSlip('abandon', currentSessId, 0);
+  /* The first seconds are an accident window: nothing is written, nothing breaks. */
+  if (freeNow()) {
+    closeSheet();
+    finish(false, { discard: true });
+    return;
+  }
+  /* Earned exit: enough real work means stopping is a decision, not a slip. */
+  if (earnedNow()) {
+    if (Session.cfg?.mode === 'stop') {
+      finish(true, { earned: true });
+    } else {
+      recordEarned(Session.cfg.taskIds, Session.startedAt);
+      finish(false, { earned: true });
+    }
+    closeSheet();
+    return;
+  }
+  recordAborted(Session.cfg.taskIds, Session.startedAt);
+  if (strictOn()) Store.logSlip('abandon', currentSessId, 0);
   closeSheet();
   finish(false);
 }
@@ -334,8 +415,6 @@ function notify(body) {
 export function initFocus(Router) {
   Router.register('/focus', { mount, unmount });
 }
-
-const nameOf = (subjId) => (Store.activity(subjId)?.name || 'Study');
 
 function renderHost() {
   const host = document.getElementById('view');
@@ -365,10 +444,8 @@ function renderHost() {
 
 function setupScreen() {
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
-  const subjects = Store.subjects();
   const pomoSettings = Store.state.settings.pomo || { focus: 25, short: 5, long: 15 };
   let min = Number(q.get('min')) || pomoSettings.focus || 25;
-  let subjId = q.get('subj') || subjects[0]?.id || null;
   let rounds = 1;
   let pomo = false;
   let mode = q.get('mode') === 'stop' ? 'stop' : (Store.state.settings.lastMode === 'stop' ? 'stop' : 'timer');
@@ -457,79 +534,21 @@ function setupScreen() {
   });
   paintLen();
 
-  const subjectWrap = el('div', { class: 'study-subjects', role: 'group', 'aria-label': 'Subject' });
-  const subjChips = el('div', { class: 'chips' });
-  const subjectNote = el('p', { class: 'study-empty' },
-    'No subjects yet — add your first one. It stays yours, and you can remove it any time.');
-  const addChip = el('button', {
-    class: 'chip add', type: 'button',
-    onclick: addSubjectFlow,
-  }, el('i', { innerHTML: svg('plus', 14) }), 'New subject');
-
-  function makeChip(a) {
-    return el('button', {
-      class: 'chip', style: `--h:${a.hue}`, dataset: { subj: a.id },
-      'aria-pressed': String(a.id === subjId),
-      onclick: () => { subjId = a.id; paintSubjects(); },
-    }, el('i', { class: 'dot' }), a.name);
-  }
-
-  subjects.forEach((a) => subjChips.append(makeChip(a)));
-  subjChips.append(addChip);
-
   function startLabel() {
-    if (!subjId) return 'Add a subject to start';
     if (strictOn()) return mode === 'stop' ? 'Arm the stopwatch' : 'Set the timer';
     return mode === 'stop' ? 'Start the stopwatch' : 'Start the timer';
-  }
-
-  function paintSubjects() {
-    [...subjChips.querySelectorAll('[data-subj]')].forEach((c) => {
-      c.setAttribute('aria-pressed', String(c.dataset.subj === subjId));
-    });
-    subjectNote.hidden = subjects.length > 0;
-    startBtn.disabled = !subjId;
-    startBtnLabel.textContent = startLabel();
-  }
-
-  function addSubjectFlow() {
-    openSheet('Add a subject', (close) => {
-      const input = el('input', {
-        class: 'inp', placeholder: 'Name the subject', maxlength: 24,
-        autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Subject name',
-      });
-      const form = el('form', {
-        onsubmit: (ev) => {
-          ev.preventDefault();
-          const act = Store.addSubject(input.value);
-          if (!act) { hint('Give the subject a name.'); return; }
-          if (!subjects.some((x) => x.id === act.id)) subjects.push(act);
-          subjId = act.id;
-          subjChips.insertBefore(makeChip(act), addChip);
-          paintSubjects();
-          close();
-          hint(`${act.name} added.`);
-        },
-      },
-        input,
-        el('button', { type: 'submit', class: 'btn btn-primary', style: 'margin-top:10px' }, svg('plus', 16), 'Add subject'),
-      );
-      setTimeout(() => input.focus(), 160);
-      return form;
-    });
   }
 
   const startBtnLabel = el('span', {}, startLabel());
   const startBtn = el('button', {
     class: 'btn btn-primary btn-block study-start',
     onclick: () => {
-      if (!subjId) { hint('Add or pick a subject first.'); return; }
       if (mode === 'stop') {
         Store.set((s) => { s.settings.lastMode = 'stop'; });
-        Session.cfg = { min: 0, subjId, taskIds: [...pickedTasks], rounds: 1, mode: 'stop' };
+        Session.cfg = { min: 0, taskIds: [...pickedTasks], rounds: 1, mode: 'stop' };
       } else {
         Store.set((s) => { s.settings.lastMode = 'timer'; });
-        Session.cfg = { min, subjId, taskIds: [...pickedTasks], rounds, mode: 'timer' };
+        Session.cfg = { min, taskIds: [...pickedTasks], rounds, mode: 'timer' };
       }
       if (strictOn()) { Session.phase = 'armed'; renderHost(); }
       else begin();
@@ -572,8 +591,6 @@ function setupScreen() {
     ? `Session ${doneToday + 1} today · ${fmtMin(todayMins)} banked`
     : 'First session today';
 
-  paintSubjects();
-
   return el('section', { class: 'study' },
     el('div', { class: 'app-head study-head' },
       el('div', { class: 'grow' },
@@ -592,8 +609,6 @@ function setupScreen() {
       : el('div', { class: 'study-len' },
           el('div', { class: 'len-row' }, lenBtns),
           el('div', { class: 'len-meta' }, pomoChip, proj)),
-    el('div', { class: 'study-subjects', role: 'group', 'aria-label': 'Subject' },
-      subjChips, subjectNote),
     attach,
     taskPanel,
     el('div', { class: 'study-foot' },
@@ -606,9 +621,6 @@ function setupScreen() {
 /* ---------- armed (intention) screen ---------- */
 
 function armedScreen() {
-  const act = Store.activity(Session.cfg.subjId);
-  const hue = act?.hue ?? 100;
-
   const btn = el('button', { class: 'holdbtn primary', onpointerdown: holdStart },
     el('div', { class: 'fill' }), svg('lock'));
   const note = el('div', { class: 'muted' }, 'Hold until the ring closes');
@@ -649,7 +661,6 @@ function armedScreen() {
     el('h2', {}, 'One breath before you go in'),
     el('div', { class: 'armed-what' },
       Session.cfg.mode === 'stop' ? 'Stopwatch' : `${Session.cfg.min} min`),
-    el('div', { class: 'armed-subject', style: `--h:${hue}` }, nameOf(Session.cfg.subjId)),
     Session.cfg.taskIds.length
       ? el('div', { class: 'muted', style: 'margin-top:6px' },
           `${Session.cfg.taskIds.length} task${Session.cfg.taskIds.length === 1 ? '' : 's'} attached`)
@@ -715,15 +726,10 @@ function taskChips() {
     }, (t.doneAt ? '✓ ' : '') + (t.title.length > 26 ? `${t.title.slice(0, 24)}…` : t.title)));
 }
 
-function sessionCore({ label, subject, note, clockClass = '', tone = '' }) {
-  const act = Store.activity(Session.cfg?.subjId);
+function sessionCore({ label, note, clockClass = '' }) {
   const chips = taskChips();
   return el('main', { class: 'sess-core' },
     el('div', { class: 'sess-phase' }, label),
-    el('div', {
-      class: `sess-subject${tone ? ` ${tone}` : ''}`,
-      style: act?.hue != null ? `--h:${act.hue}` : '',
-    }, subject),
     el('div', { class: `clock${clockClass ? ` ${clockClass}` : ''}` }, '—'),
     pipsRow(),
     note ? el('p', { class: 'sess-note' }, note) : null,
@@ -732,10 +738,38 @@ function sessionCore({ label, subject, note, clockClass = '', tone = '' }) {
 }
 
 function quitButton() {
-  return el('button', {
-    class: 'btn btn-danger btn-block btn-quit',
-    onpointerdown: startQuitHold,
-  }, svg('x', 15), 'Quit — hold');
+  const b = el('button', { class: 'btn btn-danger btn-block btn-quit' });
+  paintQuit(b);
+  return b;
+}
+
+/* The control changes shape when stopping is neutral: inside the 20-second
+   accident window, after the earned bar, or with Strict off. Same button,
+   different promise. */
+function paintQuit(b) {
+  const state = freeNow() ? 'free' : earnedNow() ? 'earned' : strictOn() ? 'strict' : 'off';
+  if (b.dataset.state === state) return;
+  b.dataset.state = state;
+  const soft = state !== 'strict';
+  b.dataset.soft = String(soft);
+  if (soft) {
+    b.className = `btn btn-subtle btn-block btn-quit${state === 'earned' ? ' is-earned' : ''}${state === 'free' ? ' is-free' : ''}`;
+    b.innerHTML = `${svg('check', 15)}<span>End session</span>`;
+    b.onpointerdown = null;
+    b.onclick = confirmQuit;
+    const why = state === 'free'
+      ? 'End session — under 20 seconds, nothing logged'
+      : state === 'earned'
+        ? 'End session — nothing breaks'
+        : 'End session — strict is off';
+    b.setAttribute('aria-label', why);
+  } else {
+    b.className = 'btn btn-danger btn-block btn-quit';
+    b.innerHTML = `${svg('x', 15)}<span>Quit — hold</span>`;
+    b.onclick = null;
+    b.onpointerdown = startQuitHold;
+    b.setAttribute('aria-label', 'Quit — hold to confirm');
+  }
 }
 
 function runningScreen() {
@@ -744,8 +778,8 @@ function runningScreen() {
   const label = rounds > 1 ? `Focus · round ${Session.roundIdx} of ${rounds}` : 'Focus';
   return el('div', { class: 'session' },
     sessionChrome('Focus'),
-    sessionCore({ label, subject: nameOf(Session.cfg.subjId) }),
-    el('footer', { class: 'sess-foot' }, quitButton())
+    sessionCore({ label }),
+    el('footer', { class: 'sess-foot' }, exitHint(), quitButton())
   );
 }
 
@@ -756,13 +790,15 @@ function stopRunningScreen() {
     sessionChrome('Focus', 'live'),
     sessionCore({
       label: 'Stopwatch',
-      subject: nameOf(Session.cfg.subjId),
       note: 'Every second in here is banked. Pause is honest rest — it stops the count.',
       clockClass: 'stopwatch',
     }),
-    el('footer', { class: 'sess-foot sess-foot-split' },
-      el('button', { class: 'btn btn-primary', onclick: pauseStop }, svg('pause', 15), 'Pause'),
-      quitButton()
+    el('footer', { class: 'sess-foot' },
+      exitHint(),
+      el('div', { class: 'sess-foot-split' },
+        el('button', { class: 'btn btn-primary', onclick: pauseStop }, svg('pause', 15), 'Pause'),
+        quitButton()
+      )
     )
   );
 }
@@ -772,7 +808,6 @@ function pausedScreen() {
     sessionChrome('Paused'),
     sessionCore({
       label: 'Paused',
-      subject: nameOf(Session.cfg.subjId),
       note: `Paused on the second. ${Session.pauseCount} pause${Session.pauseCount === 1 ? '' : 's'} so far.`,
       clockClass: 'stopwatch is-muted',
     }),
@@ -784,14 +819,16 @@ function pausedScreen() {
 }
 
 function stopEndSheet() {
+  const earned = earnedNow();
   openSheet('End the stopwatch?', () => [
-    el('p', { class: 'muted' }, `Time banked: ${fmtWatch(stopSeconds())}. Logging it wraps the session up properly.`),
+    el('p', { class: 'muted' },
+      `Time banked: ${fmtWatch(stopSeconds())}. ${earned ? 'Ending now breaks nothing.' : 'Logging it keeps the minutes.'}`),
     el('div', { class: 'actions' },
       el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); finish(true); } }, svg('check', 15), 'Log the session'),
       el('button', { class: 'btn btn-subtle', onclick: () => {
         closeSheet();
-        finish(false); // stopwatch records its own (aborted, no slip)
-      } }, svg('x', 15), 'Discard'),
+        finish(false, { discard: true }); // a real discard: nothing is written
+      } }, svg('x', 15), 'End and discard'),
     ),
   ]);
 }
@@ -819,9 +856,46 @@ function startQuitHold(ev) {
 }
 
 function confirmQuit() {
+  const mins = Math.max(0, Math.round(sessionElapsedSec() / 60));
+  if (freeNow()) {
+    openSheet('End the session?', () => [
+      el('p', { class: 'muted', style: 'margin:0 0 4px' },
+        `Under ${FREE_EXIT_SEC} seconds in. Ending now logs nothing — no slip, no session.`),
+      el('div', { class: 'actions' },
+        el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); abandon(); } }, svg('check', 15), 'End session'),
+        el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Keep going'),
+      ),
+    ]);
+    return;
+  }
+  if (earnedNow()) {
+    openSheet('End the session?', () => [
+      el('p', { class: 'muted', style: 'margin:0 0 4px' },
+        `${fmtMin(mins)} banked. Ending now breaks nothing — no slip, no broken streak.`),
+      el('div', { class: 'actions' },
+        el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); abandon(); } }, svg('check', 15), 'End session'),
+        el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Keep going'),
+      ),
+    ]);
+    return;
+  }
+  if (!strictOn()) {
+    openSheet('End the session?', () => [
+      el('p', { class: 'muted', style: 'margin:0 0 4px' },
+        `${fmtMin(mins)} banked. Strict is off — ending is tracked, not punished.`),
+      el('div', { class: 'actions' },
+        el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); abandon(); } }, svg('check', 15), 'End session'),
+        el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Keep going'),
+      ),
+    ]);
+    return;
+  }
+  const bar = exitGraceMin();
+  const copy = bar > 0
+    ? `${fmtMin(mins)} banked. Under your ${fmtMin(bar)} bar, leaving now is a slip — the minutes stay yours.`
+    : 'Quitting mid-focus is a slip in the honesty log. Minutes you studied stay yours.';
   openSheet('Leaving already?', () => [
-    el('p', { class: 'muted', style: 'margin:0 0 4px' },
-      'Quitting mid-focus is a slip in the honesty log. Minutes you studied stay yours.'),
+    el('p', { class: 'muted', style: 'margin:0 0 4px' }, copy),
     el('div', { class: 'actions' },
       el('button', { class: 'btn btn-danger', onclick: () => abandon() }, svg('x', 15), 'Log the slip'),
       el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Stay in it'),
@@ -836,9 +910,8 @@ function breakScreen() {
     sessionChrome('Break', 'good'),
     el('main', { class: 'sess-core' },
       el('div', { class: 'sess-phase' }, Session.breakKind >= 10 ? 'Long break' : 'Short break'),
-      el('div', { class: 'sess-subject' }, 'Step away'),
       el('div', { class: 'clock is-good' }, '—'),
-      el('p', { class: 'sess-note' }, `Water, stretch, window. Next: ${nameOf(Session.cfg.subjId)}.`)
+      el('p', { class: 'sess-note' }, 'Water, stretch, window. Then back to focus.')
     ),
     el('footer', { class: 'sess-foot sess-foot-split' },
       el('button', { class: 'btn btn-subtle', onclick: () => { Session.plannedEnd = Date.now(); finishBreak(); } }, 'Back to focus'),
@@ -860,21 +933,24 @@ function confirmEndChain() {
 /* ---------- done screen ---------- */
 
 function doneScreen() {
-  const d = Session.lastDone || { done: false, subjName: 'Session', mins: 0 };
+  const d = Session.lastDone || { done: false, mins: 0 };
   const c = Store.slipCountsOn(todayKey());
-  const clean = c.slip === 0 && c.abandon === 0 && d.done;
+  const clean = c.slip === 0 && c.abandon === 0 && (d.done || d.earned);
   const bankedText = d.secs != null ? fmtWatch(d.secs) : fmtMin(d.mins);
   const meter = goalMeter({ label: 'Daily target' });
   updateGoalMeter(meter, dailyTarget());
+  const good = d.done || d.earned;
+  let line;
+  if (d.earned) line = 'Ended on your terms. Nothing broken.';
+  else if (d.discarded) line = 'Nothing banked. The clock reset clean.';
+  else if (d.done) line = clean ? 'Nothing broken. The streak stands.' : 'Rounds banked — but the honesty log still holds the slip.';
+  else line = strictOn() ? 'Cut short and logged. Tomorrow can still be clean.' : 'Cut short — tracked, not enforced.';
   return el('div', { class: 'done-wrap' },
     el('div', { class: 'done-card view-anim' },
-      el('div', { class: `done-kicker ${d.done ? 'is-good' : 'is-warn'}` }, d.done ? 'Session banked' : 'Session ended'),
-      el('div', { class: 'done-amount' }, `+${bankedText}`),
-      el('div', { class: 'done-subject' }, d.subjName || 'Session'),
-      el('p', { class: 'done-line' },
-        d.done
-          ? clean ? 'Nothing broken. The streak stands.' : 'Rounds banked — but the honesty log still holds the slip.'
-          : 'Cut short and logged. Tomorrow can still be clean.'),
+      el('div', { class: `done-kicker ${good ? 'is-good' : 'is-warn'}` },
+        good ? 'Session banked' : d.discarded ? 'Session discarded' : 'Session ended'),
+      el('div', { class: 'done-amount' }, d.discarded ? '—' : `+${bankedText}`),
+      el('p', { class: 'done-line' }, line),
       meter,
       el('div', { class: 'done-actions' },
         el('button', {

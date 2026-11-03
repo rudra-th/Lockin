@@ -1,4 +1,4 @@
-## scratch
+## scratch / local tooling
 .superpowers/
 .taste-skill/
 
@@ -12,3 +12,46 @@ desktop.ini
 ## python
 __pycache__/
 *.pyc
+
+## dependencies & build output
+node_modules/
+dist/
+build/
+.stage/
+coverage/
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+## Android / Capacitor
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+## signing keys & secrets — never commit these
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+google-services.json
+firebase-adminsdk*.json
+serviceAccount*.json
+.firebaserc
+.firebase/
+secrets/
+
+## generated at pack time
+extension/core/

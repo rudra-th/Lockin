@@ -10,10 +10,6 @@ export const GENERIC_HUES = {
   free: 285,
 };
 
-// Rotating hue assignment for study subjects — stays clear of the accent
-// lime (82) and the generic kinds so chips/blocks are always distinguishable.
-const SUBJECT_HUES = [200, 265, 330, 25, 150, 45, 220, 15, 100, 310];
-
 function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -40,6 +36,7 @@ function blankState() {
       notifs: false,
       goalMin: 120,
       minClean: 15,
+      exitGraceMin: 15,
       pomo: { focus: 25, short: 5, long: 15 },
     },
     session: null, // live-session runtime snapshot (see focus.js)
@@ -64,6 +61,10 @@ function migrate(raw) {
   raw.sessions.forEach((s) => { delete s.demo; });
   raw.flags = raw.flags || {};
   delete raw.flags.seeded;
+
+  /* v1.3: real work buys an honest exit. Default 15 min; 0 keeps the old rule. */
+  raw.settings = raw.settings || {};
+  if (typeof raw.settings.exitGraceMin !== 'number') raw.settings.exitGraceMin = 15;
   return raw;
 }
 
@@ -96,36 +97,9 @@ const Store = {
     document.dispatchEvent(new CustomEvent('lockin:changed'));
   },
 
-  /* ---------- activities / subjects ---------- */
+  /* ---------- activities ---------- */
   activity(id) {
     return this.state.activities.find((a) => a.id === id) || null;
-  },
-
-  subjects() {
-    return this.state.activities.filter((a) => a.kind === 'study' && !a.archived);
-  },
-
-  addSubject(name) {
-    const clean = String(name || '').trim().slice(0, 24);
-    if (!clean) return null;
-    const existing = this.subjects().find((a) => a.name.toLowerCase() === clean.toLowerCase());
-    if (existing) return existing;
-    const hue = SUBJECT_HUES[this.subjects().length % SUBJECT_HUES.length];
-    const act = { id: uid('act'), name: clean, kind: 'study', hue };
-    this.set((s) => s.activities.push(act));
-    return act;
-  },
-
-  /* Removal is an archive, never a delete: old sessions and slips must keep
-     resolving the subject's name and colour in Stats. */
-  archiveSubject(id) {
-    const act = this.activity(id);
-    if (!act || act.kind !== 'study') return false;
-    this.set((s) => {
-      const target = s.activities.find((a) => a.id === id);
-      if (target) target.archived = true;
-    });
-    return true;
   },
 
   /* ---------- day grid ---------- */
@@ -258,18 +232,6 @@ const Store = {
       cursor = addDays(cursor, -1);
     }
     return streak;
-  },
-
-  subjectMinutes(dateKey, days = 7) {
-    const map = new Map();
-    const cutoff = addDays(dateKey, -(days - 1));
-    for (const sess of this.state.sessions) {
-      if (sess.kind !== 'focus') continue;
-      if (sess.day < cutoff || sess.day > dateKey) continue;
-      const key = sess.subjectId || sess.subjId || 'free';
-      map.set(key, (map.get(key) || 0) + this.sessionMins(sess));
-    }
-    return map;
   },
 
   logSlip(kind, sessId, awaySec, dayKey) {

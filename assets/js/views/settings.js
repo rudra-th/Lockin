@@ -58,6 +58,11 @@ function enforcementCard() {
     setrow('Strict Mode',
       `Leaving a focus session for more than ${10}s is a slip in the honesty log. Under ${10}s is forgiven — 3 free rescues a day.`,
       toggle(() => s.strict, () => Store.set((st) => { st.settings.strict = !st.settings.strict; }))),
+    setrow('Earned exit',
+      'After this much real focus, ending the session is neutral — no slip, no broken streak. Off means every early end counts.',
+      stepper(() => Store.state.settings.exitGraceMin,
+        (v) => Store.set((st) => { st.settings.exitGraceMin = v; }),
+        { lo: 0, hi: 60, step: 5, fmt: (v) => (v === 0 ? 'Off' : fmtMin(v)) })),
     setrow('Keep screen awake',
       'Screen Wake Lock during focus sessions — the phone stays awake while you study.',
       toggle(() => s.wakelock, () => Store.set((st) => { st.settings.wakelock = !st.settings.wakelock; }))),
@@ -178,7 +183,7 @@ function dataCard() {
   const wipeBtn = el('button', {
     class: 'btn btn-danger btn-block',
     onclick: () => openSheet('Delete everything?', (close) => [
-      el('p', { class: 'muted' }, 'Tasks, subjects, sessions, streaks — gone for good. Export a backup first if any of it matters.'),
+      el('p', { class: 'muted' }, 'Tasks, sessions, streaks — gone for good. Export a backup first if any of it matters.'),
       el('div', { class: 'actions' },
         el('button', {
           class: 'btn btn-primary',

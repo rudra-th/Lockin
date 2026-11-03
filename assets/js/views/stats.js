@@ -1,4 +1,4 @@
-/* Lockin — Stats: today, all time, the week, tasks, subjects, heat, honesty. */
+/* Lockin - Stats: today, all time, the week, tasks, heat, honesty. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
@@ -62,7 +62,7 @@ function emptyHero() {
     el('div', { class: 'ec-kicker' }, 'Nothing measured yet'),
     el('div', { class: 'ec-title' }, 'The numbers start when ', el('em', {}, 'the clock does.')),
     el('p', { class: 'ec-copy' },
-      'Run one session in Study Mode. Minutes, clean days, the subject split and the honesty log fill themselves — no demo data, no defaults.'),
+      'Run one session in Study Mode. Minutes, clean days and the honesty log fill themselves — no demo data, no defaults.'),
     el('button', {
       class: 'btn btn-primary btn-block', style: 'margin-top:16px',
       onclick: () => Router.go('/focus'),
@@ -236,58 +236,6 @@ function taskCard() {
   );
 }
 
-/* ---------- subjects ---------- */
-
-function splitCard() {
-  const map = Store.subjectMinutes(todayKey(), 7);
-  const entries = [...map.entries()]
-    .map(([id, mins]) => {
-      const act = Store.activity(id);
-      return {
-        name: act?.name || 'Study',
-        mins,
-        hue: act?.hue ?? 0,
-      };
-    })
-    .filter((x) => x.mins > 0)
-    .sort((a, b) => b.mins - a.mins);
-
-  if (!entries.length) {
-    return el('div', { class: 'card' },
-      el('h2', {}, 'Subjects · 7 days'),
-      el('div', { class: 'empty' }, 'No sessions in the last 7 days. The split draws itself once Study Mode runs.'),
-    );
-  }
-
-  const totalMins = sum(entries.map((x) => x.mins));
-  const bar = el('div', { class: 'splitbar' });
-  entries.forEach((x, i) => {
-    const w = (x.mins / totalMins) * 100;
-    const seg = el('div', {
-      style: `width:${w}%;flex:0 0 auto;background:hsl(${x.hue} 55% 55%)`,
-      title: `${x.name} · ${fmtMin(x.mins)}`,
-    });
-    if (i === 0) seg.style.borderRadius = '8px 0 0 8px';
-    if (i === entries.length - 1) {
-      seg.style.borderRadius = seg.style.borderRadius ? '8px 0 0 8px' : '0 8px 8px 0';
-    }
-    bar.append(seg);
-  });
-
-  const rows = entries.map((x) => el('div', { class: 'splitrow' },
-    el('span', { class: 'dot', style: `background:hsl(${x.hue} 55% 55%)` }),
-    el('span', { class: 'grow' }, x.name),
-    el('span', { class: 'splitpct' }, `${Math.round((x.mins / totalMins) * 100)}%`),
-    el('b', {}, fmtMin(x.mins)),
-  ));
-
-  return el('div', { class: 'card' },
-    el('h2', {}, 'Subjects · 7 days'),
-    bar,
-    el('div', { style: 'margin-top:10px' }, rows),
-  );
-}
-
 /* ---------- heatmap: 13 weekday-aligned weeks ---------- */
 
 function heatCard() {
@@ -370,13 +318,12 @@ function recentCard() {
     el('h2', {}, 'Recent sessions'),
     rows.length
       ? rows.map((s) => {
-          const act = Store.activity(s.subjectId);
           const time = new Date(s.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           return el('div', { class: 'sesrow' },
-            el('i', { class: 'dot', style: `background:hsl(${act?.hue ?? 90} 55% 52%)` }),
             el('div', { class: 'grow' },
-              el('div', { class: 'ses-name' }, act?.name || 'Study',
-                s.aborted ? el('span', { class: 'ses-tag' }, 'ended early') : null),
+              el('div', { class: 'ses-name' }, 'Focus',
+                s.earned ? el('span', { class: 'ses-tag' }, 'ended on your terms')
+                  : s.aborted ? el('span', { class: 'ses-tag' }, 'ended early') : null),
               el('div', { class: 'ses-when' }, `${prettyDate(s.day)} · ${time}`),
             ),
             el('span', { class: 'ses-mins' }, fmtMin(Store.sessionMins(s))),
@@ -394,14 +341,12 @@ function honestyCard() {
     el('h2', {}, 'Honesty log'),
     rows.length
       ? rows.map((sl) => {
-          const sess = Store.state.sessions.find((s) => s.id === sl.sessId);
-          const name = sess && Store.activity(sess.subjectId)?.name;
           let what;
-          if (sl.kind === 'abandon') what = name ? `${name} · quit` : 'Session quit';
+          if (sl.kind === 'abandon') what = 'Session quit';
           else if (sl.awaySec > 0) {
             const away = sl.awaySec >= 60 ? fmtMin(sl.awaySec / 60) : `${sl.awaySec}s`;
-            what = name ? `${name} · away ${away}` : `Away ${away}`;
-          } else what = name || 'Session';
+            what = `Away ${away}`;
+          } else what = 'Session';
           return el('div', { class: `logrow kind-${sl.kind}` },
             el('span', { class: `kind kind-${sl.kind}` },
               { slip: 'SLIP', abandon: 'QUIT', rescue: 'FORGIVEN' }[sl.kind] || sl.kind),
@@ -432,7 +377,6 @@ function render(host) {
           allTimeStrip(all),
           weekCard(),
           taskCard(),
-          splitCard(),
           heatCard(),
           recentCard(),
           honestyCard(),

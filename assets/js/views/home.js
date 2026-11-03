@@ -148,7 +148,7 @@ function weekRail(t) {
 
 /* ---------- one way in ---------- */
 
-function focusCard({ live, subjects, suggestedMin }) {
+function focusCard({ live, suggestedMin }) {
   const startBtn = live
     ? el('button', {
         class: 'btn btn-primary btn-block',
@@ -160,24 +160,13 @@ function focusCard({ live, subjects, suggestedMin }) {
       }, svg('lock', 18), 'Start Study Mode',
       el('span', { class: 'mono', style: 'font-size:12.5px;opacity:0.75' }, `· ${suggestedMin}m`));
 
-  const chips = subjects.length
-    ? el('div', { class: 'chips' }, subjects.map((a) => el('button', {
-        class: 'chip', style: `--h:${a.hue}`,
-        'aria-pressed': 'false',
-        onclick: () => Router.go(`/focus?min=${suggestedMin}&subj=${a.id}`),
-      }, el('i', { class: 'dot' }), a.name)))
-    : null;
-
   return el('div', { class: 'card hero' },
     el('div', { class: 'hlabel' }, live ? 'Running' : 'Study Mode'),
     el('div', { class: 'hbig' }, live ? 'Back to the room.' : 'Sit down. Start the clock.'),
     el('div', { class: 'hfine' },
       live
         ? 'The session is still running. Return before the app decides you left.'
-        : subjects.length
-          ? 'Pick a length and a subject on the next screen. The room stays awake and keeps the target in view.'
-          : 'Name your first subject in Study Mode, then start. Nothing is preloaded for you.'),
-    chips,
+        : 'Pick a length on the next screen. The room stays awake and keeps the target in view.'),
     startBtn,
   );
 }
@@ -189,7 +178,6 @@ function render(host) {
   const cfg = Store.state.settings;
   const focusMin = Store.focusMinutesOn(t);
   const streak = Store.streakUpTo(t);
-  const subjects = Store.subjects();
   const tasks = Store.tasksOn(t);
   const done = tasks.filter((x) => x.doneAt).length;
   const week = weekRail(t);
@@ -211,7 +199,7 @@ function render(host) {
     ),
     band,
     tileStrip(focusMin, streak, week.cleanDays, tasks),
-    focusCard({ live, subjects, suggestedMin }),
+    focusCard({ live, suggestedMin }),
     el('div', { class: 'card' },
       el('div', { class: 'taskdayhead' },
         el('div', {},

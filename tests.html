@@ -28,7 +28,7 @@
 
   <script type="module">
     import { Store } from './assets/js/store.js';
-    import { el, slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, daysUntil, decideAway } from './assets/js/util.js';
+    import { el, slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, daysUntil, decideAway, earnedExit, freeExit, neutralExit } from './assets/js/util.js';
     import { examById, examDateFor, expectedYear } from './assets/js/exams.js';
     import { svg } from './assets/js/icons.js';
 
@@ -134,14 +134,12 @@
       eq(expectedYear(11, 1, nov), 2026); // December still ahead
     });
 
-    group_('Tasks and subjects');
-
-    group_('Tasks and subjects');
+    group_('Tasks');
     const TD = todayKey();
     test('tasks are per-day, openable and removable', () => {
       Store.set((s) => { s.tasks = []; });
       Store.set((s) => s.tasks.push({
-        id: 'tk1', date: TD, title: 'Read one chapter', stages: [], subjectId: null, doneAt: null,
+        id: 'tk1', date: TD, title: 'Read one chapter', stages: [], doneAt: null,
       }));
       eq(Store.tasksOn(TD).length, 1);
       eq(Store.openTasks(TD).length, 1);
@@ -149,19 +147,6 @@
       eq(Store.openTasks(TD).length, 0);
       Store.set((s) => { s.tasks = s.tasks.filter((t) => t.id !== 'tk1'); });
       eq(Store.tasksOn(TD).length, 0);
-    });
-    test('subjects are user-created, deduped and archived', () => {
-      Store.set((s) => { s.activities = s.activities.filter((a) => a.kind !== 'study'); });
-      const first = Store.addSubject('Physics');
-      const again = Store.addSubject('  physics  ');
-      eq(again.id, first.id);
-      eq(Store.subjects().length, 1);
-      Store.archiveSubject(first.id);
-      eq(Store.subjects().length, 0);
-      eq(Store.activity(first.id).name, 'Physics'); // history still resolves
-    });
-    test('blank subjects are refused', () => {
-      eq(Store.addSubject('   '), null);
     });
 
     group_('Planner grid operations');
@@ -192,7 +177,7 @@
     const Y = addDays(T, -1), Y2 = addDays(T, -2);
     function mkSession(day, mins, { completed = true } = {}) {
       return { id: `t_${day}_${mins}`, day, start: Date.now() - mins * 60000, end: Date.now(),
-               kind: 'focus', completed, subjectId: null, taskIds: [] };
+               kind: 'focus', completed, taskIds: [] };
     }
     test('no focus → not clean', () => {
       Store.set((s) => { s.sessions = []; s.slips = []; s.settings.minClean = 15; });
@@ -235,17 +220,6 @@
       eq(Store.sessionMins({ start: 0, end: 25 * 60000 }), 25);
       eq(Store.sessionMins(null), 0);
     });
-    test('subject minutes group by the stored subjectId', () => {
-      Store.set((s) => {
-        s.sessions = [
-          { ...mkSession(T, 30), subjectId: 'act_x' },
-          { ...mkSession(T, 45), secs: 45 * 60, subjectId: 'act_x' },
-        ];
-        s.slips = [];
-      });
-      eq(Store.focusMinutesOn(T), 75);
-      eq(Store.subjectMinutes(T, 7).get('act_x'), 75);
-    });
 
     group_('Strict Mode accident window');
     test('≤10s away is a rescue when rescues remain', () => {
@@ -262,6 +236,59 @@
     });
     test('grace/cap are configurable', () => {
       eq(decideAway({ awaySec: 20, usedRescues: 9, graceSec: 25, cap: 10 }), 'rescue');
+    });
+
+    group_('Earned exit');
+    test('under the 15m bar is not earned', () => {
+      eq(earnedExit(899, 15), false);
+    });
+    test('exactly 15m is earned', () => {
+      eq(earnedExit(900, 15), true);
+    });
+    test('hours of work are earned', () => {
+      eq(earnedExit(3600, 15), true);
+    });
+    test('off (0) never earns an exit', () => {
+      eq(earnedExit(3600, 0), false);
+      eq(earnedExit(3600, null), false);
+    });
+    test('a custom bar moves both edges', () => {
+      eq(earnedExit(1799, 30), false);
+      eq(earnedExit(1800, 30), true);
+    });
+    test('under 20 seconds is a free stop', () => {
+      eq(freeExit(0, 20), true);
+      eq(freeExit(19.9, 20), true);
+      eq(freeExit(20, 20), false);
+    });
+    test('the 20-second window works even with earned exit off', () => {
+      eq(neutralExit(5, 0), true);
+      eq(neutralExit(20, 0), false);
+    });
+    test('between 20 seconds and the bar is still a slip', () => {
+      eq(neutralExit(20, 15), false);
+      eq(neutralExit(899, 15), false);
+      eq(neutralExit(900, 15), true);
+    });
+    test('exitGraceMin defaults to 15', () => {
+      eq(Store.state.settings.exitGraceMin, 15);
+    });
+    test('an earned end keeps the day clean', () => {
+      Store.set((s) => {
+        s.sessions = [{ ...mkSession(T, 21), completed: false, earned: true }];
+        s.slips = [];
+        s.settings.minClean = 15;
+      });
+      eq(Store.focusMinutesOn(T), 21);
+      eq(Store.dayClean(T), true);
+    });
+    test('earned exit does not fake a clean day below the minimum', () => {
+      Store.set((s) => {
+        s.sessions = [{ ...mkSession(T, 5), completed: false, earned: true }];
+        s.slips = [];
+        s.settings.minClean = 15;
+      });
+      eq(Store.dayClean(T), false);
     });
 
     group_('DOM factory');

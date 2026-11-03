@@ -64,7 +64,7 @@ export function taskAddForm(day, { placeholder = 'Add a task…', onChange = () 
       const title = input.value.trim();
       if (!title) return;
       Store.set((s) => s.tasks.push({
-        id: uid('tk'), date: day, title, stages: [], subjectId: null, doneAt: null,
+        id: uid('tk'), date: day, title, stages: [], doneAt: null,
       }));
       onChange();
       setTimeout(() => {
