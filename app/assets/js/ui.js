@@ -7,6 +7,15 @@ import { svg } from './icons.js';
 
 let sheetEl = null;
 let backdropEl = null;
+let sheetKeys = null;        // keydown handler while a sheet is open
+let sheetReturnFocus = null; // element to hand focus back to on close
+
+const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function sheetFocusables() {
+  return [...sheetEl.querySelectorAll(FOCUSABLE)]
+    .filter((n) => !n.disabled && n.getClientRects().length > 0);
+}
 
 export function openSheet(title, makeBody) {
   closeSheet(true);
@@ -17,13 +26,43 @@ export function openSheet(title, makeBody) {
   const headRow = el('div', { class: 'row', style: 'margin:2px 4px 10px' },
     el('h3', {}, title), el('div', { class: 'sp' }), closeBtn
   );
-  sheetEl = el('div', { class: 'sheet', role: 'dialog', 'aria-label': title },
+  sheetEl = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     el('div', { class: 'grab' }),
     headRow
   );
   const parts = makeBody(() => closeSheet());
   (Array.isArray(parts) ? parts : [parts]).forEach((n) => n && sheetEl.append(n));
   document.body.append(backdropEl, sheetEl);
+
+  /* Modal behavior: Escape closes, Tab stays inside, focus enters on open
+     and returns to whoever opened it on close. */
+  sheetReturnFocus = document.activeElement;
+  const first = sheetFocusables()[0];
+  if (first) first.focus();
+  sheetKeys = (ev) => {
+    if (ev.key === 'Escape') {
+      ev.stopPropagation();
+      closeSheet();
+      return;
+    }
+    if (ev.key !== 'Tab' || !sheetEl) return;
+    const items = sheetFocusables();
+    if (!items.length) return;
+    const firstItem = items[0];
+    const lastItem = items[items.length - 1];
+    if (!sheetEl.contains(document.activeElement)) {
+      ev.preventDefault();
+      firstItem.focus();
+    } else if (ev.shiftKey && document.activeElement === firstItem) {
+      ev.preventDefault();
+      lastItem.focus();
+    } else if (!ev.shiftKey && document.activeElement === lastItem) {
+      ev.preventDefault();
+      firstItem.focus();
+    }
+  };
+  document.addEventListener('keydown', sheetKeys);
+
   requestAnimationFrame(() => {
     backdropEl.classList.add('show');
     sheetEl.classList.add('show');
@@ -31,6 +70,10 @@ export function openSheet(title, makeBody) {
 }
 
 export function closeSheet(instant = false) {
+  if (sheetKeys) {
+    document.removeEventListener('keydown', sheetKeys);
+    sheetKeys = null;
+  }
   if (sheetEl) {
     const s = sheetEl;
     sheetEl = null;
@@ -42,6 +85,10 @@ export function closeSheet(instant = false) {
     backdropEl = null;
     if (instant) b.remove();
     else { b.classList.remove('show'); setTimeout(() => b.remove(), 320); }
+  }
+  if (sheetReturnFocus) {
+    sheetReturnFocus.focus(); // a detached opener simply ignores focus()
+    sheetReturnFocus = null;
   }
 }
 

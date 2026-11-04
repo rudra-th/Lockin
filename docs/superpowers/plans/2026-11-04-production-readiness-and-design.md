@@ -148,16 +148,16 @@ Files: new `tools/version.mjs`, edit `tools/check.mjs`, `.github/workflows/check
 
 Files: `app/assets/js/ui.js`, `app/assets/css/app.css`.
 
-- [ ] Step 1. `openSheet()`: set `aria-modal="true"`, remember
+- [x] Step 1. `openSheet()`: set `aria-modal="true"`, remember
       `document.activeElement`, focus the sheet's first focusable child. Add a
       `keydown` listener on `document` while a sheet is open: `Escape` → `closeSheet()`.
-- [ ] Step 2. Focus trap: on `Tab`, cycle within `sheetEl` (first ⇄ last); on
+- [x] Step 2. Focus trap: on `Tab`, cycle within `sheetEl` (first ⇄ last); on
       `closeSheet()`, restore focus to the remembered element. Cleanup: remove the
       keydown listener inside `closeSheet` (mirror the `sceneCleanup` pattern in
       `walkthrough.js`).
-- [ ] Step 3. Add a `.sheet:focus-visible` / `:focus-visible` ring token in
-      `app.css` reusing `--acc` at 2px.
-- [ ] Step 4. Verify: `npm run check`; manual keyboard run happens in the-owner
+- [x] Step 3. Focus ring: already present — `app.css:175` has a global
+      `:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px }`.
+- [x] Step 4. Verify: `npm run check`; manual keyboard run happens in the-owner
       pass afterwards.
 
 ### Task 1.2: SW update prompt
