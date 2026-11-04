@@ -321,35 +321,39 @@ function accountCard() {
 
   function paint() {
     const st = accountState();
+    const syncing = st.status === 'syncing';
     card.textContent = '';
-    card.append(el('h2', {}, 'Account'));
+    card.append(el('h2', { class: 'acct-head' }, svg('cloud', 14), el('span', {}, 'Account')));
 
     if (!st.user) {
       card.append(
         el('p', { class: 'muted', style: 'margin:0 0 10px' },
-          'Optional. Everything already lives on this device — signing in with Google mirrors a copy to your own private cloud, so phone and browser stay in step.'),
+          'Optional — everything already lives on this device. Sign in to mirror a copy to your own private cloud, so phone and browser stay in step. No lock-in. 🔒'),
         el('div', { class: 'btn-stack' },
           el('button', {
-            class: 'btn btn-primary btn-block',
+            class: `btn btn-primary btn-block${st.signingIn ? ' is-busy' : ''}`,
             disabled: st.signingIn,
             onclick: () => signIn(),
-          }, st.signingIn ? 'Signing in…' : 'Sign in with Google'),
+          }, svg('cloud', 16), st.signingIn ? 'Signing in…' : 'Sign in with Google'),
         ),
         st.error ? el('p', { class: 'acct-error' }, st.error) : null,
       );
       return;
     }
 
-    const statusText = st.status === 'syncing' ? 'Syncing…'
-      : st.status === 'offline' ? 'Offline — will retry'
-        : st.status === 'error' ? `Sync error — ${st.error || 'will retry'}`
-          : st.lastSyncAt ? `Synced ${agoLabel(st.lastSyncAt)}` : 'Signed in';
+    const statusText = syncing ? '🔄 Syncing…'
+      : st.status === 'offline' ? '📴 Offline — will retry'
+        : st.status === 'error' ? `⚠️ Sync error — ${st.error || 'will retry'}`
+          : st.lastSyncAt ? `☁️ Synced ${agoLabel(st.lastSyncAt)}` : '✨ Signed in';
 
     card.append(
       el('div', { class: 'acct-id' },
-        st.user.photo
-          ? el('img', { class: 'acct-avatar', src: st.user.photo, alt: '' })
-          : el('span', { class: 'acct-avatar acct-fallback' }, (st.user.name || st.user.email || '?').slice(0, 1).toUpperCase()),
+        el('div', { class: `acct-avatar-wrap${syncing ? ' is-syncing' : ''}` },
+          st.user.photo
+            ? el('img', { class: 'acct-avatar', src: st.user.photo, alt: '' })
+            : el('span', { class: 'acct-avatar acct-fallback' }, (st.user.name || st.user.email || '?').slice(0, 1).toUpperCase()),
+          st.status === 'idle' && st.lastSyncAt ? el('span', { class: 'acct-badge' }, svg('check', 10)) : null,
+        ),
         el('div', { class: 'acct-who' },
           el('b', {}, st.user.name || 'Google account'),
           el('span', {}, st.user.email),
@@ -360,8 +364,10 @@ function accountCard() {
         statusText,
       ),
       el('div', { class: 'btn-stack' },
-        el('button', { class: 'btn btn-subtle btn-block', onclick: () => syncNow('manual') },
-          svg('repeat', 16), 'Sync now'),
+        el('button', {
+          class: `btn btn-subtle btn-block${syncing ? ' is-spinning' : ''}`,
+          onclick: () => syncNow('manual'),
+        }, svg('repeat', 16), 'Sync now'),
         el('button', {
           class: 'btn btn-subtle btn-block',
           onclick: () => signOut().then(() => hint('Signed out — your data stays here.')),
@@ -404,7 +410,7 @@ function aboutCard() {
   return el('div', { class: 'card aboutcard' },
     el('div', { class: 'about-mark' }, el('i', { class: 'brand-dot' })),
     el('div', { class: 'about-name' }, 'Lockin'),
-    el('div', { class: 'tiny' }, 'Focus, strictly. Built for one thing — study.'),
+    el('div', { class: 'tiny' }, 'Focus, strictly. Built for one thing — study. 🎯'),
     el('div', { class: 'tiny', style: 'margin-top:4px' },
       el('a', { href: 'https://lockin.surge.sh', style: 'color:var(--tx-2)' }, 'lockin.surge.sh')),
     el('div', { class: 'row', style: 'justify-content:center;gap:8px;margin-top:12px' },

@@ -2423,17 +2423,38 @@ body[data-mode='onboard'] #view {
 .native-usage-bar i { display: block; height: 100%; border-radius: 99px; background: var(--acc); }
 
 /* Account — the optional cloud mirror */
+.acct-head { display: flex; align-items: center; gap: 6px; }
+.acct-head svg { color: var(--acc); animation: acct-float 3.2s ease-in-out infinite; }
+@keyframes acct-float { 50% { transform: translateY(-2px); } }
 .acct-id { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.acct-avatar-wrap { position: relative; flex: none; display: grid; }
+.acct-avatar-wrap::before {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid transparent; opacity: 0; transition: opacity 200ms;
+}
+.acct-avatar-wrap.is-syncing::before {
+  opacity: 1; border-top-color: var(--acc); border-right-color: var(--acc);
+  animation: acct-spin 0.9s linear infinite;
+}
 .acct-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid var(--line-2); }
 .acct-fallback { display: grid; place-items: center; background: var(--panel-2); color: var(--tx-2); font: 600 16px/1 var(--font-sans); }
+.acct-badge {
+  position: absolute; right: -3px; bottom: -3px; width: 17px; height: 17px;
+  display: grid; place-items: center; border-radius: 50%;
+  background: var(--good); color: #06220b; border: 2px solid var(--panel);
+  animation: acct-pop 340ms var(--ease) both;
+}
+@keyframes acct-pop { from { transform: scale(0); } 70% { transform: scale(1.18); } }
+@keyframes acct-spin { to { transform: rotate(1turn); } }
 .acct-who { display: grid; gap: 2px; min-width: 0; }
 .acct-who b { font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
 .acct-who span { font-size: 12px; color: var(--tx-2); overflow-wrap: anywhere; }
 .acct-status {
   display: flex; align-items: center; gap: 7px; margin-bottom: 12px;
   font: 500 11px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--tx-2);
+  color: var(--tx-2); animation: acct-status-in 260ms var(--ease) both;
 }
+@keyframes acct-status-in { from { opacity: 0; transform: translateY(3px); } }
 .acct-dot { width: 7px; height: 7px; border-radius: 99px; background: var(--tx-3); flex: none; }
 .acct-status.is-idle .acct-dot { background: var(--good); }
 .acct-status.is-syncing .acct-dot { background: var(--acc); animation: acct-pulse 1.1s ease-in-out infinite; }
@@ -2441,6 +2462,12 @@ body[data-mode='onboard'] #view {
 .acct-status.is-error .acct-dot { background: var(--warn); }
 @keyframes acct-pulse { 50% { opacity: 0.35; } }
 .acct-error { margin: 8px 0 0; font-size: 12px; color: var(--warn); overflow-wrap: anywhere; }
+.btn.is-busy svg { animation: acct-bob 1s ease-in-out infinite; }
+.btn.is-spinning svg { animation: acct-spin 0.9s linear infinite; }
+@keyframes acct-bob { 50% { transform: translateY(-2px); } }
+@media (hover: hover) {
+  .btn:hover { filter: brightness(1.07); }
+}
 
 @media (max-width: 380px) {
   .sched-hero { grid-template-columns: minmax(0, 1fr) 128px; }
