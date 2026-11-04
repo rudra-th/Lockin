@@ -1,16 +1,20 @@
 # Privacy
 
 Lockin is a study tool, not an advertising product. This document describes
-what the **shipped 1.4.1 build** does and what the planned sync will do. It is
-written to be read, not to hide behind.
+what the **shipped 1.6.0 build** does — local-first by default, with optional
+Google sign-in for cloud sync. It is written to be read, not to hide behind.
 
 ## The short version
 
-- 1.4.1 is local-first. Tasks, schedules, sessions, slips and settings live in
+- 1.6.0 is local-first. Tasks, schedules, sessions, slips and settings live in
   one `localStorage` key on your device.
-- There is no account, no analytics and no third-party request in 1.4.1.
+- Sync is opt-in. Signed out there is no account, no analytics and no
+  third-party request.
+- Signed in, the synced slices mirror to your own Firestore tree
+  (`users/{uid}/…`), locked to your Google account by Firestore rules. The
+  Firebase SDK loads from Google's CDN for this.
 - The extension keeps its own state in `chrome.storage.local` and makes no
-  network requests.
+  network requests. Extension sync is not shipped.
 - Export is a plain JSON file you control. Treat it like a diary.
 
 ## Web app
@@ -18,12 +22,16 @@ written to be read, not to hide behind.
 | Data | Where | Why |
 |---|---|---|
 | Tasks, schedules, sessions, slips, settings, profile name/exam | `localStorage` key `lockin.store.v1` | The app needs it to work offline and survive a reload |
+| Google account (optional) | Firebase Authentication | Identifies the owner of the cloud mirror |
+| Cloud mirror (optional) | Firestore `users/{uid}/…` | Keeps phone and browser in step |
+| Sync bookkeeping | `localStorage` keys `lockin.sync.v1` (shadow + cursor) and `lockin.sync.on` (signed-in flag) | Knows what the cloud already has |
 | Service worker cache | Browser Cache Storage | Offline shell |
 | Notification permission | Browser permission store | Round notices, schedule alarms and reminders |
 | Screen Wake Lock | Browser session only | Keep the screen awake during a session |
 
-No data leaves the browser in 1.4.1. Fonts are self-hosted. There is no
-third-party script, pixel or CDN.
+Signed out, no data leaves the browser: fonts are self-hosted and there is no
+third-party script, pixel or CDN. Signed in, the Firebase SDK loads from
+`www.gstatic.com` and the synced slices are written to your Firestore tree.
 
 ## Extension
 
@@ -52,23 +60,28 @@ Those remain a documented design for a later direct-APK build; if they ship,
 the service is never part of the Play build and its visible scope is stated
 before the user turns it on.
 
-Android data stays on the device until sync ships. The Android privacy
-declaration and Play Data Safety form will be written from
-[`permissions.md`](permissions.md) before any store release.
+Android data stays on the device unless you sign in and enable sync. The native
+Google sheet hands a token to the Firebase SDK; the same Firestore tree
+follows. The Android privacy declaration and Play Data Safety form will be
+written from [`permissions.md`](permissions.md) before any store release.
 
-## Planned sync (not in 1.4.1)
+## Sync (opt-in, shipped in 1.6.0)
 
-The next version is designed to offer opt-in Google sign-in:
-
-- The Firestore project belongs to the app owner.
-- Documents are keyed by `request.auth.uid`.
-- A random 128-bit space code joins the web app, extension and Android shell.
-- There is no cryptographic derivation in v1. Records are **plaintext** in
-  Firestore; the app will say so before you turn sync on.
-- Firestore rules deny `list` and only allow the signed-in owner to read or
-  write their own documents.
-- The extension uses Firestore REST, not the Firebase SDK.
-- Sync is opt-in. The clock works without an account.
+- Sign in with Google: a popup on the web, the native Google sheet on Android.
+  The account exists only for sync.
+- The Firestore project belongs to the app owner; documents are keyed by
+  `request.auth.uid`, and rules allow only that signed-in uid to read or write
+  their own tree. There is no shared space code — the account is the join.
+- Records are **plaintext** in Firestore by design. Nothing is encrypted
+  client-side; the rules are the lock.
+- Synced slices: profile, settings, schedules, tasks, sessions, slips. A live
+  session snapshot, onboarding flags, activities and the old day-grid data
+  never leave the device.
+- No realtime listeners. Sync runs on boot, on tab focus, when the connection
+  returns, and 1.5 s after a local change.
+- Signing out stops the mirror and keeps every local byte. **Delete cloud
+  data** wipes the Firestore tree, then signs out so nothing re-uploads.
+- The extension does not sync yet; its storage stays separate.
 
 If analytics ships, it will be documented here and in the store Data Safety
 form before release. It will not be used to sell data. The in-app experience
@@ -79,6 +92,8 @@ listing and this document.
 
 - **Export** a JSON backup from Settings → Your data.
 - **Erase all data** is real: it clears the store and re-runs the opening film.
+- **Sign out** in Settings → Account stops the cloud mirror; local data stays.
+- **Delete cloud data** wipes the Firestore copy, then signs out.
 - **Delete a schedule** in its editor (two-step).
 - **Disable alarms** globally in Settings → Schedule, or per block.
 - Uninstall the extension to remove `lockin.ext`. Uninstalling the Android app
@@ -90,3 +105,7 @@ listing and this document.
 - The extension sees the active Chrome tab, not other browsers or apps.
 - Android exact alarms can be denied by the OS; the app falls back and says so.
 - No app can block another app on iOS. Lockin does not pretend otherwise.
+- Sync has no realtime listeners, so another device's edit can take a moment to
+  arrive. Merge timestamps are device clocks; a badly skewed clock can win or
+  lose a conflict. Sessions and slips are append-only, so history never
+  disappears.

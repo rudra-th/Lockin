@@ -8,7 +8,7 @@
 
 A study-first focus PWA. Keep a short task list for today and tomorrow, then run wake-locked **Study Mode** sessions that take over the whole screen — and log, honestly, every time you walk away from them.
 
-Vanilla JavaScript. No build step, no framework, no account, no analytics. Everything lives in your browser's localStorage.
+Vanilla JavaScript. No build step, no framework, no analytics. Everything lives in your browser's localStorage — and an optional Google account can mirror a copy to your own private cloud.
 
 ## The premise
 
@@ -33,6 +33,7 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 - **First-run film** — seven full-bleed scenes: your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, a daily study bar, the honest rules, and the permissions the schedule needs — notifications on the web; notifications, exact alarms and usage access on Android. Every ask is optional, shows live status, and links to the system setting if it is denied. No demo session, no seeded schedule. Rerunnable from Settings.
 - **Exam countdown on Home** — “182 days left until NEET”, with the approximate month; it turns warm inside 30 days and asks for a new date once the exam passes.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
+- **Optional cloud sync** — sign in with Google on the web (popup) or Android (native sheet) and your tasks, schedules, sessions and slips mirror to your own Firestore tree. Local-first by design: signed out, no Firebase code loads; offline, the store keeps working and sync retries; signing out never touches local data. Last-write-wins for edits, union-by-id for history, tombstones for deletes — and **Delete cloud data** is real.
 
 ## Three surfaces, one repo
 
@@ -40,7 +41,7 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 |---|---|---|
 | **Web app** | The whole study clock: tasks, Study Mode, earned exit, Stats, Honesty Log. Installable, offline. | `app/` → **[lockin.surge.sh](https://lockin.surge.sh)** |
 | **Browser extension** | Only blocking and screen time. No timer, no tasks, no streaks. | `extension/` → pack with `node tools/pack-extension.mjs` |
-| **Android app** | The same UI in a Capacitor shell: exact alarms, notification permission, usage access, and per-app screen time. | `android/` → `npm run android:build` |
+| **Android app** | The same UI in a Capacitor shell: exact alarms, notification permission, usage access, per-app screen time, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
 
 The web app is the source of truth for a study session. The extension is deliberately the smaller instrument — it holds the block list and counts the active Chrome tab, and says so in its own README.
 
@@ -122,6 +123,9 @@ app/                    the web app — the Capacitor webDir
       tasks.js          shared task row / add-form / list controls
       controls.js       shared settings row, toggle and stepper
       alarms.js         schedule alarm engine, chime, overlay, reminder toast
+      firebase.js       lazy Firebase SDK loader (pinned CDN, memoized)
+      account.js        Google sign-in, session restore, sign-out
+      sync.js           cloud sync engine: pull, merge, push, cursors
       app.js            bootstrap: theme, routes, live-session resume
       icons.js          inline SVG set
       views/            home · schedule · focus · stats · settings · walkthrough
@@ -129,6 +133,7 @@ app/                    the web app — the Capacitor webDir
     time.js             date keys, clock formatting, day math
     honesty.js          accident window, earned exit, free stop
     schedule.js         recurring block math, occurrences, alarm events
+    sync.js             diff, LWW/append merges, tombstones, cursors
   tests.html            pure-logic asserts
 extension/              Chrome: blocking + active-tab screen time
   manifest.json         MV3, storage · alarms · tabs · declarativeNetRequest
@@ -153,9 +158,11 @@ serve.py                dev server (defaults to app/, no-store headers)
 
 One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settings; "Erase all data" is real and re-runs the opening film. Sessions store minutes, tasks and honesty events — no subject list to maintain.
 
+Signing in adds `lockin.sync.v1` (shadow + pull cursor) and `lockin.sync.on` (the signed-in flag). The cloud copy is a per-entity Firestore tree under `users/{uid}/` — profile and settings as single docs, schedules and tasks with tombstones, sessions and slips append-only.
+
 ## Status
 
-v1.4.1 — the opening film now asks for the permissions the schedule needs: notifications on the web; notifications, exact alarms and usage access on Android, each with live status and a route to the system setting. v1.4.0 made Plan **Schedule**: recurring local-time blocks with a 24-hour day ring, per-block alarms, a reminder five minutes before (adjustable), and global alarm controls in Settings. The browser extension packs the same block list for Chrome. v1.3.0 made Study Mode subject-free and added the earned exit; v1.2.0 brought tasks, removed demo mode and rebuilt Stats. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.
+v1.6.0 adds **optional Google sign-in and cloud sync** — phone and browser in step through your own Firestore tree, local-first and offline-safe, with honest merge rules and a real "Delete cloud data". The account card carries the feature: live status, a sync ring, and a check when a sync lands. v1.5.0 hardened the shell (modal sheets, update notice, quota warning) and rebuilt Study Mode's start; v1.4.0 made Plan **Schedule** with recurring local-time blocks and per-block alarms. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.
 
 ## License
 

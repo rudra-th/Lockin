@@ -144,11 +144,11 @@
 - Modify: `docs/privacy.md`, `docs/architecture.md`, `README.md`, `CHANGELOG.md`
 - Modify: version homes via `npm run bump -- 1.6.0`
 
-- [ ] **Step 1:** privacy.md — what sync means: data mirrors to the owner's own Firestore doc tree, rules are the lock, sign-out keeps local data, "Delete cloud data" is real.
-- [ ] **Step 2:** architecture.md — the sync section: slices, merge rules, cursors, tombstones, honest limits (clock skew, no realtime listeners).
-- [ ] **Step 3:** README — premise line ("optional account"), feature bullet, status line.
-- [ ] **Step 4:** CHANGELOG 1.6.0 entry; `npm run bump -- 1.6.0` (versionCode 160).
-- [ ] **Step 5: Commit** — `v1.6.0: docs, changelog, version bump (plan 7)`
+- [x] **Step 1:** privacy.md — what sync means: data mirrors to the owner's own Firestore doc tree, rules are the lock, sign-out keeps local data, "Delete cloud data" is real.
+- [x] **Step 2:** architecture.md — the sync section: slices, merge rules, cursors, tombstones, honest limits (clock skew, no realtime listeners).
+- [x] **Step 3:** README — premise line ("optional account"), feature bullet, status line.
+- [x] **Step 4:** CHANGELOG 1.6.0 entry; `npm run bump -- 1.6.0` (versionCode 160).
+- [x] **Step 5: Commit** — `v1.6.0: docs, changelog, version bump (plan 7)`
 
 ### Task 8: Final verification
 

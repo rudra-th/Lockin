@@ -5,7 +5,7 @@ owns the study session; the extension is deliberately smaller; Android is a
 shell around the same web UI, not a second UI.
 
 ```text
-                 app/core/  (pure JS: time, honesty, schedule)
+                 app/core/  (pure JS: time, honesty, schedule, sync)
                     │
       ┌─────────────┼─────────────────┐
       │             │                 │
@@ -13,8 +13,8 @@ shell around the same web UI, not a second UI.
    web PWA       Chrome MV3         Capacitor shell
    sessions      blocking +         exact alarms,
    tasks         active-tab time    usage access,
-   schedule                         per-app screen time
-   alarms
+   schedule                         per-app screen time,
+   alarms                           Google sign-in (sync)
 ```
 
 ## Surfaces
@@ -23,7 +23,7 @@ shell around the same web UI, not a second UI.
 |---|---|---|
 | **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, earned exit, Stats, Honesty Log, foreground alarms | Device-wide blocking, closed-app alarms |
 | **Extension** (`extension/`) | Site block list, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
-| **Android** (`android/`) | Exact alarms, notification permission, usage access, per-app screen time | A forked UI or a second data model; no blocking tier ships — on Android, screen time is informational and blocking lives in the extension |
+| **Android** (`android/`) | Exact alarms, notification permission, usage access, per-app screen time, optional Google sign-in for cloud sync | A forked UI or a second data model; no blocking tier ships — on Android, screen time is informational and blocking lives in the extension |
 
 The extension and the PWA cannot read each other's storage. Usage stays separate
 until sync exists. This is stated in `extension/README.md` and in the UI.
@@ -36,6 +36,8 @@ until sync exists. This is stated in `extension/README.md` and in the UI.
 - `honesty.js` — accident window, earned exit, free stop, neutral ends.
 - `schedule.js` — `HH:MM` parsing, spans, occurrences, next occurrence,
   reminder times, alarm events, day labels, input normalization.
+- `sync.js` — stable diffing, last-write-wins and append merges, tombstones,
+  pull cursors. No DOM, storage or network; the engine drives it.
 
 `app/assets/js/util.js` re-exports the core so views import one module. The
 extension pack copies `app/core/` into `dist/extension/`; Chrome cannot resolve
@@ -92,15 +94,36 @@ One web key: `lockin.store.v1`. Store migrations are additive and run on load.
 Export/import is manual JSON from Settings. The extension uses one key,
 `lockin.ext`, in `chrome.storage.local`.
 
-## Sync (planned, not shipped in 1.4.1)
+Sync adds two device-local keys outside the store — `lockin.sync.v1` (shadow
+snapshot + pull cursor) and `lockin.sync.on` (the user asked for the cloud) —
+so the store never contains sync-of-sync bookkeeping.
 
-- Google sign-in identifies the user; Firestore documents are keyed by
-  `request.auth.uid`.
-- A random 128-bit space code joins surfaces. No crypto derivation in v1.
-- Records are plaintext in Firestore by design; the privacy copy says so.
-- Rules deny `list` and only allow a signed-in owner to read/write their own
-  documents.
-- The extension uses Firestore REST, not the SDK.
+## Sync (opt-in, shipped in 1.6.0)
+
+The store stays the source of truth. Sync mirrors six slices to Firestore and
+merges by rules that never lose history:
+
+| Path | Merge rule |
+|---|---|
+| `users/{uid}/profile/main`, `settings/main` | Last-write-wins on `updatedAt`; identical content never churns |
+| `users/{uid}/schedules/{id}`, `tasks/{id}` | LWW per doc; a delete writes a `{deleted:true}` tombstone and removes the local copy; a newer local edit survives an older tombstone |
+| `users/{uid}/sessions/{id}`, `slips/{id}` | Append-only union by id — history is immutable |
+
+`updatedAt` is client epoch milliseconds; a tie goes to the cloud copy. The
+engine (`app/assets/js/sync.js`) pulls first — full when the cursor is 0, then
+`where('updatedAt', '>', cursor)` paged at 500 — merges under a re-entrancy
+guard, then diffs the store against its shadow and pushes stamped docs in
+chunked `writeBatch` commits. Pulled docs are absorbed into the shadow so they
+are never pushed back; the cursor advances from pulled docs only, never from
+push stamps.
+
+Triggers: boot, tab focus, `online`, a 1.5 s debounced `lockin:changed`, and
+the manual **Sync now**. No realtime listeners — this is a mirror, not a live
+document. Auth lives in `app/assets/js/account.js`: `signInWithPopup` on the
+web (redirect fallback), the `@capacitor-firebase/authentication` native sheet
+on Android feeding `signInWithCredential`, and a lazy Firebase SDK loaded from
+the pinned CDN in `app/assets/js/firebase.js`. Signed out, no Firebase code
+loads at all. Sync failure is always quiet and never blocks the app.
 
 ## Build and check
 
@@ -118,5 +141,6 @@ Export/import is manual JSON from Settings. The extension uses one key,
 3. Flat surfaces and honest borders; no decorative gradients that carry no
    information.
 4. No claim the platform cannot keep. The limits are part of the product.
-5. The web app stays dependency-free. Native capability goes through a bridge,
-   never a forked screen.
+5. The web app has no build step or framework; the only third-party code is
+   the Firebase SDK, lazy-loaded from a pinned CDN when the user signs in.
+   Native capability goes through a bridge, never a forked screen.

@@ -3,6 +3,44 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.6.0 — 2026-11-04
+
+### Optional Google sign-in & cloud sync
+
+- Settings → **Account**: sign in with Google on the web (popup, redirect
+  fallback) and on Android (the native Google sheet). The account is optional —
+  signed out, Lockin is exactly the local-first app it was, with zero Firebase
+  code loaded.
+- Synced slices mirror to your own Firestore tree (`users/{uid}/…`), one
+  document per entity. Phone and browser stay in step without a server of ours.
+- Local-first and offline-safe: the store is the truth, sync runs in the
+  background, and a failed sync never blocks the app. The status line is
+  honest — syncing, synced, offline, or an error worth reading.
+- Merge rules: last-write-wins per task and schedule (client timestamp, tie →
+  cloud), union-by-id for sessions and slips, tombstones for deletes. A delete
+  on one device deletes on the other; a newer local edit survives an older
+  tombstone.
+- Sign out keeps every local byte. **Delete cloud data** wipes the Firestore
+  copy, then signs out so nothing re-uploads.
+- The Firebase SDK loads lazily from a pinned CDN only when the account is
+  used; the service worker caches it after the first sign-in, so the shell
+  keeps working offline.
+- The account card has a little life: status emoji, a sync ring around the
+  avatar, a check badge when a sync lands, and reduced-motion-friendly
+  micro-animations throughout.
+
+### Android
+
+- `@capacitor-firebase/authentication` is wired into the shell;
+  `android/app/google-services.json` stays gitignored and local. The Gradle
+  graph builds with the plugin (`assembleDebug` verified).
+
+### Docs
+
+- `privacy.md` and `architecture.md` now describe shipped sync instead of a
+  plan — the account-scoped Firestore tree, merge rules, cursors, tombstones,
+  and the honest limits (device clocks, no realtime listeners).
+
 ## 1.5.0 — 2026-11-04
 
 ### Robustness
