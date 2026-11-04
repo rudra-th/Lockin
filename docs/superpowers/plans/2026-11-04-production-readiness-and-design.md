@@ -1,7 +1,7 @@
 # Production-Readiness & Design Plan — Lockin v1.5.0
 
 **Date:** 2026-11-04
-**Status:** Draft — awaiting owner approval
+**Status:** Approved and executed — Phases 0–3 shipped (see commit history); Phase 4 items are owner decisions
 **Scope:** Web PWA (`app/`), Chrome extension (`extension/`), Android shell (`android/`), docs & CI
 **Based on:** Full audit of v1.4.1 (`main` @ `950bb84`, tag `v1.4.1` shipped 2026-11-04)
 
