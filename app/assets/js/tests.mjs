@@ -20,6 +20,9 @@ import {
 } from './util.js';
 import { examById, examDateFor, expectedYear } from './exams.js';
 import { svg } from './icons.js';
+import {
+  stableStringify, diffCollection, diffScalar, mergeDocs, mergeScalar, nextCursor,
+} from '../../core/sync.js';
 
 /**
  * Run the suite against a reporter: { group(name), ok(name), bad(name, err) }.
@@ -390,6 +393,96 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     Store.importJSON(dump);
     eq(Store.state.tasks.length, 1);
     eq(Store.state.tasks[0].title, 'Round trip');
+  });
+
+  group('Sync merge math');
+  test('stableStringify is key-order insensitive', () => {
+    eq(stableStringify({ a: 1, b: [2, 3] }), stableStringify({ b: [2, 3], a: 1 }));
+    eq(stableStringify({ a: 1 }), '{"a":1}');
+  });
+  test('diffCollection finds add, change and remove', () => {
+    const shadow = {
+      t1: { id: 't1', title: 'A', updatedAt: 5 },
+      t3: { id: 't3', title: 'C', updatedAt: 5 },
+    };
+    const current = [
+      { id: 't1', title: 'A2', updatedAt: 5 },
+      { id: 't2', title: 'B' },
+    ];
+    const d = diffCollection(current, shadow);
+    eq(d.removedIds, ['t3']);
+    eq(d.upserts.map((e) => e.id), ['t1', 't2']);
+  });
+  test('diffCollection is a no-op when content matches, ignoring updatedAt', () => {
+    const shadow = { t1: { id: 't1', title: 'A', updatedAt: 5 } };
+    const d = diffCollection([{ id: 't1', title: 'A', updatedAt: 9 }], shadow);
+    eq(d.upserts, []);
+    eq(d.removedIds, []);
+  });
+  test('diffCollection resurrects an entity the shadow holds as a tombstone', () => {
+    const shadow = { t1: { id: 't1', deleted: true, updatedAt: 9 } };
+    const d = diffCollection([{ id: 't1', title: 'Back' }], shadow);
+    eq(d.upserts.map((e) => e.id), ['t1']);
+    eq(d.removedIds, []);
+  });
+  test('diffScalar ignores updatedAt and flags real changes', () => {
+    eq(diffScalar({ a: 1, updatedAt: 5 }, { a: 1, updatedAt: 9 }), false);
+    eq(diffScalar({ a: 1 }, { a: 2 }), true);
+  });
+  test('mergeDocs append unions by id and never overwrites', () => {
+    const local = [{ id: 's1', mins: 25 }];
+    const out = mergeDocs(local, [
+      { id: 's1', mins: 99, updatedAt: 9 },
+      { id: 's2', mins: 45, updatedAt: 9 },
+    ], 'append');
+    eq(out.arr, [{ id: 's1', mins: 25 }, { id: 's2', mins: 45, updatedAt: 9 }]);
+    eq([out.added, out.updated, out.deleted], [1, 0, 0]);
+  });
+  test('mergeDocs lww: a newer remote wins', () => {
+    const out = mergeDocs(
+      [{ id: 't1', title: 'old', updatedAt: 100 }],
+      [{ id: 't1', title: 'new', updatedAt: 200 }],
+      'lww');
+    eq(out.arr[0].title, 'new');
+    eq(out.updated, 1);
+  });
+  test('mergeDocs lww: a newer local survives', () => {
+    const local = [{ id: 't1', title: 'mine', updatedAt: 300 }];
+    const out = mergeDocs(local, [{ id: 't1', title: 'theirs', updatedAt: 200 }], 'lww');
+    eq(out.arr, local);
+    eq(out.updated, 0);
+  });
+  test('mergeDocs lww: a tombstone removes an older local copy', () => {
+    const out = mergeDocs(
+      [{ id: 't1', title: 'doomed', updatedAt: 100 }],
+      [{ id: 't1', deleted: true, updatedAt: 200 }],
+      'lww');
+    eq(out.arr, []);
+    eq(out.deleted, 1);
+  });
+  test('mergeDocs lww: a local edit newer than the tombstone survives', () => {
+    const local = [{ id: 't1', title: 'edited after', updatedAt: 300 }];
+    const out = mergeDocs(local, [{ id: 't1', deleted: true, updatedAt: 200 }], 'lww');
+    eq(out.arr, local);
+  });
+  test('mergeDocs lww: a local copy without updatedAt loses to any remote', () => {
+    const out = mergeDocs(
+      [{ id: 't1', title: 'fresh device' }],
+      [{ id: 't1', title: 'cloud', updatedAt: 5 }],
+      'lww');
+    eq(out.arr[0].title, 'cloud');
+  });
+  test('mergeScalar keeps local when content matches, else newest wins', () => {
+    const a = { name: 'Rudra', updatedAt: 5 };
+    eq(mergeScalar(a, { name: 'Rudra', updatedAt: 9 }), a); // identical content, no churn
+    eq(mergeScalar(a, { name: 'Other', updatedAt: 9 }).name, 'Other');
+    eq(mergeScalar({ name: 'New', updatedAt: 50 }, { name: 'Old', updatedAt: 9 }).name, 'New');
+    eq(mergeScalar({ name: 'A', updatedAt: 5 }, { name: 'B', updatedAt: 5 }).name, 'B'); // tie → remote
+  });
+  test('nextCursor advances to the largest updatedAt seen', () => {
+    eq(nextCursor(10, [{ updatedAt: 3 }, { updatedAt: 42 }]), 42);
+    eq(nextCursor(42, []), 42);
+    eq(nextCursor(0, [{ id: 'x' }]), 0);
   });
 
   if (dom) {
