@@ -128,16 +128,17 @@ Files: new `eslint.config.js`, `package.json` (`devDependency: eslint`, script `
 
 Files: new `tools/version.mjs`, edit `tools/check.mjs`, `.github/workflows/check.yml`.
 
-- [ ] Step 1. `tools/version.mjs <semver>`: updates `package.json` (via
-      `npm version --no-git-tag-version"), `app/sw.js` `VERSION` const, and
-      `android/app/build.gradle` (`versionCode` = Major×100 + Minor×10 + Patch,
-      `versionName` = semver). Prints a diff summary.
-- [ ] Step 2. Extend `tools/check.mjs` with a version-consistency block:
+- [x] Step 1. `tools/version.mjs <semver>`: updates `package.json` and
+      `package-lock.json` directly (deterministic JSON rewrite, no npm spawn),
+      `app/sw.js` `VERSION` const, and `android/app/build.gradle` (`versionCode`
+      = Major×100 + Minor×10 + Patch, `versionName` = semver). Prints a diff
+      summary. Exposed as `npm run bump -- <semver>`.
+- [x] Step 2. Extend `tools/check.mjs` with a version-consistency block:
       package.json ↔ package-lock.json ↔ app/sw.js ↔ android/app/build.gradle must
       all agree; fail with the disagreeing file listed.
-- [ ] Step 3. `.github/workflows/check.yml`: after `npm run check`, add
+- [x] Step 3. `.github/workflows/check.yml`: after `npm run check`, add
       `- run: npm run lint` and `- run: npm test`.
-- [ ] Step 4. Verify: push a trivial commit; CI shows three green steps.
+- [x] Step 4. Verify: push a trivial commit; CI shows three green steps.
 
 ---
 

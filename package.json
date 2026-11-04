@@ -8,6 +8,7 @@
     "check": "node tools/check.mjs",
     "test": "node tools/run-tests.mjs",
     "lint": "eslint .",
+    "bump": "node tools/version.mjs",
     "pack:extension": "node tools/pack-extension.mjs",
     "android:sync": "cap sync android",
     "android:open": "cap open android",

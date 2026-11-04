@@ -118,11 +118,27 @@ try {
 
 try {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  const lock = JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8'));
   const sw = readFileSync(join(ROOT, 'app/sw.js'), 'utf8');
-  const version = /const VERSION = 'lockin\.v([^']+)'/.exec(sw)?.[1];
-  if (!version) fail('app/sw.js has no lockin.vX.Y.Z VERSION');
-  else if (version !== pkg.version) fail(`package.json ${pkg.version} and service worker ${version} differ`);
-  else pass(`app version ${version} matches package.json`);
+  const gradle = readFileSync(join(ROOT, 'android/app/build.gradle'), 'utf8');
+  const [maj, min, pat] = pkg.version.split('.').map(Number);
+  const expectedCode = maj * 100 + min * 10 + pat;
+  const swVersion = /const VERSION = 'lockin\.v([^']+)'/.exec(sw)?.[1];
+  const gradleName = /versionName "([^"]+)"/.exec(gradle)?.[1];
+  const gradleCode = Number(/versionCode (\d+)/.exec(gradle)?.[1]);
+
+  const problems = [];
+  if (!swVersion) problems.push('app/sw.js has no lockin.vX.Y.Z VERSION');
+  else if (swVersion !== pkg.version) problems.push(`service worker ${swVersion} != package.json ${pkg.version}`);
+  if (lock.version !== pkg.version) problems.push(`package-lock.json ${lock.version} != package.json ${pkg.version}`);
+  if (lock.packages?.['']?.version !== pkg.version) problems.push('package-lock.json root package version differs');
+  if (!gradleName) problems.push('android/app/build.gradle has no versionName');
+  else if (gradleName !== pkg.version) problems.push(`android versionName ${gradleName} != package.json ${pkg.version}`);
+  if (!gradleCode) problems.push('android/app/build.gradle has no versionCode');
+  else if (gradleCode !== expectedCode) problems.push(`android versionCode ${gradleCode} != expected ${expectedCode} for ${pkg.version}`);
+
+  if (problems.length) fail(problems.join('; '));
+  else pass(`version ${pkg.version} agrees across package.json, lock, sw.js and build.gradle (versionCode ${gradleCode})`);
 } catch (err) {
   fail(`version check failed: ${err.message}`);
 }
