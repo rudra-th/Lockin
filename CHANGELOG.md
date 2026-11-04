@@ -3,7 +3,7 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
-## Unreleased
+## 1.5.0 — 2026-11-04
 
 ### Robustness
 
@@ -39,6 +39,19 @@ the Android shell follows once it ships.
   the undeclared `SYSTEM_ALERT_WINDOW` permission, and the planned
   accessibility service are gone from the docs — the Android shell measures
   and rings; blocking is the extension's job.
+
+### Android & tooling
+
+- Release builds are signed: a gitignored `android/keystore.properties`
+  feeds `signingConfigs.release`, and `assembleRelease` fails fast — naming
+  the missing piece — until the keystore exists. Lockin distributes the APK
+  directly; the keystore is what makes future updates install cleanly.
+- `npm run bump -- <semver>` updates all four version homes at once, and CI
+  fails if they ever disagree.
+- The self-check suite runs in CI (`npm test`, 55 asserts) alongside
+  `npm run check` and ESLint.
+- `docs/android-qa.md` — a tap-by-tap device checklist, ready for a test
+  round.
 
 ## 1.4.1 — 2026-11-04
 
