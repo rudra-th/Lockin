@@ -3,6 +3,46 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.7.0 — 2026-11-04
+
+### Home, rebuilt around four facts
+
+- Home now answers four questions and nothing else: how many days are left,
+  how much you have focused today, where the time went (Android), and what
+  block comes next. Tasks moved to Schedule; streaks and history stayed in
+  Stats.
+- The exam countdown is the anchor: a serif days number, the exam name and
+  month, warm inside 30 days, an honest prompt when the date has passed or is
+  missing.
+- Today's card pairs focused minutes with the daily goal, an animated meter,
+  and one primary Start Study Mode button carrying the suggested length. A
+  live session turns it into "Back to the room".
+- Schedule card: the ongoing block wins, else the next occurrence with a
+  relative "in 3h 12m", else a route to plan one.
+- Screen-time card on Android reads foreground time only (last 24 hours, top
+  three apps) and links to usage access when it is missing. Hidden on web.
+
+### Study Mode, calmer
+
+- Setup now has one decision at its centre: a big length dial that remembers
+  the last length you used, with Timer/Stopwatch as a quiet segmented switch.
+  Preset lengths and Pomodoro remain one tap away.
+- The running room draws a circular progress ring around the clock (wall-clock
+  truth, so a reload redraws it correctly); the stopwatch and breaks breathe
+  instead of counting down.
+- Attached tasks are checklist pills you can tick mid-session, with a proper
+  struck-through done state.
+- A clean finish gets a small confetti burst (reduced-motion-safe), a bigger
+  amount, a "focused today" line, and a direct route to the week in Stats.
+- The break room is calmer and greener, and every new animation sits under the
+  global reduced-motion guard.
+
+### Fixes
+
+- `app/assets/js/sync.js` imported the merge core from the wrong path
+  (`assets/core` instead of `core`), which would 404 the module. The check
+  script now verifies that every relative import resolves to a real file.
+
 ## 1.6.0 — 2026-11-04
 
 ### Optional Google sign-in & cloud sync

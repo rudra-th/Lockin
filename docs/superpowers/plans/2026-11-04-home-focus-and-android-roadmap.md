@@ -50,7 +50,7 @@ did I focus today, where did the time go, and what is the next block.**
       finish (reduced-motion-safe), clearer next actions.
 - [x] Break screen: calmer green, breathing ring, no new rules.
 - [x] Verify `check` + `lint` + `test`; commit; push.
-- [ ] `npm run bump -- 1.7.0` + changelog/docs; commit; push.
+- [x] `npm run bump -- 1.7.0` + changelog/docs; commit; push.
 
 ### Task 3: Extension per-site daily limits (v1.8.0)
 
