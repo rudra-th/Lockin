@@ -743,8 +743,10 @@ function taskChips() {
 function sessionCore({ label, note, clockClass = '' }) {
   const chips = taskChips();
   return el('main', { class: 'sess-core' },
-    el('div', { class: 'sess-phase' }, label),
-    el('div', { class: `clock${clockClass ? ` ${clockClass}` : ''}` }, '—'),
+    /* phase changes are the announcement; the clock itself is role=timer so
+       assistive tech decides when to read it instead of narrating every second */
+    el('div', { class: 'sess-phase', 'aria-live': 'polite' }, label),
+    el('div', { class: `clock${clockClass ? ` ${clockClass}` : ''}`, role: 'timer' }, '—'),
     pipsRow(),
     note ? el('p', { class: 'sess-note' }, note) : null,
     chips.length ? el('div', { class: 'chips sess-tasks' }, chips) : null

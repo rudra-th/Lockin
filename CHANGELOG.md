@@ -32,6 +32,9 @@ the Android shell follows once it ships.
 - **Light theme hardened.** The bottom sheet's shadow now follows the theme
   (new `--shadow-up` token) instead of a hard-coded black; the rest of the
   audit found no token leaks.
+- **Accessibility floor.** The running clock is a real `role="timer"`, phase
+  changes announce politely, tab targets are pinned to a 44px minimum, and
+  the active tab is announced with `aria-current="page"`.
 
 ## 1.4.1 — 2026-11-04
 

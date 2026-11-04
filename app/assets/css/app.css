@@ -106,6 +106,7 @@
   --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
 
   --tabbar-h: 64px;
+  --tap-min: 44px; /* smallest honest touch target */
 }
 
 [data-theme='light'] {
@@ -244,6 +245,7 @@ body[data-mode='onboard'] #view {
   align-items: center;
   justify-content: center;
   gap: 4px;
+  min-height: var(--tap-min);
   font: 500 11px/1 var(--font-sans);
   letter-spacing: 0.02em;
   padding-top: 6px;

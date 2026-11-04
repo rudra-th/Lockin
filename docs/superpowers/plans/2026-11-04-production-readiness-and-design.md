@@ -275,10 +275,15 @@ Files: `app/assets/css/app.css`, all views (token-level only).
 
 Files: `app/assets/css/app.css`, `app/assets/js/views/*.js`.
 
-- [ ] Step 1. `:focus-visible` token + tab-bar targets ≥44px (`--tap-min`).
-- [ ] Step 2. `aria-live="polite"` on the focus running-clock container; tab bar
-      links get `aria-current="page"` when active (check router `mount`).
-- [ ] Step 3. Verify: `npm run check && npm test`; keyboard walkthrough with owner.
+- [x] Step 1. `:focus-visible` ring already existed (app.css). New `--tap-min:
+      44px` token, applied as `min-height` on tab-bar buttons (they already
+      exceed 44px in both axes — the token documents and guards the floor).
+- [x] Step 2. The running clock is `role="timer"` (assistive tech decides
+      when to read it — a per-second `aria-live` would narrate every tick),
+      and the phase label ("Focus · round 2 of 3", "Break") carries
+      `aria-live="polite"` so state changes are announced. `aria-current=
+      "page"` on active tabs was already implemented in `markTabs()`.
+- [x] Step 3. Verify: `npm run check && npm test`; keyboard walkthrough with owner.
 
 ---
 
