@@ -27,6 +27,12 @@ function applyTheme() {
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 document.addEventListener('lockin:changed', applyTheme); // Settings theme switches apply live
 
+/* Storage quota blew up: the app still works from memory, but nothing is
+   being saved. Say it once per episode — quietly, in Settings' own words. */
+document.addEventListener('lockin:storage-full', () => {
+  hint('Storage is full — export a backup from Settings, then free space');
+});
+
 /* ---------- routes ---------- */
 
 initHome(Router);

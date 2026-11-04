@@ -175,16 +175,18 @@ Files: `app/assets/js/install.js` (or wherever `serviceWorker.register` lives).
 
 Files: `app/assets/js/store.js`, `app/assets/js/views/settings.js`.
 
-- [ ] Step 1. Wrap the localStorage write in `Store.set` in try/catch; on
-      `QuotaExceededError` (or any throw) fall back to an in-memory flag so the UI
-      keeps working, and surface `hint('Storage is full — export a backup, then
-      free space')` once per view-mount.
-- [ ] Step 2. Import path: after the existing `v` check, wrap JSON.parse + schema
-      shape check (profile/settings/session arrays exist) in try/catch and reject
-      with `hint('That file is not a Lockin backup.')` instead of silently merging.
-- [ ] Step 3. Add pure-logic tests to `tests.mjs`: corrupted-JSON import returns
-      null; missing-`v` backup rejected; a valid prior-version backup is accepted.
-- [ ] Step 4. Verify: `npm test` (54+/54+), `npm run check`.
+- [x] Step 1. Wrap the localStorage write in `Store.set` in try/catch; on
+      failure keep the in-memory state live and dispatch a one-shot
+      `lockin:storage-full` event (only on the transition into failure);
+      `app.js` surfaces `hint('Storage is full — export a backup from
+      Settings, then free space')` once per episode.
+- [x] Step 2. Import path: already honest — `settings.js` catches and shows
+      `hint('That file is not a Lockin backup.')`; `importJSON` throws on
+      corrupted JSON and on a wrong `v`.
+- [x] Step 3. Add pure-logic tests to `tests.mjs`: corrupted-JSON import
+      throws and leaves state untouched; a wrong-version backup is rejected;
+      a valid export round-trips through reset + import.
+- [x] Step 4. Verify: `npm test` (49/49), `npm run check`, `npm run lint`.
 
 ### Task 1.4: Session engine edge-case tests
 

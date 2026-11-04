@@ -83,6 +83,8 @@ function migrate(raw) {
   return raw;
 }
 
+let storageWasFull = false;
+
 const Store = {
   state: null,
 
@@ -100,7 +102,14 @@ const Store = {
   persist() {
     try {
       localStorage.setItem(KEY, JSON.stringify(this.state));
+      storageWasFull = false;
     } catch (err) {
+      /* The state stays live in memory, so the app keeps working; the UI
+         hears about it once per episode and can ask for a backup. */
+      if (!storageWasFull) {
+        storageWasFull = true;
+        document.dispatchEvent(new CustomEvent('lockin:storage-full'));
+      }
       console.warn('Lockin could not save data:', err);
     }
   },

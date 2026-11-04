@@ -340,6 +340,29 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(normalizeSchedule({ start: '09:00', end: '10:00', days: [1] }).remind, 5);
   });
 
+  group('Data in / out');
+  test('importJSON rejects corrupted JSON and keeps the state', () => {
+    const before = Store.state;
+    let threw = false;
+    try { Store.importJSON('{not json'); } catch (_) { threw = true; }
+    eq(threw, true);
+    eq(Store.state, before);
+  });
+  test('importJSON rejects a backup without the right version', () => {
+    let threw = false;
+    try { Store.importJSON(JSON.stringify({ v: 99, tasks: [] })); } catch (_) { threw = true; }
+    eq(threw, true);
+  });
+  test('importJSON round-trips a real export', () => {
+    Store.set((s) => { s.tasks = [{ id: 'tk9', date: T, title: 'Round trip', stages: [], doneAt: null }]; });
+    const dump = Store.exportJSON();
+    Store.reset();
+    eq(Store.state.tasks.length, 0);
+    Store.importJSON(dump);
+    eq(Store.state.tasks.length, 1);
+    eq(Store.state.tasks[0].title, 'Round trip');
+  });
+
   if (dom) {
     group('DOM factory');
     test('el() builds nodes with class, attrs, children', () => {

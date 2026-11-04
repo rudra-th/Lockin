@@ -11,6 +11,8 @@ the Android shell follows once it ships.
   enters on open and returns to the control that opened them.
 - A service-worker update announces itself — "Update downloaded — restart
   Lockin to refresh" — instead of swapping the app on an unnoticed reload.
+- A full storage quota now says so — "Storage is full — export a backup from
+  Settings" — instead of failing silently in the console.
 
 ## 1.4.1 — 2026-11-04
 
