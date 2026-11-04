@@ -14,6 +14,15 @@ the Android shell follows once it ships.
 - A full storage quota now says so — "Storage is full — export a backup from
   Settings" — instead of failing silently in the console.
 
+### Design
+
+- **Study Mode starts in one tap.** A length chip now begins the session
+  directly; the first seconds show an "Undo" pill that leaves nothing behind
+  (the same 20-second free stop, one tap closer to the mis-tap). The armed
+  hold stays where it belongs — the open-ended stopwatch.
+- The Pomodoro pill says what it does (`Pomodoro · 25m ×3`) and the running
+  screen shows when the session ends.
+
 ## 1.4.1 — 2026-11-04
 
 ### Opening film

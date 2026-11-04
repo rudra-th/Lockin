@@ -750,7 +750,7 @@ body[data-mode='onboard'] #view {
   color: var(--acc);
 }
 .len-proj {
-  font: 500 10.5px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   color: var(--tx-3);
   white-space: nowrap;
   overflow: hidden;

@@ -489,6 +489,7 @@ function setupScreen() {
   const proj = el('span', { class: 'len-proj' });
   const pomoChip = el('button', {
     class: 'pomo-chip', 'aria-pressed': 'false',
+    'aria-label': `Pomodoro: ${pomoSettings.focus || 25} minute focus rounds with breaks, three rounds`,
     onclick: () => {
       pomo = !pomo;
       rounds = pomo ? 3 : 1;
@@ -496,11 +497,21 @@ function setupScreen() {
       paintLen();
       hint(pomo ? `Pomodoro: ${min}m focus + breaks, ×3` : 'One round, one finish');
     },
-  }, svg('flame', 13), 'Pomodoro ×3');
+  }, svg('flame', 13), `Pomodoro · ${pomoSettings.focus || 25}m ×3`);
 
   function selectMin(m) {
     min = m;
     paintLen();
+  }
+
+  /* A length chip is a start, not a selection. The 20-second accident
+     window is the undo: ending inside it logs nothing and keeps the day
+     clean. The armed hold remains for the stopwatch — an open-ended run
+     deserves the ritual. */
+  function startWith(m) {
+    Store.set((s) => { s.settings.lastMode = 'timer'; });
+    Session.cfg = { min: m, taskIds: [...pickedTasks], rounds, mode: 'timer' };
+    begin();
   }
 
   function projectedEnd() {
@@ -532,15 +543,14 @@ function setupScreen() {
   presetMins.sort((a, b) => a - b).forEach((m) => {
     const b = el('button', {
       class: 'len', dataset: { min: String(m) }, 'aria-pressed': 'false',
-      onclick: () => selectMin(m),
+      onclick: () => startWith(m),
     }, el('b', {}, String(m)), el('span', {}, 'm'));
     lenBtns.push(b);
   });
   paintLen();
 
   function startLabel() {
-    if (strictOn()) return mode === 'stop' ? 'Arm the stopwatch' : 'Set the timer';
-    return mode === 'stop' ? 'Start the stopwatch' : 'Start the timer';
+    return 'Arm the stopwatch';
   }
 
   const startBtnLabel = el('span', {}, startLabel());
@@ -617,7 +627,7 @@ function setupScreen() {
     taskPanel,
     el('div', { class: 'study-foot' },
       el('p', { class: 'study-note' }, footNote),
-      startBtn,
+      mode === 'stop' ? startBtn : null,
     ),
   );
 }
@@ -776,13 +786,43 @@ function paintQuit(b) {
   }
 }
 
+/* The first seconds of a chip-start are the accident window made visible:
+   an Undo pill that discards the session cleanly — the same free stop the
+   quit button offers, one tap closer to the mis-tap. */
+function armUndoPill() {
+  if (document.querySelector('.undo-toast')) return;
+  const pill = el('div', { class: 'alarm-toast undo-toast', role: 'status' },
+    el('div', { class: 'alarm-toast-txt' },
+      el('b', {}, 'Started by accident?'),
+      el('span', {}, 'Undo leaves nothing — no minutes, no slip.')),
+    el('button', {
+      class: 'btn btn-subtle btn-sm',
+      onclick: () => { pill.remove(); abandon(); },
+    }, 'Undo'),
+  );
+  document.body.append(pill);
+  requestAnimationFrame(() => pill.classList.add('show'));
+  setTimeout(() => {
+    if (!document.contains(pill)) return;
+    pill.classList.remove('show');
+    setTimeout(() => pill.remove(), 240);
+  }, 8000);
+}
+
 function runningScreen() {
   if (Session.cfg.mode === 'stop') return stopRunningScreen();
   const rounds = Session.cfg.rounds || 1;
   const label = rounds > 1 ? `Focus · round ${Session.roundIdx} of ${rounds}` : 'Focus';
+  const endsAt = new Date(Session.plannedEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (Date.now() - Session.startedAt < 8000) armUndoPill();
   return el('div', { class: 'session' },
     sessionChrome('Focus'),
-    sessionCore({ label }),
+    sessionCore({
+      label,
+      note: strictOn()
+        ? `Ends at ${endsAt} · leaving for over ${GRACE_SEC}s is a slip`
+        : `Ends at ${endsAt}`,
+    }),
     el('footer', { class: 'sess-foot' }, exitHint(), quitButton())
   );
 }

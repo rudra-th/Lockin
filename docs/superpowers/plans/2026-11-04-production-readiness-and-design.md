@@ -211,16 +211,18 @@ Files: `app/assets/js/tests.mjs`.
 
 Files: `app/assets/js/views/focus.js`, `app/assets/css/app.css`.
 
-- [ ] Step 1. Duration chips become direct starts: clicking `10m`–`90m` arms and
-      starts immediately; the footer button keeps its role for custom duration
-      ("Set a custom timer" only when a custom field matters). An 8s Undo pill
-      (reuse `.alarm-toast` styles) appears right after an accidental tap-start.
-- [ ] Step 2. Replace the bare `Pomodoro ×3` pill with a labeled toggle row
-      ("Pomodoro — 25 min + 5 min breaks, ×3") that only shows its chained behavior
-      in the stepper text. One affordance, one meaning.
-- [ ] Step 3. During a running session, keep the hero clock but enlarge the
-      "ends at HH:MM" mono line to ≥12px (currently ~10.5px).
-- [ ] Step 4. Verify: `npm run check`; copy changes recorded in CHANGELOG.
+- [x] Step 1. Duration chips are direct starts: tapping `10m`–`90m` begins the
+      session immediately (strict or not); the existing 20-second accident
+      window is the undo, surfaced as an 8s `undo-toast` pill ("Started by
+      accident?") that calls the same free-stop path. The armed hold stays
+      for the stopwatch; the timer footer button is gone (there is no custom
+      duration field — chips were always the only picker).
+- [x] Step 2. The Pomodoro pill now says what it does:
+      `Pomodoro · 25m ×3` with an expanded aria-label; the chained end time
+      was already shown by the projection line.
+- [x] Step 3. `ends ≈` projection bumped to 12px; the running screen gains a
+      truthful `Ends at HH:MM` note (with the strict reminder when strict is on).
+- [x] Step 4. Verify: `npm run check`; copy changes recorded in CHANGELOG.
 
 ### Task 2.2: Schedule — one add affordance
 
