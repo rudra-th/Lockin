@@ -16,6 +16,7 @@
     "android:icons": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/gen-android-icons.ps1"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.6.0",
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0"
   },

@@ -5,8 +5,9 @@ The web app remains the source of truth for tasks, schedules and sessions; the
 shell adds the capabilities a browser cannot have.
 
 > Status: the Capacitor shell builds a debug APK, and the `LockinNative` bridge
-> covers exact alarms, notification permission, usage access and per-app screen
-> time. Device testing is the remaining gate before sharing a release APK.
+> covers exact alarms, notification permission, usage access, per-app screen
+> time, and optional Google sign-in for cloud sync. Device testing is the
+> remaining gate before sharing a release APK.
 > Lockin distributes directly — no Play Store. The UI still states the web limit
 > plainly: the browser build rings only while Lockin is open.
 
@@ -98,6 +99,19 @@ web and in the extension pack.
   `Settings.ACTION_USAGE_ACCESS_SETTINGS`; the user grants it.
 - `UsageStatsManager.queryUsageStats` aggregates foreground time per package.
 - No history database, no page content, no keylogging.
+
+### Google sign-in (optional sync)
+
+- `@capacitor-firebase/authentication` opens the native Google sheet; the
+  returned ID token goes to the Firebase JS SDK (`signInWithCredential`), which
+  owns Firestore. `skipNativeAuth: true` keeps a single auth session.
+- `android/app/google-services.json` is required for the Firebase integration
+  and is **gitignored** — download it from the Firebase console (project
+  `lockin-29758`, Android app `com.lockin.app`, release SHA-1 in
+  [`android-release.md`](android-release.md)). The web config in
+  `app/assets/js/firebase.js` is public by design; Firestore rules are the lock.
+- Signing out leaves local data untouched; Settings → **Delete cloud data**
+  wipes the Firestore mirror and then signs out.
 
 ### Blocking
 

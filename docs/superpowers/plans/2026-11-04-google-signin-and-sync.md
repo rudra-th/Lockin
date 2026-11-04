@@ -132,11 +132,11 @@
 **Interfaces:**
 - Consumes: the conditional `apply plugin: 'com.google.gms.google-services'` already present in `android/app/build.gradle` (classpath 4.4.4 already in the root build.gradle — no Gradle edits needed).
 
-- [ ] **Step 1:** `npm install @capacitor-firebase/authentication --legacy-peer-deps` (peer `firebase` is only needed by the plugin's web implementation, which Lockin never loads).
-- [ ] **Step 2:** `npx cap sync android` — wires the plugin + copies web assets.
-- [ ] **Step 3:** gitignore `google-services.json` (contains project identifiers; keep it out of a public repo).
-- [ ] **Step 4:** Verify the Gradle graph still builds: `assembleDebug` with `JAVA_HOME` set to the Android Studio JBR.
-- [ ] **Step 5: Commit** — `Android: Capacitor Firebase Auth plugin + config gitignore (plan 6)`
+- [x] **Step 1:** `npm install @capacitor-firebase/authentication --legacy-peer-deps` (peer `firebase` is only needed by the plugin's web implementation, which Lockin never loads).
+- [x] **Step 2:** `npx cap sync android` — wires the plugin + copies web assets.
+- [x] **Step 3:** gitignore `google-services.json` (contains project identifiers; keep it out of a public repo). — already covered by the existing global rule, verified with `git check-ignore`.
+- [x] **Step 4:** Verify the Gradle graph still builds: `assembleDebug` with `JAVA_HOME` set to the Android Studio JBR.
+- [x] **Step 5: Commit** — `Android: Capacitor Firebase Auth plugin + config gitignore (plan 6)`
 
 ### Task 7: Docs, changelog, version 1.6.0
 
