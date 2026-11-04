@@ -348,8 +348,11 @@ These are approval gates, not code tasks in this plan:
       dynamic-rule swap at budget end. Owner decides.
 - [ ] **Sync (Google login, Firestore)** — blocked; needs the owner's Firebase
       project keys before any code.
-- [ ] **Play Store listing** — needs release signing first; then listing copy,
-      screenshots, and the privacy policy URL already at `docs/privacy.md`.
+- [x] **Play Store listing** — **decided 2026-11-04: not wanted.** Lockin
+      distributes the APK directly (GitHub Releases / drive / cable). The
+      signing setup stays — a stable keystore is what makes updates install
+      over installed copies — but `docs/android-release.md` is now written
+      for direct distribution, not Play.
 - [ ] **Push-based web alarms** — would need a push server; the honest
       "open tab can ring, closed tab can't" copy stays until the owner opts in.
 
@@ -362,7 +365,7 @@ These are approval gates, not code tasks in this plan:
 | 1 | **Focus chips start instantly** (Task 2.1) — replaces the two-tap flow with tap-to-start + 8s Undo. | Changes the app's most-used interaction; mis-taps become real sessions. The Undo pill is the safety net — approve the interaction contract. |
 | 2 | **Schedule loses its second "Add a block"** (Task 2.2). | The hero card keeps the only CTA; the empty card becomes a hint.OwnerId of the empty-state copy decides if the arrow is enough. |
 | 3 | **Logic tests move out of tests.html into `tests.mjs`** (Task 0.1) — Node + browser share one suite with a stubbed localStorage. | Touches the only test infrastructure there is. If it breaks, CI goes red on the next push — hence it's Phase 0 and gets its own commit. |
-| 4 | **Release signing via gitignored `keystore.properties`** (Task 3.1). | Standard pattern, but the keystore itself must live somewhere safe; losing it means a new app identity on Play. Owner owns that risk in his keygen doc. |
+| 4 | **Release signing via gitignored `keystore.properties`** (Task 3.1). | Standard pattern, but the keystore itself must live somewhere safe; losing it means every future APK has a new signature and installed copies can't update. Owner owns that risk in his keygen doc. |
 | 5 | **Device-wide blocking: build vs. de-document** (Phase 4 / Task 3.3). | The honest doc pass makes the app smaller; building the tier is a second project. Owner must pick one — the plan does not silently keep the promise. |
 
 ## Self-review

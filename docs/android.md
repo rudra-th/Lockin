@@ -6,8 +6,8 @@ shell adds the capabilities a browser cannot have.
 
 > Status: the Capacitor shell builds a debug APK, and the `LockinNative` bridge
 > covers exact alarms, notification permission, usage access and per-app screen
-> time. Device testing is the remaining gate before a Play upload. Until then
-> the release APK is a direct install, and the UI still states the web limit
+> time. Device testing is the remaining gate before sharing a release APK.
+> Lockin distributes directly — no Play Store. The UI still states the web limit
 > plainly: the browser build rings only while Lockin is open.
 
 ## Build
