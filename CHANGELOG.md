@@ -3,6 +3,26 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.9.0 — 2026-11-04
+
+### Android alarms can take the lock screen
+
+- A schedule **start** now asks for a full-screen alarm. `AlarmActivity` turns
+  the screen on, draws over the keyguard with the current time, the block name
+  and its time range, and offers **Dismiss** / **Open Lockin**. Reminders stay
+  quiet notifications.
+- Android 14+ decides whether an app may use full-screen intents. The receiver
+  checks `canUseFullScreenIntent()` on every alarm; when it is denied, the same
+  alarm posts as a loud heads-up notification on the alarm channel. Nothing
+  pretends the screen will light up.
+- Settings → Android gains a **Full-screen alarm** row with live On/Heads-up
+  state and a route to the system toggle. The permission is declared in the
+  manifest; the alarm activity is unexported, excluded from recents and owns no
+  schedule state.
+- The alarm clock updates once a second while visible, and either action clears
+  its notification. Pre-Android 8 alarms now carry their own alarm sound and
+  vibration, since those versions ignore notification channels.
+
 ## 1.8.0 — 2026-11-04
 
 ### Per-site daily limits in the extension
