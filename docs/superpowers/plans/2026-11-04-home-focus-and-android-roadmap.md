@@ -24,20 +24,21 @@ Android full-screen alarm → Android app blocking.
 Home answers four questions and nothing else: **how many days are left, how much
 did I focus today, where did the time go, and what is the next block.**
 
-- [ ] Exam countdown becomes the anchor: serif days number, exam name, month;
+- [x] Exam countdown becomes the anchor: serif days number, exam name, month;
       ≤30 days turns warm, past date asks for the next one, no date asks for one.
-- [ ] Today card: focused minutes vs goal, animated meter, one primary Start
+- [x] Today card: focused minutes vs goal, animated meter, one primary Start
       Study Mode button (suggested length), live-session state.
-- [ ] Schedule card: ongoing block wins, else next occurrence with "in 3h 12m",
+- [x] Schedule card: ongoing block wins, else next occurrence with "in 3h 12m",
       else an honest empty state with a route to Schedule.
-- [ ] Screen-time card (Android only): today's top apps from usage access,
+- [x] Screen-time card (Android only): today's top apps from usage access,
       permission prompt when denied, honest "foreground time" wording. Hidden
       on web.
-- [ ] Drop tasks, tiles, week rail and the old hero from Home — Schedule and
+- [x] Drop tasks, tiles, week rail and the old hero from Home — Schedule and
       Stats own them.
-- [ ] Motion: staggered cards, meter fill, countdown pop, live pulse, hover
+- [x] Motion: staggered cards, meter fill, countdown pop, live pulse, hover
       lift; all reduced-motion-safe.
-- [ ] Verify `check` + `lint` + `test`; commit; push.
+- [x] Verify `check` + `lint` + `test`; commit; push. — verified in dark, light,
+      empty and wide layouts with a seeded 390 px preview.
 
 ### Task 2: Focus redesign (v1.7.0)
 
