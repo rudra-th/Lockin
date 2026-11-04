@@ -172,8 +172,7 @@ function todaySection(now) {
       el('div', { class: 'sched-empty-glyph', innerHTML: svg('calendar', 25) }),
       el('div', { class: 'sched-empty-txt' },
         el('b', {}, 'Nothing scheduled today.'),
-        el('span', {}, 'A repeating block takes the decision out of the moment.')),
-      el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openEditor() }, svg('plus', 14), 'Add a block'));
+        el('span', {}, 'A repeating block takes the decision out of the moment — the + in the top corner adds one.')));
   } else {
     body = el('div', { class: 'sched-daylist' }, occs.map((occ) => {
       const state = now >= occ.end ? 'past' : now >= occ.start ? 'now' : 'next';

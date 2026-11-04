@@ -1971,7 +1971,7 @@ body[data-mode='onboard'] #view {
   letter-spacing: -0.02em;
   color: var(--acc);
 }
-.sched-count span { font: 400 10.5px/1.2 var(--font-sans); color: var(--tx-3); }
+.sched-count span { font: 400 11px/1.2 var(--font-sans); color: var(--tx-3); }
 
 .sched-hero-cta { margin-top: 15px; }
 
@@ -2129,7 +2129,6 @@ body[data-mode='onboard'] #view {
 .sched-empty-txt { flex: 1; min-width: 150px; }
 .sched-empty-txt b { display: block; font-size: 14px; font-weight: 600; }
 .sched-empty-txt span { display: block; margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--tx-3); max-width: 34ch; }
-.sched-empty .btn { margin-left: auto; }
 
 /* repeating rows */
 .sched-rows {
@@ -2418,7 +2417,6 @@ body[data-mode='onboard'] #view {
 
 @media (max-width: 380px) {
   .sched-hero { grid-template-columns: minmax(0, 1fr) 128px; }
-  .sched-empty .btn { margin-left: 0; }
   .native-ctrl { gap: 6px; }
   .native-pill { display: none; }
 }

@@ -228,13 +228,15 @@ Files: `app/assets/js/views/focus.js`, `app/assets/css/app.css`.
 
 Files: `app/assets/js/views/schedule.js`, `app/assets/css/app.css`.
 
-- [ ] Step 1. Keep exactly one primary "Add a block": the hero card button. The
-      empty "Nothing scheduled today" card flips its button into a ghost hint arrow
-      (anchor to the hero button with `Router.go`, or a text-only line).
-- [ ] Step 2. Give the day ring's "next/ongoing" hero the same mono size floor
-      (≥11px for `untilText`).
-- [ ] Step 3. Verify: `npm run check`; no duplicated `btn-primary "Add a block"`
-      instances in the file (grep).
+- [x] Step 1. Keep exactly one primary "Add a block": the hero card button. The
+      empty "Nothing scheduled today" card lost its button and now points at
+      the always-present header `+`: "A repeating block takes the decision
+      out of the moment — the + in the top corner adds one."
+- [x] Step 2. The day ring's count line (`sched-count span`) raised to the
+      11px floor (was 10.5px).
+- [x] Step 3. Verify: `npm run check`; only one `btn-primary "Add a block"`
+      remains (the hero CTA); the Repeating section keeps its own scoped
+      subtle buttons by design.
 
 ### Task 2.3: Home — make the goal count
 

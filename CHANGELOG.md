@@ -22,6 +22,9 @@ the Android shell follows once it ships.
   hold stays where it belongs — the open-ended stopwatch.
 - The Pomodoro pill says what it does (`Pomodoro · 25m ×3`) and the running
   screen shows when the session ends.
+- **Schedule has one add affordance.** The "Nothing scheduled today" card no
+  longer stacks a second "Add a block" button — it points at the `+` in the
+  top corner, which is always there.
 
 ## 1.4.1 — 2026-11-04
 
