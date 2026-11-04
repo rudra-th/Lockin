@@ -6,6 +6,7 @@
   "description": "A study-first focus app: recurring schedule blocks, alarms, wake-locked Study Mode and an honest slip log.",
   "scripts": {
     "check": "node tools/check.mjs",
+    "test": "node tools/run-tests.mjs",
     "pack:extension": "node tools/pack-extension.mjs",
     "android:sync": "cap sync android",
     "android:open": "cap open android",

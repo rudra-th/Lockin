@@ -92,21 +92,24 @@ promised in docs that isn't shipped.
 
 Files: new `app/assets/js/tests.mjs`, new `tools/run-tests.mjs`, `app/tests.html`, `package.json`.
 
-- [ ] Step 1. Move the assert suite body out of the inline `<script type="module">`
+- [x] Step 1. Move the assert suite body out of the inline `<script type="module">`
       in `app/tests.html` into `app/assets/js/tests.mjs` exporting
       `runSelfCheck(reporter)` where `reporter = { group(name), ok(name), bad(name, err) }`
       and a mutable `summary()` returning `{ pass, fail }`. Keep all assert wording
-      identical. Drop non-logic imports (`el`, `svg`, router) from the moved code.
-- [ ] Step 2. `app/tests.html` keeps its page but now imports the shared suite and
-      renders the same rows it does today (same CSS classes, same 51/51 line).
-- [ ] Step 3. `tools/run-tests.mjs`: stubs `globalThis.localStorage` (null-backed)
-      before a dynamic `import('../app/assets/js/tests.mjs')`, runs
+      identical. The five DOM-factory asserts stay behind a `dom: true` flag
+      (they need a real document).
+- [x] Step 2. `app/tests.html` keeps its page but now imports the shared suite and
+      renders the same rows it does today (same CSS classes, same summary line).
+- [x] Step 3. `tools/run-tests.mjs`: stubs `globalThis.localStorage`,
+      `self`, `document` (util.js creates a `<template>` at parse time) before a
+      dynamic `import('../app/assets/js/tests.mjs')`, runs
       `runSelfCheck` with a console reporter, exits `1` if any assert fails,
-      prints `npm test: 51/51 passed`.
-- [ ] Step 4. `package.json`: add `"test": "node tools/run-tests.mjs"`. Delete the
+      prints `npm test: 46/46 passed` (the browser page adds the five
+      DOM-factory asserts for the full 51).
+- [x] Step 4. `package.json`: add `"test": "node tools/run-tests.mjs"`. Delete the
       old inline suite from `tests.html` (keep the page + reporter wiring).
-- [ ] Step 5. Verify: `npm test` prints 51/51; `npm run check` still says
-      "28 JavaScript modules parse" (now 29); open page locally later with owner.
+- [x] Step 5. Verify: `npm test` prints 46/46; `npm run check` reports 30 modules
+      parse; the browser page still shows 51/51 (owner pass).
 
 ### Task 0.2: ESLint flat config
 
