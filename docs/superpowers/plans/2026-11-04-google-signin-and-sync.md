@@ -61,11 +61,11 @@
   - `mergeScalar(local, remote) → value` — LWW by `updatedAt`, tie → remote
   - `nextCursor(cursor, docs) → number`
 
-- [ ] **Step 1: Write the failing tests** — new group in `tests.mjs`: key-order-insensitive stringify; diff finds add/change/remove and is a no-op when equal; append merge unions without overwriting; LWW merge picks newer each way; tombstone removes an older local and loses to a newer local; scalar LWW incl. tie; cursor advance.
-- [ ] **Step 2: Run** `npm test` — new group fails (module missing).
-- [ ] **Step 3: Implement** the six functions in `app/core/sync.js` — pure, no imports, no DOM.
-- [ ] **Step 4: Run** `npm test` — all groups pass; `npm run check` + `npm run lint` clean.
-- [ ] **Step 5: Commit** — `Sync merge engine (plan 1)`
+- [x] **Step 1: Write the failing tests** — new group in `tests.mjs`: key-order-insensitive stringify; diff finds add/change/remove and is a no-op when equal; append merge unions without overwriting; LWW merge picks newer each way; tombstone removes an older local and loses to a newer local; scalar LWW incl. tie; cursor advance.
+- [x] **Step 2: Run** `npm test` — new group fails (module missing).
+- [x] **Step 3: Implement** the six functions in `app/core/sync.js` — pure, no imports, no DOM.
+- [x] **Step 4: Run** `npm test` — all groups pass; `npm run check` + `npm run lint` clean.
+- [x] **Step 5: Commit** — `Sync merge engine (plan 1)`
 
 ### Task 2: Lazy Firebase loader (`app/assets/js/firebase.js`)
 
@@ -75,9 +75,9 @@
 **Interfaces:**
 - Produces (used by tasks 3–5): `loadFirebase() → Promise<{ app, auth, db, A: authMod, F: firestoreMod }>` — memoized; `FIREBASE_CONFIG` export.
 
-- [ ] **Step 1: Implement** — config constant (owner's web app), dynamic `import()` of `firebase-app.js`, `firebase-auth.js`, `firebase-firestore.js` from the pinned CDN, `initializeApp` + `getAuth` + `getFirestore`, memoized single-flight promise.
-- [ ] **Step 2: Run** `npm run check` (module parses, 32→33 JS modules) + `npm run lint`.
-- [ ] **Step 3: Commit** — `Lazy Firebase loader (plan 2)`
+- [x] **Step 1: Implement** — config constant (owner's web app), dynamic `import()` of `firebase-app.js`, `firebase-auth.js`, `firebase-firestore.js` from the pinned CDN, `initializeApp` + `getAuth` + `getFirestore`, memoized single-flight promise.
+- [x] **Step 2: Run** `npm run check` (module parses, 32→33 JS modules) + `npm run lint`.
+- [x] **Step 3: Commit** — `Lazy Firebase loader (plan 2)`
 
 ### Task 3: Account module (`app/assets/js/account.js`)
 
