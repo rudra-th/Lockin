@@ -313,12 +313,14 @@ new `docs/android-release.md`, `.gitignore`.
 
 Files: new `docs/android-qa.md`.
 
-- [ ] Step 1. Write the checklist as literal tap-by-tap assertions: walkthrough
-      permission rows on a real device, exact alarm firing with the app swiped
-      away, usage-access panel matching a 7-day browser/ad-aware profile, retry
-      on revoked permission, alarm tap route opening the right block.
-- [ ] Step 2. Leave the checklist at 0/checked — the owner runs the pass in his own
-      test round ("we will test afterwards").
+- [x] Step 1. Written as literal tap-by-tap assertions across 7 sections:
+      install & first run, the three walkthrough permission rows (matching
+      `paintPerm` states), exact alarms with the app swiped away / after
+      reboot / from the lock screen, the usage-access panel against Digital
+      Wellbeing, revoked-permission retry, the session engine on hardware
+      (wake lock, drift, kill-and-resume), and the shell offline.
+- [x] Step 2. Left at 0/checked — the owner runs the pass in his own test
+      round ("we will test afterwards").
 
 ### Task 3.3: Un-promise what isn't shipped (decision-dependent)
 
