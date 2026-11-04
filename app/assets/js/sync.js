@@ -28,6 +28,7 @@ const SCALARS = ['profile', 'settings'];
 
 let mods = null;        // { auth, db, A, F } once the SDK is loaded
 let user = null;        // the signed-in Firebase user
+let uid = null;         // the account the shadow/cursor belong to
 let shadow = null;      // what the cloud last looked like, per slice
 let cursor = 0;         // newest updatedAt pulled — advances on pulls only
 let started = false;
@@ -41,17 +42,18 @@ let lastError = '';
 
 /* ---------- sync metadata (never inside the store) ---------- */
 
-function loadMeta() {
+function loadMeta(ownerUid) {
   try {
     const raw = JSON.parse(localStorage.getItem(META_KEY) || 'null');
-    if (raw && typeof raw === 'object') return raw;
+    if (raw && typeof raw === 'object' && raw.uid === ownerUid) return raw;
   } catch (_) { /* corrupt meta is just a fresh start */ }
-  return { cursor: 0, shadow: null };
+  /* A different account gets a clean slate: cursors and shadows are per-uid. */
+  return { uid: ownerUid, cursor: 0, shadow: null };
 }
 
 function saveMeta() {
   try {
-    localStorage.setItem(META_KEY, JSON.stringify({ cursor, shadow }));
+    localStorage.setItem(META_KEY, JSON.stringify({ uid, cursor, shadow }));
   } catch (_) { /* a full storage must never break the app */ }
 }
 
@@ -211,22 +213,24 @@ export async function syncNow(reason = 'manual') {
   if (!started || !user) return;
   if (busy) { pending = true; return; }
   busy = true;
+  const owner = user;
   setStatus('syncing');
   try {
     if (!mods) mods = await loadFirebase();
+    if (!started || user?.uid !== owner.uid) return; // signed out mid-load
     const { db, F } = mods;
-    const uid = user.uid;
+    const ownerId = owner.uid;
 
     /* Pull first: the cloud wins nothing by surprise, the merge is fair. */
     const pulled = {};
     let maxAt = cursor;
     for (const { name } of COLLECTIONS) {
-      const docs = await pullCollection(F, db, uid, name);
+      const docs = await pullCollection(F, db, ownerId, name);
       pulled[name] = docs;
       maxAt = nextCursor(maxAt, docs);
     }
     for (const name of SCALARS) {
-      const docs = (await pullCollection(F, db, uid, name))
+      const docs = (await pullCollection(F, db, ownerId, name))
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       pulled[name] = docs;
       maxAt = nextCursor(maxAt, docs);
@@ -236,7 +240,7 @@ export async function syncNow(reason = 'manual') {
     cursor = maxAt; // pulled docs only — a push stamp must never hide remote work
 
     /* Then push whatever the pull left unknown to the shadow. */
-    const writes = buildWrites(uid, db, F);
+    const writes = buildWrites(ownerId, db, F);
     for (let i = 0; i < writes.length; i += PAGE) {
       const batch = F.writeBatch(db);
       for (const w of writes.slice(i, i + PAGE)) batch.set(w.ref, w.data);
@@ -285,9 +289,11 @@ function onOnline() {
 
 /** Own the store's sync for this user. Called by account.js on sign-in. */
 export function startSync(fbUser) {
+  if (started && uid === fbUser.uid) { user = fbUser; return; }
+  if (started) stopSync(); // a different account takes over cleanly
+  uid = fbUser.uid;
   user = fbUser;
-  if (started) return;
-  const meta = loadMeta();
+  const meta = loadMeta(uid);
   cursor = meta.cursor || 0;
   shadow = meta.shadow || null;
   started = true;
@@ -313,4 +319,11 @@ export function stopSync() {
   document.dispatchEvent(new CustomEvent('lockin:sync', {
     detail: { status, lastSyncAt, error: '' },
   }));
+}
+
+/** Wipe the engine's bookkeeping — used when the cloud copy is deleted. */
+export function resetSyncMeta() {
+  cursor = 0;
+  shadow = null;
+  saveMeta();
 }

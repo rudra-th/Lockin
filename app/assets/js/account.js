@@ -6,7 +6,7 @@
 
 import { isNative } from './native.js';
 import { loadFirebase } from './firebase.js';
-import { startSync, stopSync, syncStatus } from './sync.js';
+import { startSync, stopSync, syncStatus, resetSyncMeta } from './sync.js';
 
 const FLAG = 'lockin.sync.on'; // "the user wants the cloud" — set on sign-in
 
@@ -136,6 +136,7 @@ export async function deleteCloudData() {
         await batch.commit();
       }
     }
+    resetSyncMeta(); // a later sign-in re-uploads from scratch
     await signOut();
   } catch (err) {
     lastError = String(err?.code || err?.message || 'delete failed');
