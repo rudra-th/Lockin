@@ -22,8 +22,8 @@ shell around the same web UI, not a second UI.
 | Surface | Owns | Does not own |
 |---|---|---|
 | **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, earned exit, Stats, Honesty Log, foreground alarms | Device-wide blocking, closed-app alarms |
-| **Extension** (`extension/`) | Site block list, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
-| **Android** (`android/`) | Exact alarms, notification permission, usage access, per-app screen time, optional Google sign-in for cloud sync | A forked UI or a second data model; no blocking tier ships — on Android, screen time is informational and blocking lives in the extension |
+| **Extension** (`extension/`) | Site block list, per-site daily allowances, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
+| **Android** (`android/`) | Exact alarms, full-screen lock-screen alarms, notification permission, usage access, per-app screen time, optional Google sign-in for cloud sync | A forked UI or a second data model; no blocking tier ships — on Android, screen time is informational and blocking lives in the extension |
 
 The extension and the PWA cannot read each other's storage. Usage stays separate
 until sync exists. This is stated in `extension/README.md` and in the UI.

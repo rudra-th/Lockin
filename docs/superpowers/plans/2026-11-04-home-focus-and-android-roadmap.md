@@ -65,12 +65,12 @@ did I focus today, where did the time go, and what is the next block.**
 
 ### Task 4: Android full-screen alarm (v1.9.0)
 
-- [ ] `USE_FULL_SCREEN_INTENT` permission; full-screen `PendingIntent` on the
+- [x] `USE_FULL_SCREEN_INTENT` permission; full-screen `PendingIntent` on the
       start notification when the OS allows it (API 34+ checked at runtime).
-- [ ] `AlarmActivity`: show when locked, turn screen on, big clock + block name,
+- [x] `AlarmActivity`: show when locked, turn screen on, big clock + block name,
       Dismiss / Open Lockin; graceful fallback to a heads-up notification.
-- [ ] Manifest + notification channel wiring; verify `assembleDebug` exit 0.
-- [ ] Commit; push; bump 1.9.0 + docs.
+- [x] Manifest + notification channel wiring; verify `assembleDebug` exit 0.
+- [x] Commit; push; bump 1.9.0 + docs.
 
 ### Task 5: Android app blocking (v1.10.0)
 

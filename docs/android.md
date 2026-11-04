@@ -5,9 +5,9 @@ The web app remains the source of truth for tasks, schedules and sessions; the
 shell adds the capabilities a browser cannot have.
 
 > Status: the Capacitor shell builds a debug APK, and the `LockinNative` bridge
-> covers exact alarms, notification permission, usage access, per-app screen
-> time, and optional Google sign-in for cloud sync. Device testing is the
-> remaining gate before sharing a release APK.
+> covers exact alarms, full-screen alarm screens, notification permission, usage
+> access, per-app screen time, and optional Google sign-in for cloud sync. Device
+> testing is the remaining gate before sharing a release APK.
 > Lockin distributes directly — no Play Store. The UI still states the web limit
 > plainly: the browser build rings only while Lockin is open.
 
@@ -50,7 +50,8 @@ android/
     java/com/lockin/app/
       MainActivity.java          registers LockinNative
       LockinNativePlugin.java    bridge: alarms, usage, permissions
-      AlarmReceiver.java         notification + open app
+      AlarmReceiver.java         notification + full-screen intent
+      AlarmActivity.java         lock-screen alarm screen
       BootReceiver.java          re-seeds alarms after reboot
       AlarmScheduler.java        shared scheduling/cancel helpers
     res/                         icons, splash, strings
@@ -75,8 +76,9 @@ web and in the extension pack.
   block's **Alarm at start** switch is off; the reminder still fires.
 - On returning to the foreground it cancels the native window, so an open app
   never rings twice.
-- Settings → Android shows live pills for exact alarms, notifications and usage
-  access, plus a 7-day screen-time panel from `UsageStatsManager`.
+- Settings → Android shows live pills for exact alarms, notifications,
+  full-screen alarms and usage access, plus a 7-day screen-time panel from
+  `UsageStatsManager`.
 
 ## Native capabilities
 
@@ -89,9 +91,14 @@ web and in the extension pack.
 - If permission is denied, fall back to `setAndAllowWhileIdle` and report
   `exact: false` to the web UI. Never claim an exact ring that is not exact.
 - A boot receiver re-seeds the next window of alarms from the stored schedule.
-- Full-screen intents are restricted on Android 14+. Use a high-priority
-  notification with a content intent; do not assume the OS will let the app
-  take over the screen.
+- Start alarms ask for a **full-screen intent** on Android 8+ (`AlarmActivity`):
+  the screen turns on, the alarm draws over the keyguard, and Dismiss / Open
+  Lockin are one tap. Android 14+ can withhold the permission, so the receiver
+  checks `NotificationManager.canUseFullScreenIntent()` at runtime. When it is
+  denied, the same alarm posts as a loud heads-up notification — never silently.
+  Settings → Android shows the current state and opens the system toggle.
+- `AlarmActivity` is not exported, does not appear in recents, and owns no
+  schedule state: title, body and notification id arrive in the intent.
 
 ### Usage access
 
@@ -141,6 +148,7 @@ Declared in `AndroidManifest.xml` as the features land:
 | `INTERNET` | Capacitor local server and future opt-in sync |
 | `SCHEDULE_EXACT_ALARM` | Ring at the scheduled minute |
 | `POST_NOTIFICATIONS` | Alarm and reminder notifications |
+| `USE_FULL_SCREEN_INTENT` | Show a start alarm over the lock screen (Android 14+ runtime gate; falls back to heads-up) |
 | `RECEIVE_BOOT_COMPLETED` | Re-seed alarms after a reboot |
 | `VIBRATE` | Alarm pattern |
 | `WAKE_LOCK` | Deliver the alarm receiver on time |
@@ -159,7 +167,9 @@ exists. Debug builds never touch signing.
   blocking tier on Android (see "Blocking" above).
 - `QUERY_ALL_PACKAGES` is restricted; avoid it unless the core feature requires
   it and the declaration is approved.
-- Full-screen intents are restricted on Android 14+.
+- Full-screen intents are restricted on Android 14+; the app checks the
+  permission at runtime, offers the system toggle in Settings, and degrades to
+  a heads-up notification.
 - Exact alarms require a user-facing rationale and the `SCHEDULE_EXACT_ALARM`
   permission; the app must degrade gracefully when denied.
 - A privacy policy and Data Safety declaration are mandatory before any store

@@ -118,18 +118,20 @@ export async function startNative() {
 export async function nativeStatus() {
   if (!isNative) return null;
   try {
-    const [exact, notifications, usage] = await Promise.all([
+    const [exact, notifications, usage, fullScreen] = await Promise.all([
       plugin.canScheduleExactAlarms(),
       plugin.notificationPermission(),
       plugin.hasUsageAccess(),
+      plugin.fullScreenIntentAllowed(),
     ]);
     return {
       exact: Boolean(exact?.exact),
       notifications: Boolean(notifications?.granted),
       usage: Boolean(usage?.granted),
+      fullScreen: Boolean(fullScreen?.allowed),
     };
   } catch (_) {
-    return { exact: false, notifications: false, usage: false };
+    return { exact: false, notifications: false, usage: false, fullScreen: false };
   }
 }
 
@@ -147,6 +149,10 @@ export function openNotificationSettings() {
 
 export function openExactAlarmSettings() {
   return plugin?.openExactAlarmSettings?.().catch(() => {});
+}
+
+export function openFullScreenIntentSettings() {
+  return plugin?.openFullScreenIntentSettings?.().catch(() => {});
 }
 
 export function openUsageAccessSettings() {

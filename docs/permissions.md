@@ -35,6 +35,7 @@ What the shipped APK declares — nothing more:
 | `PACKAGE_USAGE_STATS` | Per-app screen time, pickups, unlocks. Granted in system settings. |
 | `SCHEDULE_EXACT_ALARM` | Ring at the scheduled minute. |
 | `POST_NOTIFICATIONS` | Reminder five minutes before a block. Runtime prompt. |
+| `USE_FULL_SCREEN_INTENT` | A start alarm may take over the lock screen. Android 14+ can deny it; the alarm still arrives as a heads-up. |
 | `RECEIVE_BOOT_COMPLETED` | Re-seed alarms after a reboot. |
 | `VIBRATE`, `WAKE_LOCK` | Deliver the alarm on time. |
 | `INTERNET` | Capacitor local server and future opt-in sync. |

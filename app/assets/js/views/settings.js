@@ -11,7 +11,7 @@ import { group, setrow, toggle, stepper } from '../controls.js';
 import { ensureAlarmPermission } from '../alarms.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
-  openExactAlarmSettings, openUsageAccessSettings, queryUsage,
+  openExactAlarmSettings, openFullScreenIntentSettings, openUsageAccessSettings, queryUsage,
 } from '../native.js';
 import { accountState, signIn, signOut, deleteCloudData } from '../account.js';
 import { syncNow } from '../sync.js';
@@ -109,8 +109,10 @@ function nativeCard() {
 
   const exactPill = pill(false, 'Exact', 'Inexact');
   const notifPill = pill(false);
+  const fullPill = pill(false, 'On', 'Heads-up');
   const usagePill = pill(false);
   const exactBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openExactAlarmSettings() }, 'Settings');
+  const fullBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openFullScreenIntentSettings() }, 'Allow');
   const usageBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openUsageAccessSettings() }, 'Open');
   const notifBtn = el('button', { class: 'btn btn-subtle btn-sm' }, 'Allow');
 
@@ -125,12 +127,15 @@ function nativeCard() {
     exactPill.classList.toggle('on', st.exact);
     notifPill.textContent = st.notifications ? 'On' : 'Off';
     notifPill.classList.toggle('on', st.notifications);
+    fullPill.textContent = st.fullScreen ? 'On' : 'Heads-up';
+    fullPill.classList.toggle('on', st.fullScreen);
     usagePill.textContent = st.usage ? 'On' : 'Off';
     usagePill.classList.toggle('on', st.usage);
     notifBtn.textContent = st.notifications ? 'Settings' : 'Allow';
     notifBtn.onclick = st.notifications
       ? () => openNotificationSettings()
       : async () => { await requestNotifications(); refresh(); };
+    fullBtn.textContent = st.fullScreen ? 'Settings' : 'Allow';
   };
 
   const onVisible = () => { if (!document.hidden) refresh(); };
@@ -145,6 +150,9 @@ function nativeCard() {
     setrow('Notifications',
       'The alarm and reminder arrive as notifications. Android asks once.',
       el('div', { class: 'native-ctrl' }, notifPill, notifBtn)),
+    setrow('Full-screen alarm',
+      'On Android 14+, a start alarm can take over the lock screen. If Android denies it, the alarm still arrives as a loud heads-up — never silently.',
+      el('div', { class: 'native-ctrl' }, fullPill, fullBtn)),
     setrow('Usage access',
       'Reads per-app foreground time for the screen-time panel. Lockin can open the setting, but only you can grant it.',
       el('div', { class: 'native-ctrl' }, usagePill, usageBtn)),

@@ -9,4 +9,10 @@
     <string name="channel_alarms_desc">Rings when a scheduled block starts.</string>
     <string name="channel_reminders">Schedule reminders</string>
     <string name="channel_reminders_desc">A quiet warning before a block starts.</string>
+
+    <string name="alarm_kicker">Schedule alarm</string>
+    <string name="alarm_default_title">Time to focus</string>
+    <string name="alarm_dismiss">Dismiss</string>
+    <string name="alarm_open">Open Lockin</string>
+    <string name="alarm_foot">The block is yours. It starts now.</string>
 </resources>

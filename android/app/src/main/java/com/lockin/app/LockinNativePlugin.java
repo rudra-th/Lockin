@@ -119,6 +119,28 @@ public class LockinNativePlugin extends Plugin {
         call.resolve();
     }
 
+    /* ---------- full-screen alarms ---------- */
+
+    @PluginMethod
+    public void fullScreenIntentAllowed(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("allowed", AlarmReceiver.canUseFullScreen(getContext()));
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openFullScreenIntentSettings(PluginCall call) {
+        Intent intent;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                    Uri.parse("package:" + getContext().getPackageName()));
+        } else {
+            intent = appDetailsIntent();
+        }
+        open(intent);
+        call.resolve();
+    }
+
     /* ---------- notifications ---------- */
 
     @PluginMethod
