@@ -110,6 +110,12 @@ web and in the extension pack.
   `lockin-29758`, Android app `com.lockin.app`, release SHA-1 in
   [`android-release.md`](android-release.md)). The web config in
   `app/assets/js/firebase.js` is public by design; Firestore rules are the lock.
+- A **debug** APK is signed with the local debug keystore, whose SHA-1 is not
+  the release one registered in Firebase — Google sign-in will fail with
+  `DEVELOPER_ERROR` until that fingerprint is added to the Firebase Android app
+  (and `google-services.json` re-downloaded), or you test an `assembleRelease`
+  build signed with the release keystore. The debug fingerprint:
+  `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android`.
 - Signing out leaves local data untouched; Settings → **Delete cloud data**
   wipes the Firestore mirror and then signs out.
 

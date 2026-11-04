@@ -152,5 +152,5 @@
 
 ### Task 8: Final verification
 
-- [ ] **Step 1:** `npm run check`, `npm test`, `npm run lint` all green; push.
-- [ ] **Step 2:** Report to the owner: what shipped, what to test on the device (sign-in round), and what queues next (Home rebuild → Focus redesign → extension limits → Android alarm → app blocking).
+- [x] **Step 1:** `npm run check`, `npm test`, `npm run lint` all green; push. — also `cap sync` + `assembleDebug` exit 0 with the final assets (APK 6.25 MB, versionCode 160).
+- [x] **Step 2:** Report to the owner: what shipped, what to test on the device (sign-in round), and what queues next (Home rebuild → Focus redesign → extension limits → Android alarm → app blocking).
