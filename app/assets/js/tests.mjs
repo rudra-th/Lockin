@@ -206,6 +206,10 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(Store.sessionMins({ start: 0, end: 25 * 60000 }), 25);
     eq(Store.sessionMins(null), 0);
   });
+  test('sessionMins never goes negative', () => {
+    eq(Store.sessionMins({ secs: -30, start: 0, end: 0 }), 0);
+    eq(Store.sessionMins({ start: 1000, end: 0 }), 0); // end before start
+  });
 
   group('Strict Mode accident window');
   test('≤10s away is a rescue when rescues remain', () => {
@@ -338,6 +342,31 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(clean.remind, 60);
     eq(clean.name, 'Untitled block');
     eq(normalizeSchedule({ start: '09:00', end: '10:00', days: [1] }).remind, 5);
+  });
+
+  group('Overnight blocks');
+  const NIGHT = { id: 's2', name: 'Night', start: '23:00', end: '01:30', days: [1], enabled: true, alarm: true, remind: 0 };
+  test('an overnight occurrence ends on the next calendar day', () => {
+    const occ = occurrenceOn(NIGHT, new Date(2026, 10, 2)); // Mon 2 Nov 2026
+    eq(occ.end.getDate(), 3); // ends Tuesday
+    eq(occ.end - occ.start, 150 * 60000);
+  });
+  test('an overnight start emits its alarm inside the evening window', () => {
+    const evs = eventsBetween([NIGHT], new Date(2026, 10, 2, 22, 50), new Date(2026, 10, 2, 23, 5));
+    eq(evs.map((e) => e.kind), ['start']);
+    eq([evs[0].at.getHours(), evs[0].at.getMinutes()], [23, 0]);
+  });
+  test('crossing midnight after an overnight start emits nothing twice', () => {
+    const evs = eventsBetween([NIGHT], new Date(2026, 10, 2, 23, 55), new Date(2026, 10, 3, 0, 15));
+    eq(evs.length, 0);
+  });
+  test('an overnight block is still ongoing just after midnight', () => {
+    const during = nextOccurrence([NIGHT], new Date(2026, 10, 3, 0, 10)); // Tue 00:10
+    eq(during.ongoing, true);
+    eq(during.schedule.id, 's2');
+  });
+  test('normalizeSchedule keeps an overnight end as written', () => {
+    eq(normalizeSchedule({ start: '23:00', end: '01:30', days: [1] }).end, '01:30');
   });
 
   group('Data in / out');

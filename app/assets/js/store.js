@@ -244,7 +244,7 @@ const Store = {
     const mins = sess.secs != null
       ? sess.secs / 60
       : Math.max(0, (sess.end - sess.start) / 60000);
-    return Number.isFinite(mins) ? mins : 0;
+    return Number.isFinite(mins) ? Math.max(0, mins) : 0;
   },
 
   focusMinutesOn(dateKey) {

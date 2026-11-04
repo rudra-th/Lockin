@@ -192,11 +192,16 @@ Files: `app/assets/js/store.js`, `app/assets/js/views/settings.js`.
 
 Files: `app/assets/js/tests.mjs`.
 
-- [ ] Step 1. Add asserts (pure logic, no DOM): `decideAway` boundaries around
-      `GRACE_SEC`; `earnedExit` under rescue-cap exhaustion; stopwatch
-      `sessionMins` when `savedMs > 0` across a pause; schedule `eventsBetween`
-      across midnight when a block ends before it starts.
-- [ ] Step 2. Verify: `npm test` count grows by ≥6; all green.
+- [x] Step 1. Add asserts (pure logic, no DOM): `sessionMins` never negative
+      (defect found and fixed — a malformed session could subtract minutes);
+      overnight blocks: `occurrenceOn` ends the next calendar day,
+      `eventsBetween` emits the start inside the evening window, emits nothing
+      twice across midnight, `nextOccurrence` keeps the block ongoing just
+      after midnight, `normalizeSchedule` keeps an overnight end as written.
+      (`decideAway` boundaries, `earnedExit` and stopwatch `sessionMins` were
+      already covered by the existing suite.)
+- [x] Step 2. Verify: `npm test` count grows by ≥6 asserts (49 → 55 tests);
+      all green.
 
 ---
 
