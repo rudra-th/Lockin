@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Lockin — Block & Track",
   "short_name": "Lockin",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "The blocking and screen-time half of Lockin. Block distracting sites, see where the day went. The study clock lives in the app.",
   "minimum_chrome_version": "110",
   "permissions": [
@@ -11,7 +11,9 @@
     "tabs",
     "declarativeNetRequest"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -32,8 +34,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html", "blocked.css", "fonts/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "blocked.html",
+        "blocked.css",
+        "fonts/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

@@ -32,6 +32,7 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 - **Strict Mode is a switch, not a trap** — off means tracking only: no away slips and no quit slips, ever. **Earned exit** (15 minutes by default, 5–60 or off) makes ending after real work neutral in either mode. Daily goal, clean-day minimum, earned-exit bar and rescue rules: all visible, all adjustable in Settings.
 - **First-run film** — seven full-bleed scenes: your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, a daily study bar, the honest rules, and the permissions the schedule needs — notifications on the web; notifications, exact alarms and usage access on Android. Every ask is optional, shows live status, and links to the system setting if it is denied. No demo session, no seeded schedule. Rerunnable from Settings.
 - **Home in four facts** — days left until your exam (warm inside 30 days, a prompt once it passes), today's focused minutes against your target, the next schedule block with a live "in 3h 12m", and — on Android — where the last 24 hours of foreground time went. Tasks live in Schedule; streaks and history live in Stats. Nothing else.
+- **Browser extension** — blocks a list of sites for 25/45/60 minutes, and can cap any site at a daily allowance (10 min–2 h). Spend it and the site holds until local midnight; the blocked page says which rule caught it and when it lifts, and the popup shows today's usage against each allowance. Chrome only, no timer, no account.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
 - **Optional cloud sync** — sign in with Google on the web (popup) or Android (native sheet) and your tasks, schedules, sessions and slips mirror to your own Firestore tree. Local-first by design: signed out, no Firebase code loads; offline, the store keeps working and sync retries; signing out never touches local data. Last-write-wins for edits, union-by-id for history, tombstones for deletes — and **Delete cloud data** is real.
 
@@ -40,10 +41,10 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 | Surface | What it is | Where |
 |---|---|---|
 | **Web app** | The whole study clock: tasks, Study Mode, earned exit, Stats, Honesty Log. Installable, offline. | `app/` → **[lockin.surge.sh](https://lockin.surge.sh)** |
-| **Browser extension** | Only blocking and screen time. No timer, no tasks, no streaks. | `extension/` → pack with `node tools/pack-extension.mjs` |
+| **Browser extension** | Only blocking, per-site daily limits and screen time. No timer, no tasks, no streaks. | `extension/` → pack with `node tools/pack-extension.mjs` |
 | **Android app** | The same UI in a Capacitor shell: exact alarms, notification permission, usage access, per-app screen time, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
 
-The web app is the source of truth for a study session. The extension is deliberately the smaller instrument — it holds the block list and counts the active Chrome tab, and says so in its own README.
+The web app is the source of truth for a study session. The extension is deliberately the smaller instrument — it holds the block list and per-site daily allowances, counts the active Chrome tab, and says so in its own README.
 
 ## Screens
 

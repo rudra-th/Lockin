@@ -3,6 +3,27 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.8.0 — 2026-11-04
+
+### Per-site daily limits in the extension
+
+- Every site on the block list can carry a daily allowance from 10 minutes to
+  2 hours. The popup draws today's usage against it and a stepper changes it;
+  unchecking a site keeps its allowance but frees it immediately.
+- Spend the allowance and the site holds until local midnight. The worker adds
+  a `declarativeNetRequest` redirect with `why=limit`; the blocked page says
+  "That's the allowance", counts down to the reset, and offers no end-the-block
+  escape. A manual block still owns the reason while it runs, then the spent
+  allowance takes over.
+- The badge is the nearest freedom: the manual block's countdown when one is
+  running, otherwise the hours until the daily reset. Spent sites turn red in
+  the popup with "Blocked for today · resets at midnight".
+- The limit engine is a pure core module (`app/core/limits.js`) shared by the
+  worker, popup and blocked page, so "spent" means one thing everywhere. New
+  tests cover the exact allowance boundary and the midnight rollover.
+- `npm run bump` now versions `extension/manifest.json` too, and `check`
+  verifies it agrees with the app.
+
 ## 1.7.0 — 2026-11-04
 
 ### Home, rebuilt around four facts
