@@ -25,7 +25,8 @@ function emit() {
 
 /** Everything the Settings card needs, in one read. */
 export function accountState() {
-  return { user, signingIn, ...syncStatus(), error: lastError };
+  const sync = syncStatus();
+  return { user, signingIn, ...sync, error: lastError || sync.error };
 }
 
 function adopt(fbUser) {

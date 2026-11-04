@@ -14,6 +14,7 @@ const PRECACHE = [
   './core/time.js',
   './core/honesty.js',
   './core/schedule.js',
+  './core/sync.js',
   './assets/js/store.js',
   './assets/js/exams.js',
   './assets/js/util.js',
@@ -25,6 +26,9 @@ const PRECACHE = [
   './assets/js/controls.js',
   './assets/js/alarms.js',
   './assets/js/native.js',
+  './assets/js/firebase.js',
+  './assets/js/account.js',
+  './assets/js/sync.js',
   './assets/js/app.js',
   './assets/js/views/home.js',
   './assets/js/views/schedule.js',
@@ -70,6 +74,22 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+
+  // Firebase's CDN modules are versioned and immutable: after the first
+  // sign-in they are cached for good, so the cloud keeps working offline.
+  if (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
+    event.respondWith(
+      caches.match(req).then(
+        (hit) => hit || fetch(req).then((res) => {
+          const copy = res.clone();
+          caches.open(RUNTIME).then((c) => c.put(req, copy));
+          return res;
+        })
+      )
+    );
+    return;
+  }
+
   if (url.origin !== location.origin) return;
 
   // Navigations: the hash-routed shell owns '/' and '/index.html' — serve it

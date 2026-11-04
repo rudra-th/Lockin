@@ -115,12 +115,12 @@
 **Interfaces:**
 - Consumes: `accountState`, `signIn`, `signOut`, `deleteCloudData`, `syncNow` (tasks 3–4).
 
-- [ ] **Step 1: Settings Account card** — signed out: one honest line + "Sign in with Google"; signed in: name/email, live sync status line, **Sync now**, **Sign out**, **Delete cloud data** (sheet-confirmed, deletes only the cloud copy). Card renders on web and native.
-- [ ] **Step 2: About copy** — "No account" line becomes "optional account" wording consistent with privacy.md.
-- [ ] **Step 3: app.js** — `initAccount()` after `startNative()`.
-- [ ] **Step 4: sw.js** — add `core/sync.js`, `assets/js/firebase.js`, `assets/js/account.js`, `assets/js/sync.js` to PRECACHE; cache-first branch for `www.gstatic.com/firebasejs/*` (versioned URLs are immutable).
-- [ ] **Step 5: Run** `npm run check` + `npm run lint` + `npm test`.
-- [ ] **Step 6: Commit** — `Account card in Settings, boot wiring, SW caching (plan 5)`
+- [x] **Step 1: Settings Account card** — signed out: one honest line + "Sign in with Google"; signed in: name/email, live sync status line, **Sync now**, **Sign out**, **Delete cloud data** (sheet-confirmed, deletes only the cloud copy). Card renders on web and native.
+- [x] **Step 2: About copy** — "No account" line becomes "optional account" wording consistent with privacy.md.
+- [x] **Step 3: app.js** — `initAccount()` after `startNative()`.
+- [x] **Step 4: sw.js** — add `core/sync.js`, `assets/js/firebase.js`, `assets/js/account.js`, `assets/js/sync.js` to PRECACHE; cache-first branch for `www.gstatic.com/firebasejs/*` (versioned URLs are immutable).
+- [x] **Step 5: Run** `npm run check` + `npm run lint` + `npm test`.
+- [x] **Step 6: Commit** — `Account card in Settings, boot wiring, SW caching (plan 5)`
 
 ### Task 6: Android wiring
 

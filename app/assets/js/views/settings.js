@@ -13,6 +13,8 @@ import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
   openExactAlarmSettings, openUsageAccessSettings, queryUsage,
 } from '../native.js';
+import { accountState, signIn, signOut, deleteCloudData } from '../account.js';
+import { syncNow } from '../sync.js';
 
 export function initSettings(Router) {
   Router.register('/settings', { mount, unmount: null });
@@ -298,11 +300,102 @@ function dataCard() {
   return el('div', { class: 'card' },
     el('h2', {}, 'Data & privacy'),
     el('p', { class: 'muted', style: 'margin:0 0 4px' },
-      'Everything lives in this browser’s localStorage. No account, no analytics, no network calls beyond this page.'),
+      'Everything lives in this browser’s localStorage. No analytics, no trackers — and no network calls unless you sign in above to mirror a copy to your own cloud.'),
     el('div', { class: 'btn-stack' }, exportBtn, installBtn, replayBtn),
     el('div', { class: 'btn-stack' }, importBtn, wipeBtn),
     input,
   );
+}
+
+function agoLabel(ts) {
+  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} h ago`;
+  return `${Math.round(hrs / 24)} d ago`;
+}
+
+function accountCard() {
+  const card = el('div', { class: 'card' });
+
+  function paint() {
+    const st = accountState();
+    card.textContent = '';
+    card.append(el('h2', {}, 'Account'));
+
+    if (!st.user) {
+      card.append(
+        el('p', { class: 'muted', style: 'margin:0 0 10px' },
+          'Optional. Everything already lives on this device — signing in with Google mirrors a copy to your own private cloud, so phone and browser stay in step.'),
+        el('div', { class: 'btn-stack' },
+          el('button', {
+            class: 'btn btn-primary btn-block',
+            disabled: st.signingIn,
+            onclick: () => signIn(),
+          }, st.signingIn ? 'Signing in…' : 'Sign in with Google'),
+        ),
+        st.error ? el('p', { class: 'acct-error' }, st.error) : null,
+      );
+      return;
+    }
+
+    const statusText = st.status === 'syncing' ? 'Syncing…'
+      : st.status === 'offline' ? 'Offline — will retry'
+        : st.status === 'error' ? `Sync error — ${st.error || 'will retry'}`
+          : st.lastSyncAt ? `Synced ${agoLabel(st.lastSyncAt)}` : 'Signed in';
+
+    card.append(
+      el('div', { class: 'acct-id' },
+        st.user.photo
+          ? el('img', { class: 'acct-avatar', src: st.user.photo, alt: '' })
+          : el('span', { class: 'acct-avatar acct-fallback' }, (st.user.name || st.user.email || '?').slice(0, 1).toUpperCase()),
+        el('div', { class: 'acct-who' },
+          el('b', {}, st.user.name || 'Google account'),
+          el('span', {}, st.user.email),
+        ),
+      ),
+      el('div', { class: `acct-status is-${st.status}` },
+        el('i', { class: 'acct-dot' }),
+        statusText,
+      ),
+      el('div', { class: 'btn-stack' },
+        el('button', { class: 'btn btn-subtle btn-block', onclick: () => syncNow('manual') },
+          svg('repeat', 16), 'Sync now'),
+        el('button', {
+          class: 'btn btn-subtle btn-block',
+          onclick: () => signOut().then(() => hint('Signed out — your data stays here.')),
+        }, svg('x', 16), 'Sign out'),
+        el('button', {
+          class: 'btn btn-danger btn-block',
+          onclick: () => openSheet('Delete cloud data?', (close) => [
+            el('p', { class: 'muted' }, 'Every trace of your data leaves the cloud — tasks, sessions, everything. This device keeps its copy; sign back in and it uploads again.'),
+            el('div', { class: 'actions' },
+              el('button', {
+                class: 'btn btn-primary',
+                onclick: () => { close(); deleteCloudData().then(() => hint('Cloud copy deleted.')); },
+              }, 'Delete it'),
+              el('button', { class: 'btn btn-subtle', onclick: () => close() }, 'Keep'),
+            ),
+          ]),
+        }, svg('trash', 16), 'Delete cloud data'),
+      ),
+    );
+  }
+
+  /* Sync and account events repaint the card while it is alive; once Settings
+     unmounts it, the listeners remove themselves so nothing lingers. */
+  const repaint = () => {
+    if (document.contains(card)) paint();
+    else {
+      document.removeEventListener('lockin:account', repaint);
+      document.removeEventListener('lockin:sync', repaint);
+    }
+  };
+  document.addEventListener('lockin:account', repaint);
+  document.addEventListener('lockin:sync', repaint);
+  paint();
+  return card;
 }
 
 const Storetoday = () => new Date().toISOString().slice(0, 10);
@@ -332,6 +425,7 @@ function render(host) {
     group('Schedule', alarmsCard()),
     ...(isNative ? [group('Android', nativeCard(), screenTimeCard())] : []),
     group('You', profileCard(), lookCard()),
+    group('Account', accountCard()),
     group('Your data', dataCard()),
     group('About', aboutCard()),
   ));
