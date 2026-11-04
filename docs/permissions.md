@@ -39,9 +39,15 @@ What the shipped APK declares — nothing more:
 | `RECEIVE_BOOT_COMPLETED` | Re-seed alarms after a reboot. |
 | `VIBRATE`, `WAKE_LOCK` | Deliver the alarm on time. |
 | `INTERNET` | Capacitor local server and future opt-in sync. |
+| Accessibility service (off by default, user-enabled) | See which app comes to the front, so apps you chose can be covered during a focus window. `canRetrieveWindowContent=false`: package names only — no screen text, page content or keystrokes. |
 
-No accessibility service, no overlay permission, no blocking tier — Lockin's
-Android shell measures and rings; it does not intercept other apps.
+The accessibility service is optional. Without it Lockin still measures, rings
+and logs; Settings says "Service off — nothing is blocked yet" instead of
+pretending. It only covers apps you pick, only inside a schedule block or a
+running/paused Study Mode session. Lockin, launchers, Settings and the default
+dialer are never covered, even if an older saved list still contains them, so
+the service can always be turned off and help can always be reached. It is a
+focus aid, not a lock: Android lets you turn it off at any time.
 
 ## What we will never ask for
 

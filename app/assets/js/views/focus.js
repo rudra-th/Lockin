@@ -6,6 +6,7 @@ import { Router } from '../router.js';
 import { el, fmtClock, fmtWatch, fmtMin, todayKey, decideAway, earnedExit, FREE_EXIT_SEC } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
+import { pushBlockingWindows } from '../native.js';
 
 export const GRACE_SEC = 10;    // accident window — an away this short is forgiven
 export const RESCUE_CAP = 3;    // free rescues per day; beyond that it is a slip
@@ -41,10 +42,13 @@ function snapshot() {
     };
   });
   Session.lastSnapAt = Date.now();
+  /* A running or paused session is a live blocking window; a break is not. */
+  pushBlockingWindows();
 }
 
 function clearSnapshot() {
   Store.set((s) => { s.session = null; });
+  pushBlockingWindows();
 }
 
 export function resumeFromSnapshot() {

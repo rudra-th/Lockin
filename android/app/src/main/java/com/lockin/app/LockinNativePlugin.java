@@ -1,16 +1,20 @@
 package com.lockin.app;
 
 import android.Manifest;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.AppOpsManager;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Process;
 import android.provider.Settings;
+import android.view.accessibility.AccessibilityManager;
 
 import androidx.core.app.NotificationManagerCompat;
 
@@ -30,12 +34,15 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The only native surface the web app talks to. It owns exact alarms,
- * usage access and notification permission. No UI lives here.
+ * full-screen alarms, usage access, notification permission and the
+ * device-local app-blocking config. No UI lives here.
  */
 @CapacitorPlugin(
         name = "LockinNative",
@@ -238,7 +245,197 @@ public class LockinNativePlugin extends Plugin {
         call.resolve(result);
     }
 
+    /* ---------- app blocking ---------- */
+
+    /** Replace the focus windows the service blocks inside. */
+    @PluginMethod
+    public void syncBlockingWindows(PluginCall call) {
+        JSArray input = call.getArray("windows");
+        JSONArray windows = new JSONArray();
+
+        if (input != null) {
+            List<Object> items;
+            try {
+                items = input.toList();
+            } catch (JSONException err) {
+                items = new ArrayList<>();
+            }
+            for (Object raw : items) {
+                /* Capacitor parses nested objects as org.json.JSONObject, not
+                   JSObject; checking for JSObject would silently drop every
+                   window. */
+                if (!(raw instanceof JSONObject)) continue;
+                JSONObject item = (JSONObject) raw;
+                long start = item.optLong("start", 0L);
+                long end = item.optLong("end", 0L);
+                if (start <= 0 || end <= start) continue;
+                JSONObject window = new JSONObject();
+                try {
+                    window.put("start", start);
+                    window.put("end", end);
+                    window.put("label", item.optString("label", "Focus"));
+                    windows.put(window);
+                } catch (JSONException ignored) {
+                    /* skip a malformed window, keep the rest */
+                }
+                if (windows.length() >= 500) break;
+            }
+        }
+
+        BlockingStore.writeWindows(getContext(), windows);
+        LockinAccessibilityService.refreshIfRunning();
+        call.resolve(blockingStatusObject());
+    }
+
+    /** Replace the master switch and the chosen packages. */
+    @PluginMethod
+    public void setBlockingApps(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        JSArray input = call.getArray("packages");
+        JSONArray packages = new JSONArray();
+
+        if (input != null) {
+            List<Object> items;
+            try {
+                items = input.toList();
+            } catch (JSONException err) {
+                items = new ArrayList<>();
+            }
+            Set<String> protectedPackages = ProtectedApps.of(getContext());
+            Set<String> unique = new LinkedHashSet<>();
+            for (Object raw : items) {
+                if (!(raw instanceof String)) continue;
+                String pkg = ((String) raw).trim();
+                if (pkg.isEmpty() || pkg.length() > 200) continue;
+                if (protectedPackages.contains(pkg)) continue;
+                unique.add(pkg);
+                if (unique.size() >= 200) break;
+            }
+            for (String pkg : unique) packages.put(pkg);
+        }
+
+        BlockingStore.writeApps(getContext(), enabled, packages);
+        LockinAccessibilityService.refreshIfRunning();
+        call.resolve(blockingStatusObject());
+    }
+
+    @PluginMethod
+    public void blockingStatus(PluginCall call) {
+        call.resolve(blockingStatusObject());
+    }
+
+    @PluginMethod
+    public void openAccessibilitySettings(PluginCall call) {
+        open(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        call.resolve();
+    }
+
+    /** Launchable apps only, own package excluded, sorted by label. */
+    @PluginMethod
+    public void listLaunchableApps(PluginCall call) {
+        PackageManager pm = getContext().getPackageManager();
+        Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        List<ResolveInfo> resolved = pm.queryIntentActivities(launcher, 0);
+        if (resolved == null) resolved = new ArrayList<>();
+
+        Set<String> protectedPackages = ProtectedApps.of(getContext());
+        Map<String, String> labels = new HashMap<>();
+        for (ResolveInfo info : resolved) {
+            ActivityInfo activity = info.activityInfo;
+            if (activity == null || activity.packageName == null) continue;
+            String pkg = activity.packageName;
+            if (protectedPackages.contains(pkg) || labels.containsKey(pkg)) continue;
+            CharSequence label = info.loadLabel(pm);
+            labels.put(pkg, label == null || label.length() == 0 ? pkg : label.toString());
+        }
+
+        List<Map.Entry<String, String>> rows = new ArrayList<>(labels.entrySet());
+        rows.sort((a, b) -> a.getValue().compareToIgnoreCase(b.getValue()));
+
+        JSArray apps = new JSArray();
+        for (Map.Entry<String, String> row : rows) {
+            JSObject app = new JSObject();
+            app.put("package", row.getKey());
+            app.put("label", row.getValue());
+            apps.put(app);
+        }
+
+        JSObject result = new JSObject();
+        result.put("apps", apps);
+        call.resolve(result);
+    }
+
     /* ---------- helpers ---------- */
+
+    private JSObject blockingStatusObject() {
+        BlockingStore.Config config = BlockingStore.read(getContext());
+        JSObject result = new JSObject();
+        result.put("service", accessibilityEnabled());
+        result.put("enabled", config.enabled);
+
+        JSArray packages = new JSArray();
+        for (String pkg : config.packages) packages.put(pkg);
+        result.put("packages", packages);
+        result.put("windowCount", config.windows.size());
+
+        long now = System.currentTimeMillis();
+        BlockingStore.Window active = config.activeWindow(now);
+        if (active != null) result.put("active", windowObject(active));
+        BlockingStore.Window next = config.nextWindow(now);
+        if (next != null) result.put("next", windowObject(next));
+        return result;
+    }
+
+    private JSObject windowObject(BlockingStore.Window window) {
+        JSObject out = new JSObject();
+        out.put("label", window.label);
+        out.put("start", window.start);
+        out.put("end", window.end);
+        return out;
+    }
+
+    private boolean accessibilityEnabled() {
+        AccessibilityManager manager =
+                (AccessibilityManager) getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
+        String expected = getContext().getPackageName()
+                + "/" + LockinAccessibilityService.class.getName();
+        String prefix = getContext().getPackageName() + "/";
+
+        if (manager != null) {
+            List<AccessibilityServiceInfo> enabled =
+                    manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+            if (enabled != null) {
+                for (AccessibilityServiceInfo info : enabled) {
+                    String id = info.getId();
+                    if (id == null) continue;
+                    if (expected.equals(id)) return true;
+                    if (id.startsWith(prefix)
+                            && id.endsWith(LockinAccessibilityService.class.getSimpleName())) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        /* Some OEMs keep the manager list stale for a moment after the user
+           flips the switch. The secure setting is the source of truth. */
+        try {
+            String flat = Settings.Secure.getString(
+                    getContext().getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (flat != null) {
+                for (String part : flat.split(":")) {
+                    if (part.startsWith(prefix)
+                            && part.endsWith(LockinAccessibilityService.class.getSimpleName())) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            /* fail closed: the UI will ask the user to enable it again */
+        }
+        return false;
+    }
 
     private boolean usageAccessGranted() {
         AppOpsManager appOps =

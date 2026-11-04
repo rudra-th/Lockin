@@ -21,7 +21,7 @@ Regain, Forest, Opal and friends block apps or grow trees. Lockin is doing a dif
 | Forgives | Away under 10s? Forgiven — 3 free accidents a day. End a session after 15 minutes of real work? Neutral — no slip, no broken streak |
 | Remembers | Every slip, early quit and rescued accident goes into the Honesty Log. An earned end is recorded as neutral. The streak of *genuinely clean days* is earned, never bought |
 
-One honest limit, stated plainly in-app: **a web app cannot block other apps on your phone** — nothing on the web can. Lockin's enforcement lives inside the session: a full-bleed screen, wake lock, a daily-target meter you can't hide from, and a log that doesn't lie.
+One honest limit, stated plainly in-app: **a web app cannot block other apps on your phone** — nothing on the web can. The Android build can, with an optional accessibility service that sees only which app came to the front: pick the apps, and they are covered during schedule blocks and Study Mode. It is off until you enable it, fails open when it is off, and never reads screen content. On the web, enforcement lives inside the session: a full-bleed screen, wake lock, a daily-target meter you can't hide from, and a log that doesn't lie.
 
 ## What's inside
 
@@ -33,6 +33,7 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 - **First-run film** — seven full-bleed scenes: your name, target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, a daily study bar, the honest rules, and the permissions the schedule needs — notifications on the web; notifications, exact alarms and usage access on Android. Every ask is optional, shows live status, and links to the system setting if it is denied. No demo session, no seeded schedule. Rerunnable from Settings.
 - **Home in four facts** — days left until your exam (warm inside 30 days, a prompt once it passes), today's focused minutes against your target, the next schedule block with a live "in 3h 12m", and — on Android — where the last 24 hours of foreground time went. Tasks live in Schedule; streaks and history live in Stats. Nothing else.
 - **Browser extension** — blocks a list of sites for 25/45/60 minutes, and can cap any site at a daily allowance (10 min–2 h). Spend it and the site holds until local midnight; the blocked page says which rule caught it and when it lifts, and the popup shows today's usage against each allowance. Chrome only, no timer, no account.
+- **Android app blocking** — pick apps in Settings → Android; a user-enabled accessibility service covers them during schedule blocks and running/paused Study Mode sessions with a full-screen overlay, the block name, a live countdown and one way out: **Leave this app**. The service receives one event type and no screen content, the list stays on the device, and everything fails open when the service is off. A break is free time; Lockin, your launcher, Settings and the dialer are never blocked.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
 - **Optional cloud sync** — sign in with Google on the web (popup) or Android (native sheet) and your tasks, schedules, sessions and slips mirror to your own Firestore tree. Local-first by design: signed out, no Firebase code loads; offline, the store keeps working and sync retries; signing out never touches local data. Last-write-wins for edits, union-by-id for history, tombstones for deletes — and **Delete cloud data** is real.
 
@@ -42,7 +43,7 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 |---|---|---|
 | **Web app** | The whole study clock: tasks, Study Mode, earned exit, Stats, Honesty Log. Installable, offline. | `app/` → **[lockin.surge.sh](https://lockin.surge.sh)** |
 | **Browser extension** | Only blocking, per-site daily limits and screen time. No timer, no tasks, no streaks. | `extension/` → pack with `node tools/pack-extension.mjs` |
-| **Android app** | The same UI in a Capacitor shell: exact alarms, full-screen lock-screen alarms, notification permission, usage access, per-app screen time, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
+| **Android app** | The same UI in a Capacitor shell: exact alarms, full-screen lock-screen alarms, notification permission, usage access, per-app screen time, optional app blocking through an accessibility service, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
 
 The web app is the source of truth for a study session. The extension is deliberately the smaller instrument — it holds the block list and per-site daily allowances, counts the active Chrome tab, and says so in its own README.
 
@@ -97,6 +98,12 @@ Requires Android Studio (JDK 21) and SDK platform 36. See
 [`docs/android.md`](docs/android.md) for the native bridge, permissions and
 release signing. The debug APK is not committed; build it locally or download a
 release asset.
+
+App blocking is opt-in: Settings → Android → **App blocking** opens the system
+accessibility screen, then the master switch and the app picker do the rest. The
+service reads foreground package names only, keeps the list in device-local
+storage, and never reads screen content. It is a focus aid, not a lock — Android
+lets you turn it off, and Lockin says so plainly.
 
 ## Self-check
 

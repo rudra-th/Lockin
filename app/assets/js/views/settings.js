@@ -12,6 +12,7 @@ import { ensureAlarmPermission } from '../alarms.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
   openExactAlarmSettings, openFullScreenIntentSettings, openUsageAccessSettings, queryUsage,
+  blockingStatus, listLaunchableApps, saveBlocking, openAccessibilitySettings,
 } from '../native.js';
 import { accountState, signIn, signOut, deleteCloudData } from '../account.js';
 import { syncNow } from '../sync.js';
@@ -158,6 +159,239 @@ function nativeCard() {
       el('div', { class: 'native-ctrl' }, usagePill, usageBtn)),
     el('p', { class: 'tiny', style: 'margin:12px 0 0' },
       'Lockin reads how long an app was in the foreground. It does not read page content, keystrokes or files.'),
+  );
+}
+
+/* ---------- app blocking ---------- */
+
+function whenLabel(ts) {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === new Date().toDateString()) return `today ${time}`;
+  return `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
+}
+
+function blockingCard() {
+  if (!isNative) return null;
+
+  let state = {
+    service: false, enabled: false, packages: [], windowCount: 0, active: null, next: null,
+  };
+  let apps = [];
+  let loadedApps = false;
+  let ready = false;
+  let loadError = false;
+  let query = '';
+  let saving = false;
+  let dirty = false;
+  let failed = false;
+
+  const servicePill = pill(false, 'On', 'Off');
+  const serviceBtn = el('button', {
+    class: 'btn btn-subtle btn-sm',
+    onclick: () => openAccessibilitySettings(),
+  }, 'Enable');
+
+  const master = el('button', {
+    class: 'switch', role: 'switch', 'aria-checked': 'false',
+    onclick: () => setEnabled(!state.enabled),
+  });
+
+  const summary = el('p', { class: 'tiny blocking-summary' });
+  const count = el('span', { class: 'blocking-count' }, '0 selected');
+  const search = el('input', {
+    class: 'inp', type: 'search', placeholder: 'Search apps…', 'aria-label': 'Search apps',
+    autocomplete: 'off', spellcheck: 'false',
+    oninput: () => { query = search.value.trim().toLowerCase(); renderApps(); },
+  });
+  const list = el('div', { class: 'app-list', role: 'group', 'aria-label': 'Apps to block' });
+  const listWrap = el('div', { class: 'app-list-wrap' }, list);
+
+  const syncFade = () => {
+    listWrap.classList.toggle('more',
+      list.scrollHeight - list.scrollTop - list.clientHeight > 4);
+  };
+  list.addEventListener('scroll', syncFade);
+
+  /* Saves are serialized: tapping three apps quickly sends the latest list
+     once the in-flight save returns, instead of dropping two of the taps. */
+  async function save() {
+    if (!ready) return;
+    if (saving) { dirty = true; return; }
+    saving = true;
+    failed = false;
+    paint();
+    try {
+      do {
+        dirty = false;
+        const result = await saveBlocking({ enabled: state.enabled, packages: state.packages });
+        if (!result) {
+          failed = true;
+          break;
+        }
+        state = { ...state, ...result, packages: state.packages };
+      } while (dirty);
+    } finally {
+      saving = false;
+      if (failed) {
+        const actual = await blockingStatus();
+        if (actual) state = actual;
+      }
+      paint();
+    }
+  }
+
+  function setEnabled(on) {
+    if (!ready) return;
+    state.enabled = on;
+    paint();
+    save();
+  }
+
+  function toggleApp(pkg) {
+    if (!ready) return;
+    const set = new Set(state.packages);
+    if (set.has(pkg)) set.delete(pkg); else set.add(pkg);
+    state.packages = [...set];
+    paint();
+    save();
+  }
+
+  function renderApps() {
+    const scroll = list.scrollTop;
+    list.replaceChildren();
+    if (!loadedApps) {
+      list.append(el('p', { class: 'app-empty' }, 'Reading installed apps…'));
+      syncFade();
+      return;
+    }
+
+    const chosen = new Set(state.packages);
+    const matches = apps.filter((app) => !query
+      || app.label.toLowerCase().includes(query)
+      || app.package.toLowerCase().includes(query));
+
+    if (!matches.length) {
+      list.append(el('p', { class: 'app-empty' },
+        apps.length ? 'No app matches that.' : 'No launchable apps found.'));
+      syncFade();
+      return;
+    }
+
+    const shown = matches.slice(0, 80);
+    for (const app of shown) {
+      const on = chosen.has(app.package);
+      list.append(el('button', {
+        class: `app-row${on ? ' on' : ''}`,
+        type: 'button',
+        'aria-pressed': String(on),
+        disabled: !ready,
+        title: app.package,
+        onclick: () => toggleApp(app.package),
+      },
+        el('span', { class: 'app-check' }, on ? svg('check', 13) : ''),
+        el('span', { class: 'app-name' }, app.label),
+      ));
+    }
+
+    if (matches.length > shown.length) {
+      list.append(el('p', { class: 'app-empty' },
+        `${matches.length - shown.length} more — keep typing to narrow the list.`));
+    }
+    list.scrollTop = scroll;
+    syncFade();
+  }
+
+  function paint() {
+    servicePill.textContent = state.service ? 'On' : 'Off';
+    servicePill.classList.toggle('on', state.service);
+    serviceBtn.textContent = state.service ? 'Settings' : 'Enable';
+
+    master.setAttribute('aria-checked', String(state.enabled));
+    master.disabled = !ready || saving;
+    count.textContent = `${state.packages.length} selected`;
+
+    let text;
+    let warn = false;
+    if (!ready) {
+      text = loadError
+        ? 'Could not read the blocking state. Reopen Settings to try again.'
+        : 'Reading blocking status…';
+      warn = loadError;
+    } else if (failed) {
+      text = 'Could not save that change. Try again.';
+      warn = true;
+    } else if (!state.service) {
+      text = 'Service off — nothing is blocked yet. Enable the service, then pick apps.';
+      warn = true;
+    } else if (!state.enabled) {
+      text = 'Service on. Blocking is switched off.';
+    } else if (!state.packages.length) {
+      text = 'Service on, but no apps are selected.';
+      warn = true;
+    } else if (state.active) {
+      text = `Blocking now: ${state.active.label} · until ${whenLabel(state.active.end).replace(/^today /, '')}.`;
+    } else if (state.next) {
+      text = `Next window: ${state.next.label} · ${whenLabel(state.next.start)}.`;
+    } else {
+      text = 'No focus windows in the next 14 days. Add a schedule block or start a session.';
+    }
+    summary.textContent = text;
+    summary.classList.toggle('warn', warn);
+    renderApps();
+  }
+
+  const load = async () => {
+    const st = await blockingStatus();
+    if (st) {
+      state = st;
+      ready = true;
+    } else {
+      loadError = true;
+    }
+    paint();
+    if (!loadedApps) {
+      apps = await listLaunchableApps();
+      loadedApps = true;
+      renderApps();
+    }
+  };
+
+  const refresh = async () => {
+    if (!document.contains(servicePill)) {
+      removeEventListener('visibilitychange', onVisible);
+      return;
+    }
+    if (saving) return; // the in-flight save is the newer truth
+    const st = await blockingStatus();
+    if (!st) return;
+    state = st;
+    ready = true;
+    loadError = false;
+    paint();
+  };
+  const onVisible = () => { if (!document.hidden) refresh(); };
+  addEventListener('visibilitychange', onVisible);
+  setTimeout(load, 0); // the card is appended right after this returns
+
+  return el('div', { class: 'card' },
+    el('h2', { class: 'blocking-head' }, svg('lock', 14), el('span', {}, 'App blocking')),
+    setrow('Accessibility service',
+      'Android needs it to see which app comes to the front. Lockin never reads screen content, text or keystrokes.',
+      el('div', { class: 'native-ctrl' }, servicePill, serviceBtn)),
+    setrow('Block selected apps',
+      'Only during schedule blocks and Study Mode sessions. Your launcher, Settings and the dialer stay reachable.',
+      master),
+    summary,
+    el('div', { class: 'blocking-picker' },
+      el('div', { class: 'blocking-picker-head' },
+        el('b', {}, 'Apps to block'), count),
+      search,
+      listWrap,
+      el('p', { class: 'tiny' },
+        'Only apps with a launcher icon are listed. Lockin, your launcher, Settings and the dialer are never blocked.'),
+      el('p', { class: 'tiny' },
+        'The overlay appears when an app comes to the front, and within about 15 seconds if it was already open when a window starts.')),
   );
 }
 
@@ -437,7 +671,7 @@ function render(host) {
     ),
     group('Focus', enforcementCard(), pomoCard()),
     group('Schedule', alarmsCard()),
-    ...(isNative ? [group('Android', nativeCard(), screenTimeCard())] : []),
+    ...(isNative ? [group('Android', nativeCard(), blockingCard(), screenTimeCard())] : []),
     group('You', profileCard(), lookCard()),
     group('Account', accountCard()),
     group('Your data', dataCard()),

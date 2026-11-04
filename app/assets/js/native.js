@@ -7,7 +7,7 @@
 
 import { Store } from './store.js';
 import { Router } from './router.js';
-import { eventsBetween, spanLabel, daysLabel } from './util.js';
+import { eventsBetween, occurrencesBetween, spanLabel, daysLabel } from './util.js';
 
 const cap = globalThis.Capacitor;
 const plugin = cap?.Plugins?.LockinNative || null;
@@ -76,18 +76,29 @@ async function consumeRoute() {
 
 function bindAppState() {
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pushAlarms(true);
-    else cancelNativeAlarms();
+    if (document.hidden) {
+      pushAlarms(true);
+      pushBlockingWindows(true);
+    } else {
+      cancelNativeAlarms();
+    }
   });
 
   if (appPlugin?.addListener) {
     appPlugin.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) cancelNativeAlarms();
-      else pushAlarms(true);
+      if (isActive) {
+        cancelNativeAlarms();
+      } else {
+        pushAlarms(true);
+        pushBlockingWindows(true);
+      }
     });
   }
 
-  addEventListener('pagehide', () => { pushAlarms(true); });
+  addEventListener('pagehide', () => {
+    pushAlarms(true);
+    pushBlockingWindows(true);
+  });
 
   /* A route event can arrive before the page finishes booting. */
   addEventListener('lockin:native-route', (ev) => {
@@ -110,6 +121,7 @@ export async function startNative() {
   /* A background transition re-reads the store, so schedule edits made while
      the app was open are already in the window. */
   await cancelNativeAlarms();
+  await pushBlockingWindows(true);
   return true;
 }
 
@@ -157,6 +169,126 @@ export function openFullScreenIntentSettings() {
 
 export function openUsageAccessSettings() {
   return plugin?.openUsageAccessSettings?.().catch(() => {});
+}
+
+/* ---------- app blocking ---------- */
+
+let lastBlockSignature = null;
+
+/**
+ * The live session, if one is running. A stopwatch has no planned end, so it
+ * covers four hours from now, rounded up to a quarter hour to keep the pushed
+ * window stable between background transitions.
+ */
+function liveSessionWindow() {
+  const snap = Store.state?.session;
+  if (!snap || !['running', 'paused'].includes(snap.phase)) return null;
+
+  const now = Date.now();
+  const start = Math.min(Number(snap.startedAt) || now, now);
+  const planned = Number(snap.plannedEnd);
+
+  if (Number.isFinite(planned) && planned > now) {
+    return { start, end: planned, label: 'Study Mode' };
+  }
+  if (snap.cfg?.mode === 'stop') {
+    const end = Math.ceil((now + 4 * 3600000) / (15 * 60000)) * 15 * 60000;
+    return { start, end, label: 'Study Mode' };
+  }
+  return null;
+}
+
+/** Schedule occurrences overlapping the next two weeks, plus the live session. */
+function blockingWindows() {
+  const from = new Date();
+  const to = new Date(from.getTime() + HORIZON_DAYS * 86400000);
+  const windows = occurrencesBetween(Store.schedules(), from, to).map((occ) => ({
+    start: occ.start.getTime(),
+    end: occ.end.getTime(),
+    label: occ.schedule.name,
+  }));
+
+  const live = liveSessionWindow();
+  if (live) windows.push(live);
+  return windows.sort((a, b) => a.start - b.start);
+}
+
+/** Seed the native service with the current windows. Cheap when unchanged. */
+export async function pushBlockingWindows(force = false) {
+  if (!isNative) return null;
+  const windows = blockingWindows();
+  const signature = JSON.stringify(windows);
+  if (!force && signature === lastBlockSignature) return null;
+  lastBlockSignature = signature;
+  try {
+    return await plugin.syncBlockingWindows({ windows });
+  } catch (_) {
+    return null; // blocking must never break boot
+  }
+}
+
+function windowOf(raw) {
+  if (!raw) return null;
+  return {
+    label: String(raw.label || 'Focus'),
+    start: Number(raw.start) || 0,
+    end: Number(raw.end) || 0,
+  };
+}
+
+/** What the native service actually holds: switch, packages, windows. */
+export async function blockingStatus() {
+  if (!isNative) return null;
+  try {
+    const st = await plugin.blockingStatus();
+    return {
+      service: Boolean(st?.service),
+      enabled: Boolean(st?.enabled),
+      packages: Array.isArray(st?.packages) ? st.packages.map(String) : [],
+      windowCount: Number(st?.windowCount) || 0,
+      active: windowOf(st?.active),
+      next: windowOf(st?.next),
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Apps with a launcher icon, own package excluded, sorted by label. */
+export async function listLaunchableApps() {
+  if (!isNative) return [];
+  try {
+    const result = await plugin.listLaunchableApps();
+    const rows = Array.isArray(result?.apps) ? result.apps : [];
+    return rows
+      .map((row) => ({
+        package: String(row.package || ''),
+        label: String(row.label || row.package || ''),
+      }))
+      .filter((row) => row.package);
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Save the switch and the chosen apps, then refresh the window list. */
+export async function saveBlocking({ enabled, packages }) {
+  if (!isNative) return null;
+  try {
+    await plugin.setBlockingApps({
+      enabled: Boolean(enabled),
+      packages: [...packages],
+    });
+    lastBlockSignature = null;
+    await pushBlockingWindows(true);
+    return await blockingStatus();
+  } catch (_) {
+    return null;
+  }
+}
+
+export function openAccessibilitySettings() {
+  return plugin?.openAccessibilitySettings?.().catch(() => {});
 }
 
 /* ---------- screen time ---------- */

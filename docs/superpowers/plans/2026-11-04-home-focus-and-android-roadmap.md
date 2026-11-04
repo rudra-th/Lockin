@@ -74,15 +74,15 @@ did I focus today, where did the time go, and what is the next block.**
 
 ### Task 5: Android app blocking (v1.10.0)
 
-- [ ] `LockinAccessibilityService`: foreground package detection, no window
+- [x] `LockinAccessibilityService`: foreground package detection, no window
       content, no keystrokes; declared scope in the settings copy.
-- [ ] Block overlay (accessibility overlay window) with the block name, the
+- [x] Block overlay (accessibility overlay window) with the block name, the
       time left, and a single "Leave" action that sends the user home.
-- [ ] Web Settings → Android: enable-service route, installed-app picker
+- [x] Web Settings → Android: enable-service route, installed-app picker
       (launchable apps only), per-app toggles stored natively.
-- [ ] Service respects enabled schedules/Study Mode windows; fails open when
+- [x] Service respects enabled schedules/Study Mode windows; fails open when
       Lockin is open or the list is empty.
-- [ ] Verify `assembleDebug` exit 0; commit; push; bump 1.10.0 + docs.
+- [x] Verify `assembleDebug` exit 0; commit; push; bump 1.10.0 + docs.
 
 ## Review focus
 

@@ -6,7 +6,8 @@ shell adds the capabilities a browser cannot have.
 
 > Status: the Capacitor shell builds a debug APK, and the `LockinNative` bridge
 > covers exact alarms, full-screen alarm screens, notification permission, usage
-> access, per-app screen time, and optional Google sign-in for cloud sync. Device
+> access, per-app screen time, optional app blocking through a user-enabled
+> accessibility service, and optional Google sign-in for cloud sync. Device
 > testing is the remaining gate before sharing a release APK.
 > Lockin distributes directly — no Play Store. The UI still states the web limit
 > plainly: the browser build rings only while Lockin is open.
@@ -49,12 +50,15 @@ android/
     AndroidManifest.xml
     java/com/lockin/app/
       MainActivity.java          registers LockinNative
-      LockinNativePlugin.java    bridge: alarms, usage, permissions
+      LockinNativePlugin.java    bridge: alarms, usage, permissions, blocking
       AlarmReceiver.java         notification + full-screen intent
       AlarmActivity.java         lock-screen alarm screen
+      BlockingStore.java         device-local blocking config
+      LockinAccessibilityService.java  foreground detection + block overlay
       BootReceiver.java          re-seeds alarms after reboot
       AlarmScheduler.java        shared scheduling/cancel helpers
-    res/                         icons, splash, strings
+    res/xml/accessibility_service_config.xml
+    res/                         icons, splash, strings, overlay layout
   variables.gradle               SDK levels and AndroidX versions
   capacitor.settings.gradle
 ```
@@ -74,11 +78,15 @@ web and in the extension pack.
 - On every background transition it seeds the next **14 days** of `remind` and
   `start` events from `eventsBetween`. A `start` event is skipped when the
   block's **Alarm at start** switch is off; the reminder still fires.
-- On returning to the foreground it cancels the native window, so an open app
-  never rings twice.
+- On returning to the foreground it cancels the native alarm window, so an open
+  app never rings twice.
+- On boot and on every background transition it also pushes the next **14 days**
+  of blocking windows: every schedule occurrence that overlaps the horizon
+  (including one already running after midnight) plus a live Study Mode window
+  while a session is running or paused. Breaks are not blocked.
 - Settings → Android shows live pills for exact alarms, notifications,
   full-screen alarms and usage access, plus a 7-day screen-time panel from
-  `UsageStatsManager`.
+  `UsageStatsManager` and the app-blocking card.
 
 ## Native capabilities
 
@@ -126,18 +134,47 @@ web and in the extension pack.
 - Signing out leaves local data untouched; Settings → **Delete cloud data**
   wipes the Firestore mirror and then signs out.
 
-### Blocking
+### App blocking (opt-in)
 
-No blocking tier ships on Android today. Lockin's Android shell measures and
-rings; it does not intercept other apps. Site blocking is the **extension's**
-job (Chrome, declarativeNetRequest), and the Android screen-time panel is
-informational — it shows where time went, it never decides what you can open.
+This is a direct-APK feature, not a Play Store one. It is off until the user
+turns on the accessibility service in system settings and flips the master
+switch in Settings → Android.
 
-If a blocking tier is ever built, accessibility-based detection is the
-mechanism with the worst policy and privacy cost (it can see every foreground
-package) — it would be a direct-APK feature with its own consent copy, never
-the Play build, and this section would be rewritten to describe exactly what
-ships. Until then the docs promise only what the APK does.
+- **What the service sees.** `LockinAccessibilityService` subscribes to exactly
+  one event, `TYPE_WINDOW_STATE_CHANGED` — "a window came to the front". The
+  service config sets `android:canRetrieveWindowContent="false"`, so Android
+  will not hand it node trees, text, page content or keystrokes. It reads the
+  foreground package name and nothing else.
+- **What it blocks.** Only packages the user picked, only inside a focus window.
+  The windows are schedule occurrences plus the live Study Mode session
+  (running or paused; a break is free time). A stopwatch has no planned end, so
+  it covers four hours from the last push, rounded to a quarter hour; the next
+  background transition refreshes it.
+- **The overlay.** A `TYPE_ACCESSIBILITY_OVERLAY` window covers the app with the
+  block name, a live countdown, a progress bar and one action: **Leave this
+  app**, which calls `GLOBAL_ACTION_HOME`. It draws above the app, not above the
+  system UI, and it owns no app data.
+- **Fail open, always.** No overlay when Lockin itself is in front, when the
+  service is off, when the app list is empty, or when no window is active. If
+  the config cannot be read, nothing is blocked. Launchers, Settings and the
+  default dialer are protected: they are hidden from the picker and re-checked
+  on every foreground change, so a stale list cannot lock the user out of
+  leaving the overlay, opening the service settings, or calling for help. The
+  overlay is a focus aid, not a lock: Android lets the user turn the service off
+  at any time, and the Settings card says so plainly.
+- **The app picker.** `listLaunchableApps()` queries `MAIN`/`LAUNCHER` through a
+  narrow `<queries>` declaration — no `QUERY_ALL_PACKAGES`. It lists only apps
+  with a launcher icon, sorted by label, with a search field and per-app
+  toggles. Lockin, launchers, Settings and the dialer are excluded.
+- **Where the config lives.** `BlockingStore` uses device-local
+  `SharedPreferences` (`lockin_blocking`): `enabled`, `packages` and `windows`.
+  It is deliberately not synced — which apps are blocked is a property of this
+  phone, not of the account.
+- **Honest limitation.** The overlay appears when a window change is delivered.
+  A 15-second safety check also re-reads the last foreground activity, so an
+  app already open when a focus window starts is covered without waiting for an
+  app switch. If the device is dozing, Android may delay both until the next
+  wake. This is stated in the docs rather than papered over.
 
 ## Permissions
 
@@ -153,6 +190,7 @@ Declared in `AndroidManifest.xml` as the features land:
 | `VIBRATE` | Alarm pattern |
 | `WAKE_LOCK` | Deliver the alarm receiver on time |
 | `PACKAGE_USAGE_STATS` | Per-app screen time (special access) |
+| Accessibility service (user-enabled) | Read the foreground package so chosen apps can be covered during a focus window. `canRetrieveWindowContent=false`; no text, content or keystrokes. |
 
 ## Release signing
 
@@ -163,10 +201,13 @@ exists. Debug builds never touch signing.
 
 ## Play policy notes
 
-- Accessibility-based app blocking is high risk for Play; Lockin ships no
-  blocking tier on Android (see "Blocking" above).
-- `QUERY_ALL_PACKAGES` is restricted; avoid it unless the core feature requires
-  it and the declaration is approved.
+- Lockin ships directly, not on Play. If it ever goes to Play, the
+  accessibility-based app blocking needs an explicit declaration, in-app
+  disclosure and a core-function justification — or it stays out of the store
+  build. The service config already limits it to package names, one event type,
+  no content retrieval.
+- `QUERY_ALL_PACKAGES` is restricted and **not** declared. The app picker uses a
+  narrow `MAIN`/`LAUNCHER` `<queries>` entry instead.
 - Full-screen intents are restricted on Android 14+; the app checks the
   permission at runtime, offers the system toggle in Settings, and degrades to
   a heads-up notification.

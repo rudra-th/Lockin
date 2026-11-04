@@ -3,6 +3,36 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.10.0 — 2026-11-04
+
+### App blocking on Android
+
+- Settings → Android gains an **App blocking** card: the accessibility service
+  state with a route to system settings, a master switch, a searchable picker of
+  launchable apps, and a live "blocking now / next window" line.
+- `LockinAccessibilityService` listens to one event — a window came to the
+  front — and reads only the foreground package. `canRetrieveWindowContent` is
+  off; no text, page content or keystrokes. Launchers, Settings, the dialer and
+  Lockin itself are never covered, even by a stale saved list.
+- During a schedule block or a running/paused Study Mode session, a
+  `TYPE_ACCESSIBILITY_OVERLAY` covers a chosen app with the block name, a live
+  countdown, a progress bar and one action: **Leave this app** → home. Breaks
+  are free; an overnight block is still a block after midnight.
+- Windows are computed in the web app for the next 14 days — including a block
+  already running after midnight — plus the live session, and pushed on boot,
+  background and every session change. A stopwatch has no planned end, so it
+  covers four hours from the last push, rounded to a quarter hour. A new pure
+  `occurrencesBetween` helper and tests cover the overlap and horizon cases.
+- The config is device-local `SharedPreferences`, never synced. The app picker
+  uses a narrow MAIN/LAUNCHER `<queries>` entry, not `QUERY_ALL_PACKAGES`.
+- Fail open, always: service off, empty list, no active window, Lockin in front,
+  or a protected app means no overlay. A 15-second safety check covers an app
+  already open when a window starts. Honest limit: it is a focus aid, not a
+  lock — Android lets the user turn the service off at any time.
+- Docs: `android.md` now describes the bridge contract, the overlay, the
+  permission scope, the Play policy cost and the limitation; `permissions.md`,
+  `privacy.md`, `architecture.md` and the README follow.
+
 ## 1.9.0 — 2026-11-04
 
 ### Android alarms can take the lock screen

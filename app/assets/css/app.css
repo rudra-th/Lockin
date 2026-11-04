@@ -2817,6 +2817,82 @@ body[data-mode='onboard'] #view {
 }
 .native-usage-bar i { display: block; height: 100%; border-radius: 99px; background: var(--acc); }
 
+/* App blocking — service state, master switch, app picker */
+.blocking-head { display: flex; align-items: center; gap: 7px; }
+.blocking-head svg { color: var(--acc); }
+.blocking-summary { margin: 12px 0 0; }
+.blocking-summary.warn { color: var(--warn); }
+.blocking-picker { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.blocking-picker-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin-bottom: 9px;
+}
+.blocking-picker-head b { font-size: 12.5px; font-weight: 600; }
+.blocking-count {
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--tx-3);
+  white-space: nowrap;
+}
+.app-list-wrap { position: relative; margin-top: 10px; }
+.app-list-wrap::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 28px;
+  border-radius: 0 0 11px 11px;
+  background: linear-gradient(to bottom, transparent, var(--panel-2));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms var(--ease);
+}
+.app-list-wrap.more::after { opacity: 1; }
+.app-list {
+  margin-top: 0;
+  max-height: 296px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+.app-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--tx-2);
+  font: 400 13px/1.3 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.app-row:last-child { border-bottom: 0; }
+.app-row:hover { background: var(--panel-3); color: var(--tx); }
+.app-row.on { color: var(--tx); }
+.app-row:disabled { opacity: 0.55; cursor: default; }
+.app-row:disabled:hover { background: none; }
+.app-check {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  color: var(--acc-ink);
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+}
+.app-row.on .app-check { background: var(--acc); border-color: var(--acc); }
+.app-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-empty { margin: 0; padding: 14px 12px; color: var(--tx-3); font-size: 12px; }
+.blocking-picker .tiny { margin: 10px 0 0; }
+
 /* Account — the optional cloud mirror */
 .acct-head { display: flex; align-items: center; gap: 6px; }
 .acct-head svg { color: var(--acc); animation: acct-float 3.2s ease-in-out infinite; }

@@ -15,4 +15,12 @@
     <string name="alarm_dismiss">Dismiss</string>
     <string name="alarm_open">Open Lockin</string>
     <string name="alarm_foot">The block is yours. It starts now.</string>
+
+    <string name="accessibility_label">Lockin app blocking</string>
+    <string name="accessibility_description">Lets Lockin see which app comes to the front, so it can cover the apps you chose during a focus window. It never reads screen content, text or keystrokes.</string>
+    <string name="block_kicker">Focus window</string>
+    <string name="block_left">left in this window</string>
+    <string name="block_until">until %1$s</string>
+    <string name="block_leave">Leave this app</string>
+    <string name="block_foot">You chose this window. It ends when the clock does.</string>
 </resources>

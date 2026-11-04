@@ -54,11 +54,17 @@ The Capacitor shell adds capabilities the web cannot have:
   system settings; the app can open that screen but cannot grant it silently.
 - **Exact alarms** (`SCHEDULE_EXACT_ALARM`) for block starts and reminders.
 - **Notifications** (`POST_NOTIFICATIONS`) for alarms.
+- **App blocking** (optional accessibility service) for the apps you choose
+  during a focus window. The service config sets
+  `canRetrieveWindowContent="false"`: it receives one event type and reads the
+  foreground package name, never screen text, page content or keystrokes. The
+  list of blocked apps and the window schedule live in device-local
+  `SharedPreferences` (`lockin_blocking`) and are never synced.
 
-The 1.4.1 APK does **not** ship an accessibility service or a blocking tier.
-Those remain a documented design for a later direct-APK build; if they ship,
-the service is never part of the Play build and its visible scope is stated
-before the user turns it on.
+The service is off until you enable it in system settings and flip the master
+switch in Settings → Android. It is a focus aid, not a lock: Android lets you
+turn it off, and Lockin says so plainly. Without it, the app still measures,
+rings and logs.
 
 Android data stays on the device unless you sign in and enable sync. The native
 Google sheet hands a token to the Firebase SDK; the same Firestore tree

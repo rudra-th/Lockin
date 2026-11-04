@@ -60,6 +60,29 @@ export function occurrencesOn(schedules, date) {
 }
 
 /**
+ * Every occurrence that overlaps [from, to), including one that began the day
+ * before. Used by the Android bridge to seed app-blocking windows: an overnight
+ * block is still a block after midnight, and a window already running when the
+ * app goes to the background must not be dropped.
+ */
+export function occurrencesBetween(schedules, from, to) {
+  const out = [];
+  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate() - 1);
+  const last = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+
+  for (; cursor <= last; cursor.setDate(cursor.getDate() + 1)) {
+    for (const schedule of schedules || []) {
+      const occ = occurrenceOn(schedule, cursor);
+      if (!occ) continue;
+      if (occ.end <= from || occ.start >= to) continue;
+      out.push(occ);
+    }
+  }
+
+  return out.sort((a, b) => a.start - b.start);
+}
+
+/**
  * The next block to care about: an ongoing one wins, otherwise the nearest
  * future start within the next eight days.
  */

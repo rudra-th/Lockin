@@ -15,7 +15,7 @@ import { Store } from './store.js';
 import {
   slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, daysUntil,
   decideAway, earnedExit, freeExit, neutralExit, parseHM, toHM, spanMin,
-  occursOn, occurrenceOn, nextOccurrence, eventsBetween, daysLabel,
+  occursOn, occurrenceOn, occurrencesBetween, nextOccurrence, eventsBetween, daysLabel,
   normalizeSchedule, el,
 } from './util.js';
 import { examById, examDateFor, expectedYear } from './exams.js';
@@ -332,6 +332,20 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
   test('a reminder of zero emits only the start', () => {
     const evs = eventsBetween([{ ...DEEP, remind: 0 }], new Date(2026, 10, 3, 6, 0), new Date(2026, 10, 3, 6, 31));
     eq(evs.map((e) => e.kind), ['start']);
+  });
+  test('occurrencesBetween keeps an overnight block after midnight', () => {
+    const night = { id: 'n1', name: 'Night', start: '23:00', end: '01:30', days: [1], enabled: true };
+    const from = new Date(2026, 10, 3, 0, 30); // Tuesday 00:30 — Monday's block still runs
+    const to = new Date(2026, 10, 3, 2, 0);
+    const occs = occurrencesBetween([night], from, to);
+    eq(occs.length, 1);
+    eq([occs[0].end.getHours(), occs[0].end.getMinutes()], [1, 30]);
+  });
+  test('occurrencesBetween excludes blocks already over and blocks beyond the horizon', () => {
+    eq(occurrencesBetween([DEEP], new Date(2026, 10, 3, 9, 0), new Date(2026, 10, 3, 12, 0)).length, 0);
+    const week = occurrencesBetween([DEEP], new Date(2026, 10, 3, 5, 0), new Date(2026, 10, 10, 5, 0));
+    eq(week.length, 1);
+    eq(week[0].start.getDay(), 2);
   });
   test('day labels read like a person wrote them', () => {
     eq(daysLabel([0, 1, 2, 3, 4, 5, 6]), 'Every day');
