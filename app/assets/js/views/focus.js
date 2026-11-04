@@ -445,7 +445,8 @@ function renderHost() {
 function setupScreen() {
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
   const pomoSettings = Store.state.settings.pomo || { focus: 25, short: 5, long: 15 };
-  let min = Math.max(1, Math.min(180, Number(q.get('min')) || pomoSettings.focus || 25));
+  let min = Math.max(1, Math.min(180,
+    Number(q.get('min')) || Number(Store.state.settings.lastMin) || pomoSettings.focus || 25));
   let rounds = 1;
   let pomo = false;
   let mode = q.get('mode') === 'stop' ? 'stop' : (Store.state.settings.lastMode === 'stop' ? 'stop' : 'timer');
@@ -470,23 +471,26 @@ function setupScreen() {
     el('span', { class: 'sg-num' }, el('b', {}, fmtMin(todayMins)), el('span', {}, ` / ${fmtMin(goal)}`)),
   );
 
-  /* mode is one big two-way switch — no label needed */
-  const modePick = el('div', { class: 'mode-pick', role: 'group', 'aria-label': 'Session mode' },
+  /* mode is a quiet segmented switch — the length dial is the decision */
+  const modeSeg = el('div', { class: 'mode-seg', role: 'group', 'aria-label': 'Session mode' },
     ['timer', 'stop'].map((m) => el('button', {
-      class: `mode-card${mode === m ? ' is-on' : ''}`,
+      class: `mode-seg-btn${mode === m ? ' is-on' : ''}`,
       'aria-pressed': String(mode === m),
       onclick: () => {
         if (mode === m) return;
         Store.set((s) => { s.settings.lastMode = m; });
         renderHost();
       },
-    },
-      el('span', { class: 'mc-name' }, m === 'timer' ? 'Timer' : 'Stopwatch'),
-      el('span', { class: 'mc-desc' }, m === 'timer' ? 'Ends on its own' : 'Counts up, open-ended'),
-    )));
+    }, m === 'timer' ? 'Timer' : 'Stopwatch')));
 
   const lenBtns = [];
-  const proj = el('span', { class: 'len-proj' });
+  const dialNum = el('span', { class: 'dial-num' }, String(min));
+  const dialUnit = el('span', { class: 'dial-unit' }, min === 1 ? 'minute' : 'minutes');
+  const dialGo = el('span', { class: 'dial-go' }, svg('play', 12), el('span', {}, 'Start'));
+  const dial = el('button', { class: 'dial', onclick: () => startWith(min) },
+    el('span', { class: 'dial-ticks', 'aria-hidden': 'true' }),
+    dialNum, dialUnit, dialGo);
+  const dialProj = el('div', { class: 'dial-proj' });
   const pomoChip = el('button', {
     class: 'pomo-chip', 'aria-pressed': 'false',
     'aria-label': `Pomodoro: ${pomoSettings.focus || 25} minute focus rounds with breaks, three rounds`,
@@ -509,7 +513,7 @@ function setupScreen() {
      clean. The armed hold remains for the stopwatch — an open-ended run
      deserves the ritual. */
   function startWith(m) {
-    Store.set((s) => { s.settings.lastMode = 'timer'; });
+    Store.set((s) => { s.settings.lastMode = 'timer'; s.settings.lastMin = m; });
     Session.cfg = { min: m, taskIds: [...pickedTasks], rounds, mode: 'timer' };
     begin();
   }
@@ -533,7 +537,11 @@ function setupScreen() {
     });
     pomoChip.classList.toggle('is-on', pomo);
     pomoChip.setAttribute('aria-pressed', String(pomo));
-    proj.textContent = projectedEnd();
+    dialNum.textContent = String(min);
+    dialUnit.textContent = min === 1 ? 'minute' : 'minutes';
+    dial.setAttribute('aria-label',
+      `Start ${min} minute${min === 1 ? '' : 's'}${pomo ? `, Pomodoro ×${rounds}` : ''}`);
+    dialProj.textContent = pomo ? `${min}m × ${rounds} · ${projectedEnd()}` : projectedEnd();
   }
 
   /* A session launched from an alarm carries the block's remaining length.
@@ -605,7 +613,13 @@ function setupScreen() {
     ? `Session ${doneToday + 1} today · ${fmtMin(todayMins)} banked`
     : 'First session today';
 
-  return el('section', { class: 'study' },
+  const openCentre = el('div', { class: 'open-centre' },
+    el('div', { class: 'open-glyph' }, svg('clock', 42)),
+    el('p', { class: 'open-copy' },
+      'No length. Start it, work, pause or lay it down whenever. The seconds you run are the seconds that count.'),
+  );
+
+  return el('section', { class: `study${mode === 'stop' ? ' is-open' : ''}` },
     el('div', { class: 'app-head study-head' },
       el('div', { class: 'grow' },
         el('h1', {}, 'Study Mode'),
@@ -616,19 +630,22 @@ function setupScreen() {
       ),
     ),
     goalLine,
-    modePick,
+    modeSeg,
     mode === 'stop'
-      ? el('p', { class: 'study-open' },
-          'No length. Start it, work, pause or lay it down whenever. The seconds you run are the seconds that count.')
+      ? openCentre
       : el('div', { class: 'study-len' },
+          el('div', { class: 'dial-wrap' }, dial, dialProj),
           el('div', { class: 'len-row' }, lenBtns),
-          el('div', { class: 'len-meta' }, pomoChip, proj)),
+          el('div', { class: 'len-meta' },
+            pomoChip,
+            el('span', { class: 'len-hint' }, 'Tap a length to start'))),
     attach,
     taskPanel,
-    el('div', { class: 'study-foot' },
-      el('p', { class: 'study-note' }, footNote),
-      mode === 'stop' ? startBtn : null,
-    ),
+    mode === 'stop'
+      ? el('div', { class: 'study-foot' },
+          el('p', { class: 'study-note' }, footNote),
+          startBtn)
+      : el('p', { class: 'study-note study-note-flow' }, footNote),
   );
 }
 
@@ -732,22 +749,32 @@ function taskChips() {
     .map((id) => Store.state.tasks.find((t) => t.id === id))
     .filter(Boolean)
     .map((t) => el('button', {
-      class: 'chip', 'aria-pressed': String(!!t.doneAt), style: 'max-width:280px',
+      class: `sess-task${t.doneAt ? ' is-done' : ''}`,
+      'aria-pressed': String(!!t.doneAt),
       onclick: () => {
         Store.set((s) => { const x = s.tasks.find((y) => y.id === t.id); x.doneAt = x.doneAt ? null : Date.now(); });
         rerenderRunningChips();
       },
-    }, (t.doneAt ? '✓ ' : '') + (t.title.length > 26 ? `${t.title.slice(0, 24)}…` : t.title)));
+    },
+      el('i', { class: 'sess-task-check', 'aria-hidden': 'true', innerHTML: t.doneAt ? svg('check', 11) : '' }),
+      el('span', { class: 'sess-task-title' },
+        t.title.length > 26 ? `${t.title.slice(0, 24)}…` : t.title)));
 }
 
-function sessionCore({ label, note, clockClass = '' }) {
-  const chips = taskChips();
+function sessionCore({ label, note, clockClass = '', breathe = false, tasks = true, pips = true }) {
+  const chips = tasks ? taskChips() : [];
   return el('main', { class: 'sess-core' },
     /* phase changes are the announcement; the clock itself is role=timer so
        assistive tech decides when to read it instead of narrating every second */
     el('div', { class: 'sess-phase', 'aria-live': 'polite' }, label),
-    el('div', { class: `clock${clockClass ? ` ${clockClass}` : ''}`, role: 'timer' }, '—'),
-    pipsRow(),
+    el('div', { class: `clock-wrap${breathe ? ' is-breathe' : ''}` },
+      breathe ? null : el('svg', { class: 'clock-ring', viewBox: '0 0 240 240', 'aria-hidden': 'true' },
+        el('circle', { class: 'ring-track', cx: 120, cy: 120, r: 108 }),
+        el('circle', { class: 'ring-fill', cx: 120, cy: 120, r: 108 }),
+      ),
+      el('div', { class: `clock${clockClass ? ` ${clockClass}` : ''}`, role: 'timer' }, '—'),
+    ),
+    pips ? pipsRow() : null,
     note ? el('p', { class: 'sess-note' }, note) : null,
     chips.length ? el('div', { class: 'chips sess-tasks' }, chips) : null
   );
@@ -838,6 +865,7 @@ function stopRunningScreen() {
       label: 'Stopwatch',
       note: 'Every second in here is banked. Pause is honest rest — it stops the count.',
       clockClass: 'stopwatch',
+      breathe: true,
     }),
     el('footer', { class: 'sess-foot' },
       exitHint(),
@@ -856,6 +884,7 @@ function pausedScreen() {
       label: 'Paused',
       note: `Paused on the second. ${Session.pauseCount} pause${Session.pauseCount === 1 ? '' : 's'} so far.`,
       clockClass: 'stopwatch is-muted',
+      breathe: true,
     }),
     el('footer', { class: 'sess-foot sess-foot-split' },
       el('button', { class: 'btn btn-primary', onclick: resumeStop }, svg('play', 15), 'Resume'),
@@ -954,13 +983,16 @@ function confirmQuit() {
 function breakScreen() {
   return el('div', { class: 'session is-break' },
     sessionChrome('Break', 'good'),
-    el('main', { class: 'sess-core' },
-      el('div', { class: 'sess-phase' }, Session.breakKind >= 10 ? 'Long break' : 'Short break'),
-      el('div', { class: 'clock is-good' }, '—'),
-      el('p', { class: 'sess-note' }, 'Water, stretch, window. Then back to focus.')
-    ),
+    sessionCore({
+      label: Session.breakKind >= 10 ? 'Long break' : 'Short break',
+      note: 'Water, stretch, window. Then back to focus. 🌿',
+      clockClass: 'is-good',
+      breathe: true,
+      tasks: false,
+      pips: false,
+    }),
     el('footer', { class: 'sess-foot sess-foot-split' },
-      el('button', { class: 'btn btn-subtle', onclick: () => { Session.plannedEnd = Date.now(); finishBreak(); } }, 'Back to focus'),
+      el('button', { class: 'btn btn-primary', onclick: () => { Session.plannedEnd = Date.now(); finishBreak(); } }, 'Back to focus'),
       el('button', { class: 'btn btn-ghost', onclick: confirmEndChain }, 'End here')
     )
   );
@@ -978,6 +1010,26 @@ function confirmEndChain() {
 
 /* ---------- done screen ---------- */
 
+/* A clean finish earns a little paper. Twenty-eight pieces, gone in under a
+   second — the global reduced-motion rule turns it into nothing. */
+function confettiBurst() {
+  const colors = ['var(--acc)', 'var(--good)', 'var(--tx-2)'];
+  const pieces = [];
+  for (let i = 0; i < 28; i += 1) {
+    const angle = (Math.PI * 2 * i) / 28 + Math.random() * 0.18;
+    const dist = 55 + Math.random() * 100;
+    pieces.push(el('i', {
+      class: 'confetti',
+      style: `--dx:${(Math.cos(angle) * dist).toFixed(1)}px;`
+        + `--dy:${(Math.sin(angle) * dist).toFixed(1)}px;`
+        + `--rot:${Math.round(Math.random() * 480 - 240)}deg;`
+        + `--delay:${Math.round(Math.random() * 140)}ms;`
+        + `--c:${colors[i % colors.length]}`,
+    }));
+  }
+  return el('div', { class: 'confetti-field', 'aria-hidden': 'true' }, pieces);
+}
+
 function doneScreen() {
   const d = Session.lastDone || { done: false, mins: 0 };
   const c = Store.slipCountsOn(todayKey());
@@ -986,6 +1038,8 @@ function doneScreen() {
   const meter = goalMeter({ label: 'Daily target' });
   updateGoalMeter(meter, dailyTarget());
   const good = d.done || d.earned;
+  const celebrate = d.done && clean;
+  const today = d.today ?? Store.focusMinutesOn(todayKey());
   let line;
   if (d.earned) line = 'Ended on your terms. Nothing broken.';
   else if (d.discarded) line = 'Nothing banked. The clock reset clean.';
@@ -993,9 +1047,13 @@ function doneScreen() {
   else line = strictOn() ? 'Cut short and logged. Tomorrow can still be clean.' : 'Cut short — tracked, not enforced.';
   return el('div', { class: 'done-wrap' },
     el('div', { class: 'done-card view-anim' },
+      celebrate ? confettiBurst() : null,
       el('div', { class: `done-kicker ${good ? 'is-good' : 'is-warn'}` },
-        good ? 'Session banked' : d.discarded ? 'Session discarded' : 'Session ended'),
-      el('div', { class: 'done-amount' }, d.discarded ? '—' : `+${bankedText}`),
+        good ? 'Session banked' : d.discarded ? 'Session discarded' : 'Session ended',
+        celebrate ? ' 🎉' : ''),
+      el('div', { class: `done-amount${good ? '' : ' is-warn'}` },
+        d.discarded ? '—' : `+${bankedText}`),
+      el('div', { class: 'done-today' }, `${fmtMin(today)} focused today`),
       el('p', { class: 'done-line' }, line),
       meter,
       el('div', { class: 'done-actions' },
@@ -1004,7 +1062,11 @@ function doneScreen() {
           onclick: () => { Session.phase = 'idle'; renderHost(); },
         }, 'Again'),
         el('button', { class: 'btn btn-subtle', onclick: () => { Session.phase = 'idle'; Router.go('/home'); } }, 'Home')
-      )
+      ),
+      el('button', {
+        class: 'done-more',
+        onclick: () => { Session.phase = 'idle'; Router.go('/stats'); },
+      }, 'See the week', svg('chevR', 14)),
     )
   );
 }
@@ -1038,8 +1100,11 @@ function showLeftVeil(awaySec) {
 
 /* ---------- clock ---------- */
 
+const RING_CIRC = 2 * Math.PI * 108; // r=108 in the 240×240 viewBox
+
 function drawClock() {
-  const node = document.querySelector('.session .clock');
+  const wrap = document.querySelector('.session .clock-wrap');
+  const node = wrap?.querySelector('.clock') || document.querySelector('.session .clock');
   if (node) {
     if (Session.cfg?.mode === 'stop') {
       node.textContent = fmtWatch(stopSeconds());
@@ -1047,6 +1112,14 @@ function drawClock() {
       node.textContent = fmtClock(remaining());
       if (Session.phase === 'running') node.classList.toggle('tensec', remaining() < 10);
     }
+  }
+  const fill = wrap?.querySelector('.ring-fill');
+  if (fill && Session.cfg?.mode !== 'stop' && Session.phase === 'running') {
+    /* Wall-clock truth: a reload mid-session draws the ring where it belongs. */
+    const total = Math.max(1, (Session.cfg?.min || 0) * 60000);
+    const elapsed = Math.max(0, Math.min(total, Date.now() - Session.startedAt));
+    fill.style.strokeDashoffset = String(RING_CIRC * (elapsed / total));
+    wrap.classList.toggle('is-tense', remaining() < 60);
   }
   const meter = document.querySelector('.session .goal-meter');
   if (meter) updateGoalMeter(meter, dailyTarget());

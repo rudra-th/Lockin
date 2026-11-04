@@ -42,14 +42,14 @@ did I focus today, where did the time go, and what is the next block.**
 
 ### Task 2: Focus redesign (v1.7.0)
 
-- [ ] Setup: one clear "how long" centre, mode switch, Pomodoro, task attach,
-      projected end — same engine, calmer hierarchy.
-- [ ] Running room: circular progress ring around the clock (timer), breathing
+- [x] Setup: one clear "how long" centre, mode switch, Pomodoro, task attach,
+      projected end - same engine, calmer hierarchy.
+- [x] Running room: circular progress ring around the clock (timer), breathing
       ring for the stopwatch, cleaner chrome, task chips as a checklist.
-- [ ] Done screen: one honest number, a lightweight confetti burst for a clean
+- [x] Done screen: one honest number, a lightweight confetti burst for a clean
       finish (reduced-motion-safe), clearer next actions.
-- [ ] Break screen: calmer green, breathing ring, no new rules.
-- [ ] Verify `check` + `lint` + `test`; commit; push.
+- [x] Break screen: calmer green, breathing ring, no new rules.
+- [x] Verify `check` + `lint` + `test`; commit; push.
 - [ ] `npm run bump -- 1.7.0` + changelog/docs; commit; push.
 
 ### Task 3: Extension per-site daily limits (v1.8.0)
