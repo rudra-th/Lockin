@@ -88,9 +88,9 @@
 - Consumes: `loadFirebase` (task 2), `startSync`/`stopSync` (task 4), `isNative` from `native.js`.
 - Produces (used by task 5): `initAccount()`, `signIn()`, `signOut()`, `deleteCloudData()`, `accountState() → { user: {uid,name,email,photo}|null, status, lastSyncAt, error }`, events `lockin:account` and `lockin:sync`.
 
-- [ ] **Step 1: Implement** — boot restore (flag → load SDK → `onAuthStateChanged` → `startSync`/`stopSync`); web sign-in via `signInWithPopup` with `signInWithRedirect` fallback and `getRedirectResult` completion at boot; native sign-in via `Capacitor.Plugins.FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true })` → `GoogleAuthProvider.credential(idToken, accessToken)` → `signInWithCredential`; sign-out clears the flag and calls the native plugin's signOut; status events on every transition. Every network path inside try/catch; offline sign-in shows a hint, never throws.
-- [ ] **Step 2: Run** `npm run check` + `npm run lint`.
-- [ ] **Step 3: Commit** — `Account module: Google sign-in, web + native (plan 3)`
+- [x] **Step 1: Implement** — boot restore (flag → load SDK → `onAuthStateChanged` → `startSync`/`stopSync`); web sign-in via `signInWithPopup` with `signInWithRedirect` fallback and `getRedirectResult` completion at boot; native sign-in via `Capacitor.Plugins.FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true })` → `GoogleAuthProvider.credential(idToken, accessToken)` → `signInWithCredential`; sign-out clears the flag and calls the native plugin's signOut; status events on every transition. Every network path inside try/catch; offline sign-in shows a hint, never throws.
+- [x] **Step 2: Run** `npm run check` + `npm run lint`.
+- [x] **Step 3: Commit** — `Account module: Google sign-in, web + native (plan 3)`
 
 ### Task 4: Sync engine (`app/assets/js/sync.js`)
 
@@ -101,9 +101,9 @@
 - Consumes: core merge functions (task 1), `loadFirebase` (task 2), `Store`.
 - Produces (used by tasks 3, 5): `startSync(user)`, `stopSync()`, `syncNow(reason)`, status via `lockin:sync` events.
 
-- [ ] **Step 1: Implement** — shadow + cursor persisted in `lockin.sync.v1`; `syncNow` = pull (full when cursor is 0, else `where('updatedAt','>',cursor)` paged at 500) → merge into the store under a re-entrancy guard → push (diff → stamped `updatedAt` → chunked `writeBatch`, tombstones for removals) → snapshot shadow → advance cursor. Debounced 1.5 s push on `lockin:changed`; immediate cycle on tab focus, `online`, and manual calls. Status events: `syncing`, `idle`, `offline`, `error`.
-- [ ] **Step 2: Run** `npm run check` + `npm test` + `npm run lint`.
-- [ ] **Step 3: Commit** — `Sync engine: shadow diff, pull, push, cursors (plan 4)`
+- [x] **Step 1: Implement** — shadow + cursor persisted in `lockin.sync.v1`; `syncNow` = pull (full when cursor is 0, else `where('updatedAt','>',cursor)` paged at 500) → merge into the store under a re-entrancy guard → push (diff → stamped `updatedAt` → chunked `writeBatch`, tombstones for removals) → snapshot shadow → advance cursor. Debounced 1.5 s push on `lockin:changed`; immediate cycle on tab focus, `online`, and manual calls. Status events: `syncing`, `idle`, `offline`, `error`.
+- [x] **Step 2: Run** `npm run check` + `npm test` + `npm run lint`.
+- [x] **Step 3: Commit** — `Sync engine: shadow diff, pull, push, cursors (plan 4)`
 
 ### Task 5: Boot wiring, Settings account card, service worker
 
