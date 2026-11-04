@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+/* Release signing reads android/keystore.properties (gitignored — never commit
+   it). Copy keystore.properties.example, create a keystore once (the keygen is
+   in docs/android-release.md), and fill the four values in. A release build
+   without them fails fast below with the missing key named, instead of
+   shipping a debug-signed APK that Play will reject. */
+def keystorePropsFile = rootProject.file('keystore.properties')
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
     namespace = "com.lockin.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,11 +27,49 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            // Values are only set when the properties file provides them;
+            // debug builds never touch this config.
+            if (keystorePropsFile.exists()) {
+                def sf = keystoreProps.getProperty('storeFile')
+                if (sf) storeFile file(sf)
+                storePassword keystoreProps.getProperty('storePassword')
+                keyAlias keystoreProps.getProperty('keyAlias')
+                keyPassword keystoreProps.getProperty('keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
+    }
+}
+
+/* Fail fast, with the missing piece named, before any task runs.
+   whenReady sees the whole task graph first, so a release build without
+   signing fails in seconds — not after minutes of packaging work. */
+gradle.taskGraph.whenReady { graph ->
+    def releasing = graph.allTasks.any { it.name in ['assembleRelease', 'bundleRelease'] && it.project.name == 'app' }
+    if (!releasing) return
+    if (!keystorePropsFile.exists()) {
+        throw new GradleException(
+            "Release signing is not set up: android/keystore.properties is missing.\n" +
+            "Copy android/keystore.properties.example, create a keystore (docs/android-release.md), and fill in the four values.")
+    }
+    ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].each { key ->
+        if (!keystoreProps.getProperty(key)) {
+            throw new GradleException(
+                "android/keystore.properties is missing '${key}' — see docs/android-release.md.")
+        }
+    }
+    def keystoreFile = file(keystoreProps.getProperty('storeFile'))
+    if (!keystoreFile.exists()) {
+        throw new GradleException(
+            "Keystore file not found: ${keystoreFile.absolutePath} — check storeFile in android/keystore.properties.")
     }
 }
 

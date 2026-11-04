@@ -294,16 +294,20 @@ Files: `app/assets/css/app.css`, `app/assets/js/views/*.js`.
 Files: `android/app/build.gradle`, new `android/keystore.properties.example`,
 new `docs/android-release.md`, `.gitignore`.
 
-- [ ] Step 1. Add `signingConfigs.release` reading `storeFile`, `storePassword`,
-      `keyAlias`, `keyPassword` from `android/keystore.properties` (gitignored);
-      wire `buildTypes.release`. Add the example file with assembled placeholders.
-      If properties are missing, the release build fails fast with a named error.
-- [ ] Step 2. `docs/android-release.md`: one-page keygen (`keytool`),
-      properties-file template, `npm run android:build -- assembleRelease`
-      produces `app-release.apk`, artifact naming follows
-      `dist/lockin-<version>-release.apk`.
-- [ ] Step 3. Verify: `gradlew assembleDebug` still passes locally (no device
-      needed); assembleRelease blocked only on the keystore file (owner creates it).
+- [x] Step 1. `signingConfigs.release` reads `storeFile`, `storePassword`,
+      `keyAlias`, `keyPassword` from `android/keystore.properties` (gitignored)
+      and `buildTypes.release` wires it. Fail-fast via
+      `gradle.taskGraph.whenReady`: a release build without the properties
+      fails in seconds with the missing piece named (the AGP-native failure
+      came after 2m20s of packaging; `validateSigning*` doesn't exist in this
+      AGP version). Example file added; `.gitignore` names the properties file.
+- [x] Step 2. `docs/android-release.md`: keygen, properties template,
+      `assembleRelease`/`bundleRelease`, `dist/lockin-<version>-release.apk`
+      naming, apksigner verification.
+- [x] Step 3. Verified locally: `assembleDebug` produces a debug APK (JDK 21
+      via Android Studio's JBR; `android/local.properties` created with the
+      SDK path, gitignored); `assembleRelease` fails fast with the named
+      error until the owner creates the keystore.
 
 ### Task 3.2: On-device QA checklist (owner-gated)
 

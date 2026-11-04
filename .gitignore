@@ -38,6 +38,7 @@ android/app/src/main/assets/public/
 *.class
 
 ## signing keys & secrets — never commit these
+android/keystore.properties
 *.jks
 *.keystore
 *.p12
