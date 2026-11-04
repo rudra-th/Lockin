@@ -2,7 +2,10 @@
    The study clock stays in the app; this worker only watches the active tab
    and holds the block list. State lives in one chrome.storage key. */
 
-import { todayKey } from './core/time.js';
+import { dateKey } from './core/time.js';
+import {
+  isSpent as allowanceSpent, spentSites as spentSet, msUntilReset,
+} from './core/limits.js';
 
 const KEY = 'lockin.ext';
 const TICK = 'lockin.tick';
@@ -11,6 +14,7 @@ const DEFAULT_SITES = ['youtube.com', 'instagram.com', 'x.com', 'reddit.com', 't
 const DEFAULTS = {
   sites: DEFAULT_SITES,
   off: {},                 // domain -> true when the user unchecks it
+  limits: {},              // domain -> daily allowance in minutes (absent = none)
   blockUntil: 0,           // epoch ms; 0 means no block
   usage: {},               // { 'YYYY-MM-DD': { domain: seconds } }
   active: null,            // { domain, since }
@@ -26,6 +30,7 @@ async function load() {
   state.sites = [...new Set((state.sites || []).map(cleanDomain).filter(Boolean))];
   state.usage = state.usage || {};
   state.off = state.off || {};
+  state.limits = state.limits || {};
   if (!state.installedAt) state.installedAt = Date.now();
   return state;
 }
@@ -52,13 +57,32 @@ function domainOf(url) {
   }
 }
 
+/* ---------- daily limits ---------- */
+
+function isSpentNow(domain, now = Date.now()) {
+  return allowanceSpent(state?.limits, state?.usage, domain, now);
+}
+
+function spentToday(now = Date.now()) {
+  return spentSet(state?.sites, state?.off, state?.limits, state?.usage, now);
+}
+
+function blockedPath(domain, why) {
+  return `/blocked.html?d=${encodeURIComponent(domain)}&why=${why}`;
+}
+
+async function redirectSpent(tab, domain) {
+  if (!tab?.id || !domain || state?.off?.[domain] || !isSpentNow(domain)) return;
+  await chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(blockedPath(domain, 'limit')) });
+}
+
 /* ---------- usage ---------- */
 
 function commit(now = Date.now()) {
   if (!state?.active) return;
   const secs = Math.round((now - state.active.since) / 1000);
   if (secs <= 0) return;
-  const day = todayKey(new Date(now));
+  const day = dateKey(new Date(now));
   const bucket = state.usage[day] || (state.usage[day] = {});
   bucket[state.active.domain] = (bucket[state.active.domain] || 0) + secs;
   state.active.since = now;
@@ -78,7 +102,14 @@ async function activeTab() {
 
 async function trackFocusedTab() {
   const tab = await activeTab();
-  await setActive(tab && tab.url ? domainOf(tab.url) : null);
+  const domain = tab && tab.url ? domainOf(tab.url) : null;
+  await setActive(domain);
+  await redirectSpent(tab, domain);
+}
+
+async function enforceSpentTab() {
+  const tab = await activeTab();
+  await redirectSpent(tab, tab && tab.url ? domainOf(tab.url) : null);
 }
 
 /* ---------- blocking ---------- */
@@ -88,45 +119,59 @@ async function syncRules() {
   const now = Date.now();
   if (state.blockUntil && state.blockUntil <= now) state.blockUntil = 0;
 
+  const spent = spentToday(now);
+  const manual = state.blockUntil > now;
+
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeRuleIds = existing.map((r) => r.id);
   const addRules = [];
-
-  if (state.blockUntil > now) {
-    let id = 1;
-    for (const site of state.sites) {
-      if (state.off[site]) continue;
-      addRules.push({
-        id: id++,
-        priority: 1,
-        action: {
-          type: 'redirect',
-          redirect: { extensionPath: `/blocked.html?d=${encodeURIComponent(site)}` },
-        },
-        condition: {
-          urlFilter: `||${site}^`,
-          resourceTypes: ['main_frame'],
-        },
-      });
-    }
+  let id = 1;
+  for (const site of state.sites) {
+    if (state.off[site]) continue;
+    /* A manual block owns the reason while it lasts; once it ends, a spent
+       daily allowance still holds the site until midnight. */
+    const why = manual ? 'block' : spent.has(site) ? 'limit' : null;
+    if (!why) continue;
+    addRules.push({
+      id: id++,
+      priority: 1,
+      action: {
+        type: 'redirect',
+        redirect: { extensionPath: blockedPath(site, why) },
+      },
+      condition: {
+        urlFilter: `||${site}^`,
+        resourceTypes: ['main_frame'],
+      },
+    });
   }
 
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
-  await paintBadge();
+  await paintBadge(spent);
   await save();
 }
 
-async function paintBadge() {
+/* Badge shows the nearest thing that frees a site: the block's countdown,
+   or the hours until a spent daily allowance resets at midnight. */
+async function paintBadge(spent = spentToday()) {
   const now = Date.now();
   const left = state?.blockUntil > now ? state.blockUntil - now : 0;
-  if (!left) {
+  let text = '';
+  if (left) {
+    text = String(Math.max(1, Math.ceil(left / 60000)));
+  } else if (spent.size) {
+    const reset = msUntilReset(now);
+    text = reset >= 3600000
+      ? `${Math.ceil(reset / 3600000)}h`
+      : `${Math.max(1, Math.ceil(reset / 60000))}m`;
+  }
+  if (!text) {
     await chrome.action.setBadgeText({ text: '' });
     return;
   }
-  const mins = Math.max(1, Math.ceil(left / 60000));
   await chrome.action.setBadgeBackgroundColor({ color: '#C6F24E' });
   if (chrome.action.setBadgeTextColor) await chrome.action.setBadgeTextColor({ color: '#0B0D12' });
-  await chrome.action.setBadgeText({ text: String(mins) });
+  await chrome.action.setBadgeText({ text });
 }
 
 /* ---------- lifecycle ---------- */
@@ -146,6 +191,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   await load();
   commit();
   await save();
+  await enforceSpentTab();
   await syncRules();
 });
 
@@ -155,7 +201,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (!tab.active) return;
   if (changeInfo.url || changeInfo.status === 'complete') {
     await load();
-    await setActive(tab.url ? domainOf(tab.url) : null);
+    const domain = tab.url ? domainOf(tab.url) : null;
+    await setActive(domain);
+    await redirectSpent({ id: tabId }, domain);
   }
 });
 

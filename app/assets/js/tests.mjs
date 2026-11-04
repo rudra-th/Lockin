@@ -23,6 +23,9 @@ import { svg } from './icons.js';
 import {
   stableStringify, diffCollection, diffScalar, mergeDocs, mergeScalar, nextCursor,
 } from '../../core/sync.js';
+import {
+  MAX_LIMIT_MIN, limitMinutes, usedSeconds, isSpent, spentSites, msUntilReset,
+} from '../../core/limits.js';
 
 /**
  * Run the suite against a reporter: { group(name), ok(name), bad(name, err) }.
@@ -393,6 +396,46 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     Store.importJSON(dump);
     eq(Store.state.tasks.length, 1);
     eq(Store.state.tasks[0].title, 'Round trip');
+  });
+
+  group('Extension daily limits');
+  test('limitMinutes defaults to zero and clamps to one day', () => {
+    eq(limitMinutes({}, 'youtube.com'), 0);
+    eq(limitMinutes({ 'youtube.com': 30 }, 'youtube.com'), 30);
+    eq(limitMinutes({ 'youtube.com': 9999 }, 'youtube.com'), MAX_LIMIT_MIN);
+    eq(limitMinutes({ 'youtube.com': -5 }, 'youtube.com'), 0);
+  });
+  test('usedSeconds only counts the local day', () => {
+    const usage = {
+      '2026-11-03': { 'youtube.com': 9999 },
+      '2026-11-04': { 'youtube.com': 120 },
+    };
+    const now = new Date(2026, 10, 4, 12, 0, 0).getTime();
+    eq(usedSeconds(usage, 'youtube.com', now), 120);
+    eq(usedSeconds(usage, 'youtube.com', new Date(2026, 10, 5, 0, 1, 0).getTime()), 0);
+  });
+  test('isSpent is true exactly at the allowance, not before', () => {
+    const limits = { 'youtube.com': 10 };
+    const now = new Date(2026, 10, 4, 12, 0, 0).getTime();
+    const at = (secs) => isSpent(limits, { '2026-11-04': { 'youtube.com': secs } }, 'youtube.com', now);
+    eq(at(599), false);
+    eq(at(600), true);
+    eq(isSpent({}, { '2026-11-04': { 'youtube.com': 99999 } }, 'youtube.com', now), false);
+  });
+  test('spentSites skips unchecked sites and sites without a limit', () => {
+    const now = new Date(2026, 10, 4, 12, 0, 0).getTime();
+    const usage = { '2026-11-04': { a: 600, b: 600, c: 600 } };
+    const limits = { a: 10, b: 10 };
+    const off = { b: true };
+    eq([...spentSites(['a', 'b', 'c'], off, limits, usage, now)], ['a']);
+  });
+  test('msUntilReset lands on the next local midnight', () => {
+    const now = new Date(2026, 10, 4, 23, 50, 0);
+    const next = new Date(now.getTime() + msUntilReset(now.getTime()));
+    eq(
+      [next.getFullYear(), next.getMonth(), next.getDate(), next.getHours(), next.getMinutes(), next.getSeconds()],
+      [2026, 10, 5, 0, 0, 0],
+    );
   });
 
   group('Sync merge math');

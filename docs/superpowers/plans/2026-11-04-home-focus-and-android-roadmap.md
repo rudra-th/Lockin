@@ -54,14 +54,14 @@ did I focus today, where did the time go, and what is the next block.**
 
 ### Task 3: Extension per-site daily limits (v1.8.0)
 
-- [ ] Data: each site gains `limitMin` (0 = no limit) and a per-day used
-      counter with a day key; migration-safe.
-- [ ] Background: attribute active-tab seconds, block a site once its daily
+- [x] Data: each site gains a daily allowance in `limits` (minutes; 0/absent =
+      no limit), and usage stays in `usage[dayKey][domain]`; migration-safe.
+- [x] Background: attribute active-tab seconds, block a site once its daily
       allowance is spent (redirect with a clear reason), reset at midnight.
-- [ ] Popup: per-site limit stepper, today's usage bar, "blocked for today"
+- [x] Popup: per-site limit stepper, today's usage bar, "blocked for today"
       state; badge stays the countdown to the next block/reset.
-- [ ] Blocked page: says why and when it returns.
-- [ ] Verify `check` + `lint` + `test`; commit; push; bump 1.8.0 + docs.
+- [x] Blocked page: says why and when it returns.
+- [x] Verify `check` + `lint` + `test`; commit; push; bump 1.8.0 + docs.
 
 ### Task 4: Android full-screen alarm (v1.9.0)
 

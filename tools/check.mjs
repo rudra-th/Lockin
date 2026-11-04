@@ -144,6 +144,7 @@ try {
   const lock = JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8'));
   const sw = readFileSync(join(ROOT, 'app/sw.js'), 'utf8');
   const gradle = readFileSync(join(ROOT, 'android/app/build.gradle'), 'utf8');
+  const ext = JSON.parse(readFileSync(join(ROOT, 'extension/manifest.json'), 'utf8'));
   const [maj, min, pat] = pkg.version.split('.').map(Number);
   const expectedCode = maj * 100 + min * 10 + pat;
   const swVersion = /const VERSION = 'lockin\.v([^']+)'/.exec(sw)?.[1];
@@ -159,9 +160,10 @@ try {
   else if (gradleName !== pkg.version) problems.push(`android versionName ${gradleName} != package.json ${pkg.version}`);
   if (!gradleCode) problems.push('android/app/build.gradle has no versionCode');
   else if (gradleCode !== expectedCode) problems.push(`android versionCode ${gradleCode} != expected ${expectedCode} for ${pkg.version}`);
+  if (ext.version !== pkg.version) problems.push(`extension manifest ${ext.version} != package.json ${pkg.version}`);
 
   if (problems.length) fail(problems.join('; '));
-  else pass(`version ${pkg.version} agrees across package.json, lock, sw.js and build.gradle (versionCode ${gradleCode})`);
+  else pass(`version ${pkg.version} agrees across package.json, lock, sw.js, build.gradle and extension manifest (versionCode ${gradleCode})`);
 } catch (err) {
   fail(`version check failed: ${err.message}`);
 }

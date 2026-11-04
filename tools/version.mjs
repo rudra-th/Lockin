@@ -56,7 +56,14 @@ writeFileSync(gradlePath, gradle
   .replace(/versionCode \d+/, `versionCode ${code}`)
   .replace(/versionName "[^"]+"/, `versionName "${input}"`));
 
+/* extension manifest — the store listing version should match the app */
+const extPath = join(ROOT, 'extension/manifest.json');
+const ext = JSON.parse(readFileSync(extPath, 'utf8'));
+ext.version = input;
+writeFileSync(extPath, `${JSON.stringify(ext, null, 2)}\n`);
+
 console.log(`Lockin version → ${input}`);
 console.log('  package.json + package-lock.json');
 console.log(`  app/sw.js → lockin.v${input}`);
 console.log(`  android/app/build.gradle → versionCode ${code}, versionName ${input}`);
+console.log(`  extension/manifest.json → ${input}`);

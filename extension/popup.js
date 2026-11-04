@@ -1,8 +1,14 @@
 /* Lockin extension popup. Reads the same state key as the worker and asks it
    to rebuild the block rules after every change. */
 
+import { dateKey } from './core/time.js';
+import {
+  limitMinutes, usedSeconds, spentSites as spentSet,
+} from './core/limits.js';
+
 const KEY = 'lockin.ext';
-const DEFAULTS = { sites: [], off: {}, blockUntil: 0, usage: {} };
+const DEFAULTS = { sites: [], off: {}, limits: {}, blockUntil: 0, usage: {} };
+const LIMIT_STEPS = [0, 10, 15, 20, 25, 30, 45, 60, 90, 120];
 
 const $app = document.getElementById('app');
 
@@ -28,7 +34,9 @@ const icon = (d, size = 13) =>
 
 async function read() {
   const got = await chrome.storage.local.get(KEY);
-  return { ...DEFAULTS, ...(got[KEY] || {}) };
+  const state = { ...DEFAULTS, ...(got[KEY] || {}) };
+  state.limits = state.limits || {};
+  return state;
 }
 
 async function write(state) {
@@ -51,9 +59,7 @@ const fmtMins = (mins) => {
 };
 
 function todayUsage(state) {
-  const d = new Date();
-  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const bucket = state.usage?.[key] || {};
+  const bucket = state.usage?.[dateKey()] || {};
   const rows = Object.entries(bucket)
     .map(([site, secs]) => ({ site, secs: Math.round(secs) }))
     .filter((r) => r.secs > 0)
@@ -63,13 +69,22 @@ function todayUsage(state) {
 
 function short(secs) {
   const m = Math.round(secs / 60);
-  if (m < 60) return `${Math.max(1, m)}m`;
+  if (m <= 0) return '0m';
+  if (m < 60) return `${m}m`;
   return fmtMins(m);
 }
 
 function leftLabel(ms) {
   const mins = Math.max(1, Math.ceil(ms / 60000));
   return mins >= 60 ? `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : `${mins}m`;
+}
+
+function nextLimit(cur, dir) {
+  if (dir > 0) {
+    return LIMIT_STEPS.find((s) => s > cur) ?? LIMIT_STEPS[LIMIT_STEPS.length - 1];
+  }
+  const lower = LIMIT_STEPS.filter((s) => s < cur);
+  return lower.length ? lower[lower.length - 1] : 0;
 }
 
 let state = null;
@@ -83,20 +98,23 @@ function render() {
 
   const now = Date.now();
   const holding = state.blockUntil > now;
+  const spent = spentSet(state.sites, state.off, state.limits, state.usage);
+  const blocking = holding || spent.size > 0;
   const { rows, total } = todayUsage(state);
 
   /* header */
-  const status = h('span', { class: `status${holding ? ' on' : ''}` },
+  const status = h('span', { class: `status${blocking ? ' on' : ''}` },
     h('i', {}),
-    holding ? 'Blocking' : 'Open');
+    blocking ? 'Blocking' : 'Open');
   $app.append(h('header', { class: 'head' },
     h('div', { class: 'wordmark' }, 'Lockin', h('em', {}, '.')),
     status));
 
   /* today */
-  $app.append(h('p', { class: 'kicker' }, holding ? 'Holding the line' : 'Today'));
+  $app.append(h('p', { class: 'kicker' },
+    holding ? 'Holding the line' : spent.size ? 'Daily limits' : 'Today'));
   $app.append(h('h1', { class: 'lede' },
-    holding ? 'The list is holding.' : total ? 'The day, so far.' : 'A quiet start.'));
+    holding ? 'The list is holding.' : spent.size ? 'A limit is holding.' : total ? 'The day, so far.' : 'A quiet start.'));
   $app.append(h('div', { class: 'total' },
     h('b', {}, total ? fmtMins(total / 60) : '0m'),
     h('span', {}, 'on screen today')));
@@ -157,18 +175,47 @@ function render() {
     h('summary', {}, h('span', {}, `Sites · ${state.sites.length}`), h('span', {}, 'Edit')));
   if (state.sites.length) {
     state.sites.forEach((site) => {
+      const used = usedSeconds(state.usage, site);
+      const limit = limitMinutes(state.limits, site);
+      const isSpent = !state.off[site] && limit > 0 && used >= limit * 60;
+      const pct = limit > 0 ? Math.min(100, Math.round((used / (limit * 60)) * 100)) : 0;
       const box = h('input', {
         type: 'checkbox', checked: !state.off[site],
         onchange: () => toggleSite(site, box.checked),
         'aria-label': `Block ${site}`,
       });
-      details.append(h('div', { class: 'site-row' },
-        h('label', {}, box, h('span', {}, site)),
-        h('button', {
-          class: 'remove', type: 'button', 'aria-label': `Remove ${site}`,
-          onclick: () => removeSite(site),
-          innerHTML: icon('<path d="M6 6l12 12M18 6 6 18"/>', 12),
-        })));
+      details.append(h('div', {
+        class: `site-item${isSpent ? ' is-spent' : ''}${state.off[site] ? ' is-off' : ''}`,
+      },
+        h('div', { class: 'site-top' },
+          h('label', { class: 'site-name' }, box, h('span', {}, site)),
+          h('button', {
+            class: 'remove', type: 'button', 'aria-label': `Remove ${site}`,
+            onclick: () => removeSite(site),
+            innerHTML: icon('<path d="M6 6l12 12M18 6 6 18"/>', 12),
+          })),
+        h('div', { class: 'site-limit' },
+          limit > 0
+            ? h('div', {
+                class: 'lim-bar', role: 'progressbar',
+                'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct),
+                'aria-label': `${site}: ${short(used)} of ${limit} minutes today`,
+              }, h('i', { style: `width:${pct}%` }))
+            : h('div', { class: 'lim-bar is-none', 'aria-hidden': 'true' }),
+          h('span', { class: 'lim-use' },
+            limit > 0 ? `${short(used)} / ${limit}m` : `${short(used)} today`),
+          h('div', { class: 'stepper', role: 'group', 'aria-label': `Daily limit for ${site}` },
+            h('button', {
+              class: 'step', type: 'button', 'aria-label': `Lower limit for ${site}`,
+              disabled: limit === 0, onclick: () => setLimit(site, -1),
+            }, '−'),
+            h('span', { class: 'lim-val' }, limit ? `${limit}m` : 'Off'),
+            h('button', {
+              class: 'step', type: 'button', 'aria-label': `Raise limit for ${site}`,
+              disabled: limit >= LIMIT_STEPS[LIMIT_STEPS.length - 1],
+              onclick: () => setLimit(site, 1),
+            }, '+'))),
+        isSpent ? h('p', { class: 'lim-note' }, 'Blocked for today · resets at midnight') : null));
     });
   } else {
     details.append(h('p', { class: 'empty', style: 'padding-bottom:6px' }, 'No sites yet. Add one below.'));
@@ -228,6 +275,15 @@ async function toggleSite(site, on) {
 async function removeSite(site) {
   state.sites = state.sites.filter((s) => s !== site);
   delete state.off[site];
+  delete state.limits[site];
+  await write(state);
+  render();
+}
+
+async function setLimit(site, dir) {
+  const next = nextLimit(limitMinutes(state.limits, site), dir);
+  if (next) state.limits[site] = next;
+  else delete state.limits[site];
   await write(state);
   render();
 }
