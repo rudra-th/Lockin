@@ -64,6 +64,29 @@ for (const path of jsFiles) {
 }
 if (!jsBad) pass(`${jsFiles.length} JavaScript modules parse`);
 
+/* ---------- relative imports resolve to real files ---------- */
+
+const importSpec = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"](\.{1,2}\/[^'"]+)['"]/g;
+let importsChecked = 0;
+let importsBad = 0;
+for (const path of jsFiles) {
+  const source = readFileSync(path, 'utf8');
+  for (const match of source.matchAll(importSpec)) {
+    importsChecked += 1;
+    const spec = match[1].split('?')[0];
+    /* The extension is staged with app/core copied in at pack time. */
+    const staged = rel(path).startsWith('extension/') && spec.startsWith('./core/');
+    const target = staged
+      ? join(ROOT, 'app', spec.slice(2))
+      : join(dirname(path), spec);
+    if (!existsSync(target)) {
+      importsBad += 1;
+      fail(`${rel(path)} imports ${spec} — no such file`);
+    }
+  }
+}
+if (!importsBad) pass(`${importsChecked} relative imports resolve`);
+
 /* ---------- JSON files parse ---------- */
 
 const jsonFiles = [

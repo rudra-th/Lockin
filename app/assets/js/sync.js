@@ -10,7 +10,7 @@
 import { Store } from './store.js';
 import {
   diffCollection, diffScalar, mergeDocs, mergeScalar, nextCursor,
-} from '../core/sync.js';
+} from '../../core/sync.js';
 import { loadFirebase } from './firebase.js';
 
 const META_KEY = 'lockin.sync.v1';
