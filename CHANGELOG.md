@@ -27,6 +27,11 @@ the Android shell follows once it ships.
   top corner, which is always there.
 - **Home's goal bar reads at 0%.** The Focused tile's meter now has a visible
   track, and the Focused number is the largest figure on the strip.
+- **Microtype floor.** Every content-bearing label below 11px was raised to
+  11px (28 seats); decorative uppercase kickers keep their designed size.
+- **Light theme hardened.** The bottom sheet's shadow now follows the theme
+  (new `--shadow-up` token) instead of a hard-coded black; the rest of the
+  audit found no token leaks.
 
 ## 1.4.1 — 2026-11-04
 

@@ -253,15 +253,22 @@ Files: `app/assets/js/views/home.js`, `app/assets/css/app.css`.
 
 Files: `app/assets/css/app.css`, all views (token-level only).
 
-- [ ] Step 1. Sweep every content-bearing font-size below 11px in `app.css`
-      (grep `font-size: 9\.|10\.`): raise to 11px where the text carries meaning
-      (perm pill, gm captions, tile captions, footer mono), leave decorative
-      letterspaced kickers as-is by design.
-- [ ] Step 2. Light theme audit (code-level): grep hard-coded `rgba(`/`#` colors
-      and `color-mix(... var(--panel-2) ...)` mixes that assume dark; replace with
-      tokens so `theme: 'light'` renders correctly in every card, sheet, film and
-      tab bar. Record any true leaks fixed.
-- [ ] Step 3. Verify: `npm run check` CSS-brace check passes; owner-side
+- [x] Step 1. Sweep complete: 28 content-bearing seats raised to the 11px
+      floor (tab labels, form field labels, duration-chip units, study note,
+      goal-meter numbers, stats bar labels, weekstats, chart legend, timesheet
+      lines, session tags, exam-bar date, shape hours, week-rail figures,
+      exam-card date, readout sub, stat facts, the permission pill, day-ring
+      sub, schedule section meta, slot/row time ranges, slot state, day-pick
+      letters, alarm footnote, toast subtext, native pills and total label).
+      14 decorative uppercase letterspaced kickers stay as designed (film,
+      done, soon, ec, sched, alarm, sg, sess-kind/phase, gm-label, ringbox).
+- [x] Step 2. Light-theme audit result: every `color-mix` is token-driven and
+      adapts per theme — no leaks. The three raw `rgba` scrims (sheet
+      backdrop, strict veil, alarm screen) are deliberate theme-independent
+      overlays. One true leak fixed: the sheet's hard-coded black shadow now
+      uses a new `--shadow-up` token (dark keeps the deep shadow, light gets
+      a soft green-tinted one).
+- [x] Step 3. Verify: `npm run check` CSS-brace check passes; owner-side
       side-by-side dark/light screenshots happen in the testing pass.
 
 ### Task 2.5: Accessibility floor

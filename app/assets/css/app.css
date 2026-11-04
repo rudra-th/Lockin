@@ -1,5 +1,5 @@
-/* ============================================================
-   Lockin — design system
+﻿/* ============================================================
+   Lockin â€” design system
    A quiet, data-first study app. True-black canvas, one lime
    accent (primary action + live data only), serif for moments,
    mono for every figure. Flat surfaces, honest borders, tactile
@@ -77,7 +77,7 @@
   --panel: #0f1218;
   --panel-2: #161a22;
   --panel-3: #1c212b;
-  --line: #1e232d;   /* premixed solids — honest to tooling that reads borders */
+  --line: #1e232d;   /* premixed solids â€” honest to tooling that reads borders */
   --line-2: #2b313d;
   --tx: #f3f5f7;
   --tx-2: #a2acb8;
@@ -97,6 +97,7 @@
   --r-sm: 10px;
 
   --shadow: 0 18px 46px rgba(0, 0, 0, 0.55);
+  --shadow-up: 0 -20px 60px rgba(0, 0, 0, 0.4);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
 
@@ -125,6 +126,7 @@
   --warn-dim: rgba(198, 72, 26, 0.10);
   --good-dim: rgba(28, 130, 54, 0.10);
   --shadow: 0 18px 40px rgba(30, 45, 20, 0.12);
+  --shadow-up: 0 -18px 40px rgba(30, 45, 20, 0.18);
 }
 
 /* ---------- reset / platform layer ---------- */
@@ -197,7 +199,7 @@ button { font: inherit; }
 }
 
 /* A running session is an overlay, not a hidden page. Hiding #view here
-   used to take the whole app (and the session itself) off screen — the
+   used to take the whole app (and the session itself) off screen â€” the
    tab bar hides, the session stays. */
 body[data-mode='focus'] .tabbar { display: none; }
 body[data-mode='focus'] { overflow: hidden; }
@@ -242,7 +244,7 @@ body[data-mode='onboard'] #view {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  font: 500 10.5px/1 var(--font-sans);
+  font: 500 11px/1 var(--font-sans);
   letter-spacing: 0.02em;
   padding-top: 6px;
   transition: color 180ms var(--ease), transform 120ms var(--ease);
@@ -467,7 +469,7 @@ body[data-mode='onboard'] #view {
 .field { display: block; }
 .field > span {
   display: block;
-  font: 500 10.5px/1 var(--font-sans);
+  font: 500 11px/1 var(--font-sans);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -528,7 +530,7 @@ body[data-mode='onboard'] #view {
   max-height: 84dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-up);
 }
 .sheet.show { transform: none; }
 .sheet .grab {
@@ -635,7 +637,7 @@ body[data-mode='onboard'] #view {
 }
 
 /* ============================================================
-   Study Mode — setup
+   Study Mode â€” setup
    Type and hairlines, not a pile of cards. One decision per row.
    ============================================================ */
 
@@ -721,7 +723,7 @@ body[data-mode='onboard'] #view {
 }
 .len:active { transform: scale(0.96); }
 .len b { font: 500 21px/1 var(--font-mono); letter-spacing: -0.02em; }
-.len span { font: 500 10px/1 var(--font-mono); color: var(--tx-3); }
+.len span { font: 500 11px/1 var(--font-mono); color: var(--tx-3); }
 .len.is-on { border-color: var(--acc); background: var(--acc-dim); color: var(--acc); }
 .len.is-on span { color: inherit; }
 .len-meta {
@@ -805,7 +807,7 @@ body[data-mode='onboard'] #view {
 .study-note {
   margin: 0 0 9px;
   text-align: center;
-  font: 500 10.5px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.03em;
   color: var(--tx-3);
 }
@@ -821,7 +823,7 @@ body[data-mode='onboard'] #view {
 .armed-hold { justify-content: center; flex-direction: column; gap: 12px; margin-top: 20px; }
 
 /* ============================================================
-   Study Mode — the room
+   Study Mode â€” the room
    ============================================================ */
 
 .session {
@@ -883,7 +885,7 @@ body[data-mode='onboard'] #view {
 .sess-kind.live { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 36%, transparent); }
 .sess-kind.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 32%, transparent); }
 
-/* daily target — visible for the whole session */
+/* daily target â€” visible for the whole session */
 .goal-meter {
   width: 100%;
   background: var(--panel);
@@ -920,7 +922,7 @@ body[data-mode='onboard'] #view {
   justify-content: space-between;
   gap: 10px;
   margin-top: 7px;
-  font: 500 10.5px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   color: var(--tx-3);
 }
 .goal-meter.is-met { border-color: color-mix(in srgb, var(--good) 30%, transparent); }
@@ -984,7 +986,7 @@ body[data-mode='onboard'] #view {
 .sess-foot-split { display: flex; flex-direction: row; gap: 10px; }
 .sess-foot-split .btn { flex: 1; }
 
-/* earned exit — a hairline that turns from countdown into permission */
+/* earned exit â€” a hairline that turns from countdown into permission */
 .sess-exit {
   display: flex;
   align-items: center;
@@ -1132,7 +1134,7 @@ body[data-mode='onboard'] #view {
   pointer-events: none;
 }
 .barcol .goalmark.hit { border-top-color: var(--acc); opacity: 0.85; }
-.barcol .lbl { font: 500 10px var(--font-sans); color: var(--tx-3); white-space: nowrap; }
+.barcol .lbl { font: 500 11px var(--font-sans); color: var(--tx-3); white-space: nowrap; }
 .barcol.today .lbl { color: var(--acc); }
 
 .weekstats {
@@ -1155,14 +1157,14 @@ body[data-mode='onboard'] #view {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.weekstats span { display: block; margin-top: 3px; font: 400 10.5px/1.2 var(--font-sans); color: var(--tx-3); }
+.weekstats span { display: block; margin-top: 3px; font: 400 11px/1.2 var(--font-sans); color: var(--tx-3); }
 
 .chartlegend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
   margin-top: 12px;
-  font: 500 10.5px/1 var(--font-sans);
+  font: 500 11px/1 var(--font-sans);
   color: var(--tx-3);
 }
 .chartlegend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -1181,7 +1183,7 @@ body[data-mode='onboard'] #view {
 }
 .ts-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .ts-line b { font: 600 13.5px var(--font-sans); color: var(--tx); }
-.ts-line span { font: 400 10.5px var(--font-mono); color: var(--tx-3); white-space: nowrap; }
+.ts-line span { font: 400 11px var(--font-mono); color: var(--tx-3); white-space: nowrap; }
 .tsbar { height: 6px; border-radius: 99px; background: var(--panel-2); margin-top: 8px; overflow: hidden; }
 .tsbar i {
   display: block;
@@ -1204,7 +1206,7 @@ body[data-mode='onboard'] #view {
 .ses-name { font: 600 13.5px/1.2 var(--font-sans); color: var(--tx); }
 .ses-tag {
   margin-left: 7px;
-  font: 500 9.5px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--warn);
@@ -1252,7 +1254,7 @@ body[data-mode='onboard'] #view {
 .eb-line { font: 400 15px/1.25 var(--font-sans); color: var(--tx-2); }
 .eb-line em { font-style: normal; font-weight: 600; color: var(--tx); }
 .eb-date {
-  font: 500 10px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -1262,7 +1264,7 @@ body[data-mode='onboard'] #view {
 .exambar.is-close { background: color-mix(in srgb, var(--warn) 6%, transparent); }
 .exambar.is-past .eb-num { color: var(--tx-3); font-size: 22px; }
 
-/* tile strip: today's numbers as type — one container split by 1px gaps */
+/* tile strip: today's numbers as type â€” one container split by 1px gaps */
 .tilestrip {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1352,11 +1354,11 @@ body[data-mode='onboard'] #view {
   display: flex;
   justify-content: space-between;
   margin-top: 6px;
-  font: 500 10.5px var(--font-mono);
+  font: 500 11px var(--font-mono);
   color: var(--tx-2);
 }
 
-/* streak week: one cell per day — tick, minutes, letter */
+/* streak week: one cell per day â€” tick, minutes, letter */
 .week .ptitle { font: 600 13.5px var(--font-sans); color: var(--tx); }
 .weekstrip { display: flex; gap: 8px; }
 .wday { flex: 1; text-align: center; min-width: 0; }
@@ -1374,12 +1376,12 @@ body[data-mode='onboard'] #view {
 .wday.flat .tick { border-style: dashed; }
 .wday .m {
   display: block;
-  font: 500 10.5px var(--font-mono);
+  font: 500 11px var(--font-mono);
   color: var(--tx-2);
   margin-top: 5px;
   font-variant-numeric: tabular-nums;
 }
-.wday .d { font: 500 10.5px var(--font-mono); color: var(--tx-3); margin-top: 3px; }
+.wday .d { font: 500 11px var(--font-mono); color: var(--tx-3); margin-top: 3px; }
 .wday.today .d { color: var(--acc); }
 .wday.today .m { color: var(--tx); }
 
@@ -1571,7 +1573,7 @@ body[data-mode='onboard'] #view {
 .exam-card:active { transform: scale(0.98); }
 .exam-card b { font: 600 14.5px/1.2 var(--font-sans); letter-spacing: -0.005em; }
 .exam-card span {
-  font: 500 10px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -1675,7 +1677,7 @@ body[data-mode='onboard'] #view {
   letter-spacing: -0.01em;
 }
 .readout-sub {
-  font: 500 10.5px/1.2 var(--font-mono);
+  font: 500 11px/1.2 var(--font-mono);
   color: var(--tx-3);
   text-align: right;
 }
@@ -1726,7 +1728,7 @@ body[data-mode='onboard'] #view {
   font: 500 24px/1 var(--font-mono);
   color: var(--acc);
 }
-.fact span { font: 500 10.5px/1.25 var(--font-sans); color: var(--tx-2); }
+.fact span { font: 500 11px/1.25 var(--font-sans); color: var(--tx-2); }
 
 /* permissions */
 .film-perms { display: grid; gap: 9px; margin: 6px 0 16px; }
@@ -1772,7 +1774,7 @@ body[data-mode='onboard'] #view {
   border: 1px solid color-mix(in srgb, var(--acc) 42%, var(--line));
   border-radius: 99px;
   color: var(--acc);
-  font: 500 9.5px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2029,7 +2031,7 @@ body[data-mode='onboard'] #view {
   letter-spacing: -0.04em;
   color: var(--tx);
 }
-.dr-sub { font: 400 9.5px/1.2 var(--font-sans); color: var(--tx-3); max-width: 12ch; }
+.dr-sub { font: 400 11px/1.2 var(--font-sans); color: var(--tx-3); max-width: 12ch; }
 
 .sched-sec { margin-top: 22px; }
 .sched-sec-head {
@@ -2047,7 +2049,7 @@ body[data-mode='onboard'] #view {
   color: var(--tx-3);
   margin: 0;
 }
-.sched-sec-meta { font: 400 10.5px/1 var(--font-mono); color: var(--tx-3); white-space: nowrap; }
+.sched-sec-meta { font: 400 11px/1 var(--font-mono); color: var(--tx-3); white-space: nowrap; }
 .sched-sec-head .btn { padding: 8px 12px; min-height: 34px; font-size: 12px; }
 
 /* today's blocks */
@@ -2090,10 +2092,10 @@ body[data-mode='onboard'] #view {
 
 .slot-body { min-width: 0; }
 .slot-body b { display: block; font: 600 14.5px/1.2 var(--font-sans); overflow-wrap: anywhere; }
-.slot-body span { display: block; margin-top: 3px; font: 400 10.5px/1.2 var(--font-mono); color: var(--tx-3); }
+.slot-body span { display: block; margin-top: 3px; font: 400 11px/1.2 var(--font-mono); color: var(--tx-3); }
 
 .slot-state {
-  font: 500 9.5px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -2170,7 +2172,7 @@ body[data-mode='onboard'] #view {
 }
 .sched-row-txt { min-width: 0; }
 .sched-row-txt b { display: block; font: 600 14px/1.2 var(--font-sans); overflow-wrap: anywhere; }
-.sched-row-txt span { display: block; margin-top: 3px; font: 400 10.5px/1.2 var(--font-mono); color: var(--tx-3); }
+.sched-row-txt span { display: block; margin-top: 3px; font: 400 11px/1.2 var(--font-mono); color: var(--tx-3); }
 .sched-row.is-off .sched-row-mark { background: var(--line-2); }
 .sched-row.is-off .sched-row-txt { opacity: 0.55; }
 .sched-row.is-off .weekstrip { opacity: 0.45; }
@@ -2218,7 +2220,7 @@ body[data-mode='onboard'] #view {
   color: var(--tx-3);
   border-radius: 9px;
   padding: 9px 0;
-  font: 500 9.5px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.01em;
   text-transform: none;
   cursor: pointer;
@@ -2334,7 +2336,7 @@ body[data-mode='onboard'] #view {
 .alarm-days { font: 400 11px/1.4 var(--font-sans); color: var(--tx-3); margin: 4px 0 0; }
 .alarm-actions { display: flex; flex-direction: column; gap: 9px; margin-top: 24px; }
 .alarm-actions .btn { width: 100%; }
-.alarm-foot { margin: 18px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--tx-3); }
+.alarm-foot { margin: 18px 0 0; font-size: 11px; line-height: 1.5; color: var(--tx-3); }
 
 /* reminder toast */
 .alarm-toast {
@@ -2361,7 +2363,7 @@ body[data-mode='onboard'] #view {
 .alarm-toast-icon { color: var(--acc); line-height: 0; flex: 0 0 auto; }
 .alarm-toast-txt { flex: 1; min-width: 0; }
 .alarm-toast-txt b { display: block; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
-.alarm-toast-txt span { display: block; margin-top: 2px; font: 400 10.5px/1.2 var(--font-mono); color: var(--tx-3); }
+.alarm-toast-txt span { display: block; margin-top: 2px; font: 400 11px/1.2 var(--font-mono); color: var(--tx-3); }
 .alarm-toast-x {
   flex: 0 0 auto;
   appearance: none;
@@ -2374,10 +2376,10 @@ body[data-mode='onboard'] #view {
 }
 .alarm-toast-x:hover { color: var(--tx); }
 
-/* Android shell — permission pills and the screen-time panel */
+/* Android shell â€” permission pills and the screen-time panel */
 .native-ctrl { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .native-pill {
-  font: 500 9.5px/1 var(--font-mono);
+  font: 500 11px/1 var(--font-mono);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -2399,7 +2401,7 @@ body[data-mode='onboard'] #view {
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
-.native-total span { font: 500 10px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tx-3); }
+.native-total span { font: 500 11px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tx-3); }
 .native-total b { font: 500 15px/1 var(--font-mono); color: var(--tx); }
 .native-usage-row {
   display: grid;
