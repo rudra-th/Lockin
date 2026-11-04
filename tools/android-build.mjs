@@ -28,5 +28,11 @@ run('npx', ['cap', 'sync', 'android'], ROOT);
 console.log(`Lockin → ${task}`);
 run(wrapper, [task], android);
 
-const apk = join(android, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
-console.log(`\nAPK: ${apk}`);
+/* Report the artifact the task actually produces — assembleRelease →
+   apk/release, bundleRelease → bundle/release, anything else → debug. */
+const artifact = task.startsWith('bundleRelease')
+  ? join(android, 'app', 'build', 'outputs', 'bundle', 'release', 'app-release.aab')
+  : task.startsWith('assembleRelease')
+    ? join(android, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk')
+    : join(android, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+console.log(`\nAPK: ${artifact}`);
