@@ -164,12 +164,12 @@ Files: `app/assets/js/ui.js`, `app/assets/css/app.css`.
 
 Files: `app/assets/js/install.js` (or wherever `serviceWorker.register` lives).
 
-- [ ] Step 1. On `registration.onupdatefound`, wait for `newWorker.statechange` →
+- [x] Step 1. On `registration.onupdatefound`, wait for `newWorker.statechange` →
       `installed` while `navigator.serviceWorker.controller` is present, then call
       `hint('Update downloaded — restart Lockin to refresh')` once.
-- [ ] Step 2. Guard: don't show if worker already took over (skipWaiting is not used
-      today — verify and keep the one-shot behavior).
-- [ ] Step 3. Verify: `npm run check`; note in CHANGELOG unreleased section.
+- [x] Step 2. Guard: don't show if worker already took over (there is no
+      `skipWaiting` in `sw.js`, so the one-shot behavior holds by construction).
+- [x] Step 3. Verify: `npm run check`; note in CHANGELOG unreleased section.
 
 ### Task 1.3: Storage hardening
 

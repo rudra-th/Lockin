@@ -3,6 +3,15 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## Unreleased
+
+### Robustness
+
+- Bottom sheets are now modal: Escape closes them, Tab cycles inside, focus
+  enters on open and returns to the control that opened them.
+- A service-worker update announces itself — "Update downloaded — restart
+  Lockin to refresh" — instead of swapping the app on an unnoticed reload.
+
 ## 1.4.1 — 2026-11-04
 
 ### Opening film

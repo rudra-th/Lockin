@@ -3,6 +3,7 @@
 import { Store } from './store.js';
 import { Router } from './router.js';
 import { $$ } from './util.js';
+import { hint } from './ui.js';
 import { initHome } from './views/home.js';
 import { initSchedule } from './views/schedule.js';
 import { initFocus } from './views/focus.js';
@@ -74,7 +75,22 @@ setTimeout(markTabs, 0);
    only add a stale-cache layer between the app and its own assets. */
 
 if ('serviceWorker' in navigator && !isNative) {
-  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      /* A first install takes over silently; only an update to an existing
+         worker needs a restart, so say so once instead of surprising the
+         visitor with a changed app on their next reload. */
+      reg.addEventListener('updatefound', () => {
+        const next = reg.installing;
+        if (!next) return;
+        next.addEventListener('statechange', () => {
+          if (next.state === 'installed' && navigator.serviceWorker.controller) {
+            hint('Update downloaded — restart Lockin to refresh');
+          }
+        });
+      });
+    }).catch(() => { /* offline shell is a bonus */ });
+  });
   navigator.serviceWorker.addEventListener('message', (ev) => {
     if (ev.data?.type === 'open-schedule') Router.go('/schedule');
   });
