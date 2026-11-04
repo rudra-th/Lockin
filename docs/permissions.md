@@ -26,15 +26,21 @@ The extension makes **no network requests**. Its only data is the `lockin.ext` k
 
 No account, no analytics, no third-party requests. Fonts are self-hosted.
 
-## Android (planned)
+## Android
 
-| Capability | Why | Tier |
-|---|---|---|
-| `PACKAGE_USAGE_STATS` | Per-app screen time, pickups, unlocks. | Both builds; user grants it in system settings. |
-| `SCHEDULE_EXACT_ALARM` | Fire a block alarm at the scheduled minute. | Both builds. |
-| `POST_NOTIFICATIONS` | Reminder five minutes before a block. | Both builds, runtime prompt. |
-| Accessibility service | Detect and cover blocked apps. | **Direct APK only.** Never in the Play build. |
-| `SYSTEM_ALERT_WINDOW` | Draw the block overlay. | Direct APK only. |
+What the shipped APK declares — nothing more:
+
+| Capability | Why |
+|---|---|
+| `PACKAGE_USAGE_STATS` | Per-app screen time, pickups, unlocks. Granted in system settings. |
+| `SCHEDULE_EXACT_ALARM` | Ring at the scheduled minute. |
+| `POST_NOTIFICATIONS` | Reminder five minutes before a block. Runtime prompt. |
+| `RECEIVE_BOOT_COMPLETED` | Re-seed alarms after a reboot. |
+| `VIBRATE`, `WAKE_LOCK` | Deliver the alarm on time. |
+| `INTERNET` | Capacitor local server and future opt-in sync. |
+
+No accessibility service, no overlay permission, no blocking tier — Lockin's
+Android shell measures and rings; it does not intercept other apps.
 
 ## What we will never ask for
 

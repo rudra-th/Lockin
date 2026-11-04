@@ -13,7 +13,7 @@ shell around the same web UI, not a second UI.
    web PWA       Chrome MV3         Capacitor shell
    sessions      blocking +         exact alarms,
    tasks         active-tab time    usage access,
-   schedule                        blocking tiers
+   schedule                         per-app screen time
    alarms
 ```
 
@@ -23,7 +23,7 @@ shell around the same web UI, not a second UI.
 |---|---|---|
 | **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, earned exit, Stats, Honesty Log, foreground alarms | Device-wide blocking, closed-app alarms |
 | **Extension** (`extension/`) | Site block list, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
-| **Android** (`android/`) | Exact alarms, notification permission, usage access, per-app screen time | A forked UI or a second data model; device-wide blocking is still a documented tier, not shipped |
+| **Android** (`android/`) | Exact alarms, notification permission, usage access, per-app screen time | A forked UI or a second data model; no blocking tier ships — on Android, screen time is informational and blocking lives in the extension |
 
 The extension and the PWA cannot read each other's storage. Usage stays separate
 until sync exists. This is stated in `extension/README.md` and in the UI.

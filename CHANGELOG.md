@@ -35,6 +35,10 @@ the Android shell follows once it ships.
 - **Accessibility floor.** The running clock is a real `role="timer"`, phase
   changes announce politely, tab targets are pinned to a 44px minimum, and
   the active tab is announced with `aria-current="page"`.
+- **Docs only promise what ships.** The Android "blocking tiers" table,
+  the undeclared `SYSTEM_ALERT_WINDOW` permission, and the planned
+  accessibility service are gone from the docs — the Android shell measures
+  and rings; blocking is the extension's job.
 
 ## 1.4.1 — 2026-11-04
 

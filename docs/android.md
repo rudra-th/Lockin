@@ -99,16 +99,18 @@ web and in the extension pack.
 - `UsageStatsManager.queryUsageStats` aggregates foreground time per package.
 - No history database, no page content, no keylogging.
 
-### Blocking tiers
+### Blocking
 
-| Tier | Build | Mechanism | Honesty |
-|---|---|---|---|
-| Soft | Play build | Usage access + overlay reminders, no accessibility | Says it reminds, not blocks |
-| Enhanced | Direct APK | Accessibility service detects the foreground package and opens a block screen | Says it can be disabled in system settings |
-| Hard | Direct APK | Device owner / managed profile (later) | Only for managed devices |
+No blocking tier ships on Android today. Lockin's Android shell measures and
+rings; it does not intercept other apps. Site blocking is the **extension's**
+job (Chrome, declarativeNetRequest), and the Android screen-time panel is
+informational — it shows where time went, it never decides what you can open.
 
-Accessibility-based blocking is a policy risk and a privacy cost. It is **never**
-in the Play build. The direct APK documents exactly what the service can see.
+If a blocking tier is ever built, accessibility-based detection is the
+mechanism with the worst policy and privacy cost (it can see every foreground
+package) — it would be a direct-APK feature with its own consent copy, never
+the Play build, and this section would be rewritten to describe exactly what
+ships. Until then the docs promise only what the APK does.
 
 ## Permissions
 
@@ -123,19 +125,18 @@ Declared in `AndroidManifest.xml` as the features land:
 | `VIBRATE` | Alarm pattern |
 | `WAKE_LOCK` | Deliver the alarm receiver on time |
 | `PACKAGE_USAGE_STATS` | Per-app screen time (special access) |
-| `SYSTEM_ALERT_WINDOW` | Direct-APK block overlay (not Play) |
 
 ## Release signing
 
-Never commit a keystore. Keep it outside the repository (or in an ignored
-`android/keystore/`), set `LOCKIN_KEYSTORE`, `LOCKIN_KEY_ALIAS` and the password
-in your local environment, and configure `signingConfigs.release` in a local
-`keystore.properties` that is ignored. The release workflow will attach a signed
-APK/AAB to a GitHub Release, not to `main`.
+The release signing setup lives in [`android-release.md`](android-release.md):
+a gitignored `android/keystore.properties` feeds `signingConfigs.release`, and
+`assembleRelease` fails fast — naming the missing piece — until the keystore
+exists. Debug builds never touch signing.
 
 ## Play policy notes
 
-- Accessibility-based app blocking is high risk for Play. Ship the soft tier.
+- Accessibility-based app blocking is high risk for Play; Lockin ships no
+  blocking tier on Android (see "Blocking" above).
 - `QUERY_ALL_PACKAGES` is restricted; avoid it unless the core feature requires
   it and the declaration is approved.
 - Full-screen intents are restricted on Android 14+.

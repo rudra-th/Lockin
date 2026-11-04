@@ -59,7 +59,7 @@ The web app is the source of truth for a study session. The extension is deliber
 | [`docs/architecture.md`](docs/architecture.md) | Surfaces, shared core, schedule model, alarm semantics, sync design |
 | [`docs/privacy.md`](docs/privacy.md) | What is stored, where, and what sync will mean |
 | [`docs/permissions.md`](docs/permissions.md) | Every capability each surface asks for |
-| [`docs/android.md`](docs/android.md) | Capacitor build, exact alarms, usage access, blocking tiers |
+| [`docs/android.md`](docs/android.md) | Capacitor build, exact alarms, usage access, per-app screen time |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Setup, checks, release process, code rules |
 | [`CHANGELOG.md`](CHANGELOG.md) | What shipped, version by version |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and secret rules |
@@ -92,7 +92,7 @@ npm run android:icons      # regenerate launcher art (Windows, System.Drawing)
 ```
 
 Requires Android Studio (JDK 21) and SDK platform 36. See
-[`docs/android.md`](docs/android.md) for the native bridge, permission tiers and
+[`docs/android.md`](docs/android.md) for the native bridge, permissions and
 release signing. The debug APK is not committed; build it locally or download a
 release asset.
 

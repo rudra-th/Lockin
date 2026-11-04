@@ -326,10 +326,14 @@ Files: new `docs/android-qa.md`.
 
 Files: `docs/architecture.md`, `README.md`, `docs/privacy.md`, `CHANGELOG.md`.
 
-- [ ] Step 1. If the owner keeps device-wide blocking unshipped (Review Focus row 5),
-      rewrite architecture.md's Android row and the README's tier language so docs
-      only describe shipped behavior. Otherwise skip — the feature build replaces
-      this task and becomes its own plan.
+- [x] Step 1. Owner approved full execution; taking the plan's honest default
+      (de-document, reversible if the tier is ever built). Rewritten:
+      `architecture.md` (tree + Android row), `android.md` ("Blocking tiers"
+      table → honest "Blocking" section; undeclared `SYSTEM_ALERT_WINDOW`
+      removed from the permission table; stale signing section → points at
+      `android-release.md`), `permissions.md` ("Android (planned)" tier table
+      → the manifest's actual permissions), `README.md` (two "tiers"
+      references). `privacy.md` was already honest — kept.
 
 ---
 
