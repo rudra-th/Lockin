@@ -1278,7 +1278,7 @@ body[data-mode='onboard'] #view {
   padding: 14px 16px 12px;
   min-width: 0;
 }
-.tile .tlabel { font: 500 10.5px/1 var(--font-sans); letter-spacing: 0.05em; color: var(--tx-2); }
+.tile .tlabel { font: 500 11px/1 var(--font-sans); letter-spacing: 0.05em; color: var(--tx-2); }
 .tile .tvalue {
   font: 500 21px/1.15 var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -1288,10 +1288,13 @@ body[data-mode='onboard'] #view {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* the day's headline number carries the strip's weight */
+.tile.tile-lead .tvalue { font-size: 26px; }
 .tile .tbar {
   height: 5px;
   border-radius: 99px;
   background: var(--panel-2);
+  border: 1px solid var(--line-2); /* the track reads even at 0% */
   margin-top: 8px;
   overflow: hidden;
 }

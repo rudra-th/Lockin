@@ -25,6 +25,8 @@ the Android shell follows once it ships.
 - **Schedule has one add affordance.** The "Nothing scheduled today" card no
   longer stacks a second "Add a block" button — it points at the `+` in the
   top corner, which is always there.
+- **Home's goal bar reads at 0%.** The Focused tile's meter now has a visible
+  track, and the Focused number is the largest figure on the strip.
 
 ## 1.4.1 — 2026-11-04
 

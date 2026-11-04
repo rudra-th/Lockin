@@ -242,11 +242,12 @@ Files: `app/assets/js/views/schedule.js`, `app/assets/css/app.css`.
 
 Files: `app/assets/js/views/home.js`, `app/assets/css/app.css`.
 
-- [ ] Step 1. Give `.tbar` a always-visible track (1px `--line-2` border +
-      `min-height: 3px`) so 0% still reads as a meter.
-- [ ] Step 2. Bump the `Focused` tile value to the largest type on the strip
-      (currently ties with Streak); captions keep the ≥11px floor.
-- [ ] Step 3. Verify: `npm run check`; screenshot pass deferred to owner testing.
+- [x] Step 1. `.tbar` has an always-visible track: a 1px `--line-2` border on
+      the 5px bar, so 0% still reads as a meter in both themes.
+- [x] Step 2. The `Focused` tile (first cell) carries a `tile-lead` class and
+      the largest value type on the strip (26px vs 21px); captions keep the
+      ≥11px floor (`tlabel` raised 10.5 → 11px).
+- [x] Step 3. Verify: `npm run check`; screenshot pass deferred to owner testing.
 
 ### Task 2.4: Microtype floor + light-theme audit
 

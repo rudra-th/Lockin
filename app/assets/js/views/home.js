@@ -105,7 +105,7 @@ function tileStrip(focusMin, streak, cleanDays, tasks) {
   });
 
   return el('div', { class: 'tilestrip' },
-    cells.map((c) => el('div', { class: 'tile' },
+    cells.map((c, i) => el('div', { class: `tile${i === 0 ? ' tile-lead' : ''}` },
       el('div', { class: 'tlabel' }, c.label),
       el('div', { class: 'tvalue' }, c.value),
       c.bar != null
