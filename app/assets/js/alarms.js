@@ -93,7 +93,7 @@ async function notify(title, body, tag) {
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
     if (reg?.showNotification) await reg.showNotification(title, options);
-    else new Notification(title, options); // eslint-disable-line no-new
+    else new Notification(title, options);
   } catch (_) { /* notification is a bonus, never a failure */ }
 }
 

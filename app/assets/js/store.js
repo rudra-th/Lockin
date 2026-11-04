@@ -87,7 +87,7 @@ const Store = {
   state: null,
 
   load() {
-    let parsed = null;
+    let parsed;
     try {
       parsed = migrate(JSON.parse(localStorage.getItem(KEY) || 'null'));
     } catch (_) {
@@ -321,7 +321,7 @@ Store.load();
    one source of truth instead of blitting stale copies over each other. */
 self.addEventListener('storage', (ev) => {
   if (ev.key !== null && ev.key !== KEY) return; // null key = clear()
-  let next = null;
+  let next;
   try { next = migrate(JSON.parse(ev.newValue || 'null')); } catch (_) { return; }
   if (!next) return;
   if (JSON.stringify(next) === JSON.stringify(Store.state)) return; // no-op echo

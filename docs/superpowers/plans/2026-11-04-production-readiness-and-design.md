@@ -115,14 +115,14 @@ Files: new `app/assets/js/tests.mjs`, new `tools/run-tests.mjs`, `app/tests.html
 
 Files: new `eslint.config.js`, `package.json` (`devDependency: eslint`, script `lint`).
 
-- [ ] Step 1. `eslint.config.js`: flat config, `languageOptions.ecmaVersion 2024`,
+- [x] Step 1. `eslint.config.js`: flat config, `languageOptions.ecmaVersion 2024`,
       `sourceType: 'module'`, browser globals; rules = `eslint:recommended` minus
       style-only rules (`no-unused-vars` at warn, `prefer-const` off). Ignore
       `dist/`, `android/app/build/`, `app/assets/fonts/`, `tools/gen-*.ps1`.
-- [ ] Step 2. Add `"lint": "eslint ."` script. Fix every error it raises (expect a
+- [x] Step 2. Add `"lint": "eslint ."` script. Fix every error it raises (expect a
       handful: unused vars, unreachable code). Warnings allowed only if reasoned
       with an inline disable comment.
-- [ ] Step 3. Verify: `npm run lint` exits 0; `npm run check && npm test` still green.
+- [x] Step 3. Verify: `npm run lint` exits 0; `npm run check && npm test` still green.
 
 ### Task 0.3: Single-source version bumping
 

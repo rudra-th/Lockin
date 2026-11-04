@@ -155,10 +155,10 @@ document.addEventListener('visibilitychange', onVisibility);
 
 async function takeOver() {
   if ('wakeLock' in navigator && Store.state.settings.wakelock) {
-    try { wakeSentinel = await navigator.wakeLock.request('screen'); } catch (_) {}
+    try { wakeSentinel = await navigator.wakeLock.request('screen'); } catch (_) { /* the wake lock is a bonus — losing it never interrupts the session */ }
   }
   if (Store.state.settings.notifs && 'Notification' in window && Notification.permission === 'default') {
-    try { Notification.requestPermission(); } catch (_) {}
+    try { Notification.requestPermission(); } catch (_) { /* the prompt itself is the ask; a failure stays silent */ }
   }
 }
 
@@ -169,7 +169,7 @@ function wakeAlive() {
 }
 
 async function releaseAll() {
-  try { if (wakeSentinel) await wakeSentinel.release(); } catch (_) {}
+  try { if (wakeSentinel) await wakeSentinel.release(); } catch (_) { /* an already-released sentinel is fine */ }
   wakeSentinel = null;
 }
 
@@ -405,9 +405,9 @@ function abandon() {
 function notify(body) {
   if (!body) return;
   if (Store.state.settings.notifs && 'Notification' in window && Notification.permission === 'granted') {
-    try { new Notification('Lockin', { body }); } catch (_) {}
+    try { new Notification('Lockin', { body }); } catch (_) { /* notifications never break a session */ }
   }
-  try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (_) {}
+  try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (_) { /* vibration is best-effort */ }
 }
 
 /* ---------- registration ---------- */
@@ -649,7 +649,7 @@ function armedScreen() {
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
-    try { btn.setPointerCapture(ev.pointerId); } catch (_) {}
+    try { btn.setPointerCapture(ev.pointerId); } catch (_) { /* the pointer may already be gone */ }
     btn.addEventListener('pointerup', holdCancel);
     btn.addEventListener('pointercancel', holdCancel);
   }
