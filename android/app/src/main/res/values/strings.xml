@@ -23,4 +23,17 @@
     <string name="block_until">until %1$s</string>
     <string name="block_leave">Leave this app</string>
     <string name="block_foot">You chose this window. It ends when the clock does.</string>
+
+    <string name="block_limit_kicker">Daily limit</string>
+    <string name="block_limit_title">That’s the allowance.</string>
+    <string name="block_limit_left">until the limit resets</string>
+    <string name="block_limit_until">Resets at midnight · change it in Control</string>
+    <string name="block_limit_used">%1$s of %2$dm used today</string>
+
+    <string name="block_strict_kicker">Strict study mode</string>
+    <string name="block_strict_title">Only the allowlist.</string>
+    <string name="block_strict_left">nothing else opens</string>
+    <string name="block_strict_until">This session is still running</string>
+    <string name="block_strict_foot">Lockin is holding the line. Finish the session, or end it in Lockin.</string>
+    <string name="block_back">Back to Lockin</string>
 </resources>

@@ -2,9 +2,14 @@ package com.lockin.app;
 
 import android.accessibilityservice.AccessibilityService;
 import android.animation.ObjectAnimator;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.PixelFormat;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
@@ -30,14 +35,21 @@ import java.util.Set;
  * "a window came to the front" — and never reads window content, text or
  * keystrokes (the service config says so, and the platform enforces it).
  *
- * When the foreground package is on the user's list and a focus window is
- * active, a full-screen accessibility overlay covers the app with the block
- * name and a live countdown. The only action is Leave, which goes home. Lockin
- * itself, a protected app (launcher, Settings, dialer), an empty list and a gap
- * between windows all fail open: the overlay is hidden and nothing pretends to
- * block.
+ * Three reasons can cover an app:
+ *   - a focus window (the apps the user chose, during a block or session),
+ *   - a spent daily allowance (per-app limit, resets at midnight),
+ *   - strict study mode (every app except the allowlist, until the session ends).
+ *
+ * Lockin itself and every protected app (launchers, Settings, the dialer)
+ * always fail open. An empty list, the service off, a gap between windows or
+ * a stale strict deadline also fail open: the overlay is hidden and nothing
+ * pretends to block.
  */
 public class LockinAccessibilityService extends AccessibilityService {
+
+    private static final int REASON_FOCUS = 0;
+    private static final int REASON_LIMIT = 1;
+    private static final int REASON_STRICT = 2;
 
     private static WeakReference<LockinAccessibilityService> running =
             new WeakReference<>(null);
@@ -49,12 +61,47 @@ public class LockinAccessibilityService extends AccessibilityService {
     private WindowManager windowManager;
     private View overlay;
     private ObjectAnimator pulse;
+    private Info overlayInfo;
     private String overlayPackage;
+
+    private String foregroundPackage;
+    private long foregroundSince;
+    private boolean screenOn = true;
+
     private String lastForegroundPackage;
-    private long windowStart;
-    private long windowEnd;
     private Set<String> protectedPackages = new HashSet<>();
     private final Map<String, Boolean> activityCache = new HashMap<>();
+
+    /** One overlay state, derived fresh from the config on every check. */
+    private static final class Info {
+        final int reason;
+        final String kicker;
+        final String label;
+        final String left;
+        final String until;
+        final String foot;
+        final String action;
+        final long start;
+        final long end;
+        final boolean showClock;
+        final boolean showBar;
+
+        Info(int reason, String kicker, String label, String left, String until,
+             String foot, String action, long start, long end,
+             boolean showClock, boolean showBar) {
+            this.reason = reason;
+            this.kicker = kicker;
+            this.label = label;
+            this.left = left;
+            this.until = until;
+            this.foot = foot;
+            this.action = action;
+            this.start = start;
+            this.end = end;
+            this.showClock = showClock;
+            this.showBar = showBar;
+        }
+    }
 
     /** Called after the config changes so a visible overlay follows it at once. */
     public static void refreshIfRunning() {
@@ -62,12 +109,28 @@ public class LockinAccessibilityService extends AccessibilityService {
         if (service != null) service.ticker.post(service::onConfigChanged);
     }
 
+    /* ---------- lifecycle ---------- */
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         running = new WeakReference<>(this);
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         protectedPackages = ProtectedApps.of(this);
+
+        IntentFilter screen = new IntentFilter();
+        screen.addAction(Intent.ACTION_SCREEN_OFF);
+        screen.addAction(Intent.ACTION_SCREEN_ON);
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(screenReceiver, screen, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(screenReceiver, screen);
+            }
+        } catch (RuntimeException ignored) {
+            /* the service still works without the screen clock */
+        }
+
         ticker.removeCallbacks(watch);
         ticker.postDelayed(watch, 15000);
     }
@@ -88,11 +151,15 @@ public class LockinAccessibilityService extends AccessibilityService {
         if (!isActivity(pkg, event.getClassName())) return;
 
         lastForegroundPackage = pkg;
+        long now = System.currentTimeMillis();
 
         if (pkg.equals(getPackageName())) {
+            pauseUsage(now);
             hideOverlay();
             return;
         }
+
+        noteForeground(pkg, now);
 
         /* Launchers, Settings and the dialer must stay reachable even if an
            older saved list still contains them. */
@@ -101,19 +168,7 @@ public class LockinAccessibilityService extends AccessibilityService {
             return;
         }
 
-        BlockingStore.Config config = BlockingStore.read(this);
-        if (!config.enabled || !config.packages.contains(pkg)) {
-            hideOverlay();
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-        BlockingStore.Window window = config.activeWindow(now);
-        if (window == null) {
-            hideOverlay();
-            return;
-        }
-        showOverlay(pkg, window);
+        evaluate(pkg, now);
     }
 
     @Override
@@ -123,11 +178,61 @@ public class LockinAccessibilityService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
-        hideOverlay();
+        flushUsage(System.currentTimeMillis());
         ticker.removeCallbacks(watch);
+        try {
+            unregisterReceiver(screenReceiver);
+        } catch (RuntimeException ignored) {
+            /* never registered */
+        }
+        hideOverlay();
         running = new WeakReference<>(null);
         super.onDestroy();
     }
+
+    /* ---------- foreground usage clock ---------- */
+
+    private void noteForeground(String pkg, long now) {
+        if (pkg.equals(foregroundPackage)) return;
+        flushUsage(now);
+        foregroundPackage = pkg;
+        foregroundSince = now;
+    }
+
+    private void flushUsage(long now) {
+        if (foregroundPackage == null || foregroundSince <= 0) return;
+        long ms = now - foregroundSince;
+        if (ms > 0) BlockingStore.addUsage(this, foregroundPackage, ms, now);
+        foregroundSince = now;
+    }
+
+    private void pauseUsage(long now) {
+        flushUsage(now);
+        foregroundSince = 0;
+    }
+
+    private void resumeUsage(long now) {
+        if (foregroundPackage != null && foregroundSince <= 0 && overlay == null) {
+            foregroundSince = now;
+        }
+    }
+
+    private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            long now = System.currentTimeMillis();
+            if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                screenOn = false;
+                flushUsage(now);
+                foregroundSince = 0;
+                hideOverlay();
+            } else if (Intent.ACTION_SCREEN_ON.equals(intent.getAction())) {
+                screenOn = true;
+                resumeUsage(now);
+                evaluate(lastForegroundPackage, now);
+            }
+        }
+    };
 
     /**
      * Is this window a real activity, or an IME / system window / toast?
@@ -169,27 +274,109 @@ public class LockinAccessibilityService extends AccessibilityService {
         }
     }
 
-    /* ---------- overlay ---------- */
+    /* ---------- what should cover this package, if anything ---------- */
 
-    private void showOverlay(String pkg, BlockingStore.Window window) {
+    private Info infoFor(String pkg, long now) {
+        if (pkg == null) return null;
+        if (pkg.equals(getPackageName())) return null;
+        if (protectedPackages.contains(pkg)) return null;
+
+        BlockingStore.Config config = BlockingStore.read(this);
+
+        /* Strict mode owns the screen while a session is live: every app
+           except the user's allowlist is covered. The deadline is refreshed
+           by the web app; a stale one fails open. */
+        if (config.strictActive(now)) {
+            if (config.strictPackages.contains(pkg)) return null;
+            return new Info(
+                    REASON_STRICT,
+                    getString(R.string.block_strict_kicker),
+                    getString(R.string.block_strict_title),
+                    getString(R.string.block_strict_left),
+                    getString(R.string.block_strict_until),
+                    getString(R.string.block_strict_foot),
+                    getString(R.string.block_back),
+                    0L, 0L, false, false);
+        }
+
+        if (!config.enabled) return null;
+
+        /* A spent daily allowance holds until midnight, whether or not a focus
+           window is running. A manual list entry is a separate reason. */
+        int limit = config.limitFor(pkg);
+        if (limit > 0) {
+            long used = BlockingStore.usageFor(this, pkg, now);
+            if (used >= limit * 60_000L) {
+                long midnight = BlockingStore.nextMidnight(now);
+                return new Info(
+                        REASON_LIMIT,
+                        getString(R.string.block_limit_kicker),
+                        getString(R.string.block_limit_title),
+                        getString(R.string.block_limit_left),
+                        getString(R.string.block_limit_until),
+                        getString(R.string.block_limit_used, fmtUsage(used), limit),
+                        getString(R.string.block_leave),
+                        BlockingStore.startOfDay(now), midnight, true, true);
+            }
+        }
+
+        if (!config.packages.contains(pkg)) return null;
+
+        BlockingStore.Window window = config.activeWindow(now);
+        if (window == null) return null;
+
+        return new Info(
+                REASON_FOCUS,
+                getString(R.string.block_kicker),
+                window.label,
+                getString(R.string.block_left),
+                getString(R.string.block_until, untilFormat.format(new Date(window.end))),
+                getString(R.string.block_foot),
+                getString(R.string.block_leave),
+                window.start, window.end, true, true);
+    }
+
+    private void evaluate(String pkg, long now) {
+        /* Never draw over the lock screen: no app is usable there, and a
+           blocking wall on top of the keyguard would look like a bug. */
+        if (!screenOn) {
+            hideOverlay();
+            return;
+        }
+        Info info = infoFor(pkg, now);
+        if (info == null) {
+            hideOverlay();
+            return;
+        }
         if (overlay != null && pkg.equals(overlayPackage)) {
-            windowStart = window.start;
-            windowEnd = window.end;
-            ((TextView) overlay.findViewById(R.id.block_label)).setText(window.label);
+            overlayInfo = info;
+            applyInfo();
             paint();
             return;
         }
+        showOverlay(pkg, info, now);
+    }
+
+    /* ---------- overlay ---------- */
+
+    private void showOverlay(String pkg, Info info, long now) {
+        /* The app is on screen, but the user cannot use it; stop spending its
+           allowance until they come back for a real visit. */
+        pauseUsage(now);
         hideOverlay();
 
         overlayPackage = pkg;
-        windowStart = window.start;
-        windowEnd = window.end;
+        overlayInfo = info;
 
         View view = LayoutInflater.from(this).inflate(R.layout.overlay_block, null);
-        ((TextView) view.findViewById(R.id.block_label)).setText(window.label);
         view.findViewById(R.id.block_leave).setOnClickListener(v -> {
+            int reason = overlayInfo == null ? REASON_FOCUS : overlayInfo.reason;
             hideOverlay();
-            performGlobalAction(GLOBAL_ACTION_HOME);
+            if (reason == REASON_STRICT) {
+                launchLockin();
+            } else {
+                performGlobalAction(GLOBAL_ACTION_HOME);
+            }
         });
 
         ImageView icon = view.findViewById(R.id.block_icon);
@@ -216,9 +403,11 @@ public class LockinAccessibilityService extends AccessibilityService {
                Fail open rather than crash the service. */
             cancelPulse();
             overlayPackage = null;
+            overlayInfo = null;
             return;
         }
 
+        applyInfo();
         paint();
         ticker.post(tick);
     }
@@ -235,6 +424,7 @@ public class LockinAccessibilityService extends AccessibilityService {
         }
         overlay = null;
         overlayPackage = null;
+        overlayInfo = null;
     }
 
     private void cancelPulse() {
@@ -243,15 +433,44 @@ public class LockinAccessibilityService extends AccessibilityService {
         pulse = null;
     }
 
+    private void applyInfo() {
+        if (overlay == null || overlayInfo == null) return;
+        Info info = overlayInfo;
+
+        ((TextView) overlay.findViewById(R.id.block_kicker)).setText(info.kicker);
+        ((TextView) overlay.findViewById(R.id.block_label)).setText(info.label);
+        ((TextView) overlay.findViewById(R.id.block_leave)).setText(info.action);
+
+        TextView left = overlay.findViewById(R.id.block_left);
+        left.setText(info.left);
+        left.setVisibility(info.left == null || info.left.isEmpty() ? View.GONE : View.VISIBLE);
+
+        TextView until = overlay.findViewById(R.id.block_until);
+        until.setText(info.until);
+        until.setVisibility(info.until == null || info.until.isEmpty() ? View.GONE : View.VISIBLE);
+
+        TextView clock = overlay.findViewById(R.id.block_countdown);
+        clock.setVisibility(info.showClock ? View.VISIBLE : View.GONE);
+
+        ProgressBar bar = overlay.findViewById(R.id.block_bar);
+        bar.setVisibility(info.showBar ? View.VISIBLE : View.GONE);
+
+        TextView foot = overlay.findViewById(R.id.block_foot);
+        foot.setText(info.foot);
+    }
+
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
             if (overlay == null) return;
             long now = System.currentTimeMillis();
-            if (now >= windowEnd && !advanceWindow(now)) {
+            Info info = infoFor(overlayPackage, now);
+            if (info == null) {
                 hideOverlay();
                 return;
             }
+            overlayInfo = info;
+            applyInfo();
             paint();
             ticker.postDelayed(this, 1000);
         }
@@ -259,58 +478,52 @@ public class LockinAccessibilityService extends AccessibilityService {
 
     /**
      * A slow safety net for the one case the event stream misses: the user is
-     * already inside a blocked app when a window starts. Every 15 seconds we
-     * look at the last real activity again; if it is now inside a window, the
-     * overlay appears without waiting for an app switch.
+     * already inside a blocked app when a window starts, or they cross a daily
+     * limit without switching apps. Every 15 seconds we re-read the last real
+     * activity, flush the usage clock and re-evaluate.
      */
     private final Runnable watch = new Runnable() {
         @Override
         public void run() {
-            checkForeground();
+            long now = System.currentTimeMillis();
+            flushUsage(now);
+            resumeUsage(now);
+            if (lastForegroundPackage != null) evaluate(lastForegroundPackage, now);
             ticker.postDelayed(this, 15000);
         }
     };
 
-    private void checkForeground() {
-        if (overlay != null || lastForegroundPackage == null) return;
-        if (lastForegroundPackage.equals(getPackageName())) return;
-        if (protectedPackages.contains(lastForegroundPackage)) return;
-
-        BlockingStore.Config config = BlockingStore.read(this);
-        if (!config.enabled || !config.packages.contains(lastForegroundPackage)) return;
-
-        BlockingStore.Window window = config.activeWindow(System.currentTimeMillis());
-        if (window != null) showOverlay(lastForegroundPackage, window);
-    }
-
-    /**
-     * When two blocks sit back to back, the overlay moves to the next window
-     * instead of blinking off for a second and waiting for a window event.
-     */
-    private boolean advanceWindow(long now) {
-        if (overlayPackage == null) return false;
-        BlockingStore.Config config = BlockingStore.read(this);
-        if (!config.enabled || !config.packages.contains(overlayPackage)) return false;
-        BlockingStore.Window next = config.activeWindow(now);
-        if (next == null) return false;
-        windowStart = next.start;
-        windowEnd = next.end;
-        ((TextView) overlay.findViewById(R.id.block_label)).setText(next.label);
-        return true;
-    }
-
     private void paint() {
-        if (overlay == null) return;
+        if (overlay == null || overlayInfo == null) return;
+        Info info = overlayInfo;
         long now = System.currentTimeMillis();
-        long left = Math.max(0, windowEnd - now);
 
-        ((TextView) overlay.findViewById(R.id.block_countdown)).setText(fmt(left));
-        ((TextView) overlay.findViewById(R.id.block_until))
-                .setText(getString(R.string.block_until, untilFormat.format(new Date(windowEnd))));
+        TextView clock = overlay.findViewById(R.id.block_countdown);
+        if (info.showClock && info.end > 0) {
+            clock.setText(fmt(Math.max(0, info.end - now)));
+        }
 
         ProgressBar bar = overlay.findViewById(R.id.block_bar);
-        long span = Math.max(1, windowEnd - windowStart);
-        bar.setProgress((int) Math.max(0, Math.min(1000, (left * 1000) / span)));
+        if (info.showBar) {
+            if (info.reason == REASON_LIMIT) {
+                bar.setProgress(1000);
+            } else {
+                long span = Math.max(1, info.end - info.start);
+                bar.setProgress((int) Math.max(0, Math.min(1000,
+                        ((info.end - now) * 1000) / span)));
+            }
+        }
+    }
+
+    private void launchLockin() {
+        try {
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(intent);
+        } catch (RuntimeException ignored) {
+            /* fall back to home if the activity cannot be opened */
+            performGlobalAction(GLOBAL_ACTION_HOME);
+        }
     }
 
     /** Countdown text: "23:14" under an hour, "1:02:05" above. */
@@ -324,27 +537,31 @@ public class LockinAccessibilityService extends AccessibilityService {
                 : String.format(Locale.getDefault(), "%02d:%02d", m, s);
     }
 
-    /** The user changed the list or the master switch while the overlay was up. */
+    private String fmtUsage(long ms) {
+        long minutes = ms / 60_000L;
+        if (minutes < 1) return "<1m";
+        long h = minutes / 60;
+        long m = minutes % 60;
+        return h > 0
+                ? String.format(Locale.getDefault(), "%dh %02dm", h, m)
+                : String.format(Locale.getDefault(), "%dm", m);
+    }
+
+    /** The user changed the list, a limit or the master switch while an overlay was up. */
     private void onConfigChanged() {
         protectedPackages = ProtectedApps.of(this);
-        if (overlay == null) {
-            checkForeground();
-            return;
-        }
-        BlockingStore.Config config = BlockingStore.read(this);
         long now = System.currentTimeMillis();
-        BlockingStore.Window window = config.activeWindow(now);
-
-        if (!config.enabled || overlayPackage == null
-                || !config.packages.contains(overlayPackage) || window == null
-                || protectedPackages.contains(overlayPackage)) {
-            hideOverlay();
+        if (overlay != null) {
+            Info info = infoFor(overlayPackage, now);
+            if (info == null) {
+                hideOverlay();
+            } else {
+                overlayInfo = info;
+                applyInfo();
+                paint();
+            }
             return;
         }
-
-        windowStart = window.start;
-        windowEnd = window.end;
-        ((TextView) overlay.findViewById(R.id.block_label)).setText(window.label);
-        paint();
+        evaluate(lastForegroundPackage, now);
     }
 }

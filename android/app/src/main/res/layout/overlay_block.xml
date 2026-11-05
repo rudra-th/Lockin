@@ -24,6 +24,7 @@
             android:src="@drawable/ic_block_shield" />
 
         <TextView
+            android:id="@+id/block_kicker"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
@@ -59,6 +60,7 @@
             android:textSize="64sp" />
 
         <TextView
+            android:id="@+id/block_left"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
@@ -101,6 +103,7 @@
             android:textSize="15sp" />
 
         <TextView
+            android:id="@+id/block_foot"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"

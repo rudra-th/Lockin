@@ -43,6 +43,7 @@ function blankState() {
       alarmVibrate: true,
       remindDefault: 5,
       pomo: { focus: 25, short: 5, long: 15 },
+      kiosk: false,
     },
     session: null, // live-session runtime snapshot (see focus.js)
     flags: {
@@ -80,6 +81,9 @@ function migrate(raw) {
   if (typeof raw.settings.alarmSound !== 'boolean') raw.settings.alarmSound = true;
   if (typeof raw.settings.alarmVibrate !== 'boolean') raw.settings.alarmVibrate = true;
   if (typeof raw.settings.remindDefault !== 'number') raw.settings.remindDefault = 5;
+
+  /* v1.11: strict sessions can pin the phone into a kiosk (Android). */
+  if (typeof raw.settings.kiosk !== 'boolean') raw.settings.kiosk = false;
   return raw;
 }
 

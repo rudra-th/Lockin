@@ -6,7 +6,10 @@ import { Router } from '../router.js';
 import { el, fmtClock, fmtWatch, fmtMin, todayKey, decideAway, earnedExit, FREE_EXIT_SEC } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
-import { pushBlockingWindows } from '../native.js';
+import {
+  isNative, pushBlockingWindows, strictStatus, startStrictMode, stopStrictMode,
+  refreshStrict, launchApp,
+} from '../native.js';
 
 export const GRACE_SEC = 10;    // accident window — an away this short is forgiven
 export const RESCUE_CAP = 3;    // free rescues per day; beyond that it is a slip
@@ -14,6 +17,13 @@ export const RESCUE_CAP = 3;    // free rescues per day; beyond that it is a sli
 let timer = null;
 let wakeSentinel = null;
 let currentSessId = null;
+
+/* Strict kiosk: armed per session, released on every way out. The flags are
+   module-level so the dock and the visibility guard agree with native. */
+let kioskArmed = false;
+let kioskArming = false;
+let kioskApps = [];
+let kioskOwner = false;
 
 const Session = {
   phase: 'idle',                 // idle | armed | running | paused | break | done | aborted
@@ -44,6 +54,8 @@ function snapshot() {
   Session.lastSnapAt = Date.now();
   /* A running or paused session is a live blocking window; a break is not. */
   pushBlockingWindows();
+  /* Keep the kiosk's fail-open deadline ahead of the live session. */
+  refreshKioskDeadline();
 }
 
 function clearSnapshot() {
@@ -67,11 +79,78 @@ export function resumeFromSnapshot() {
   Session.lastSnapAt = snap.lastSnapAt || Date.now();
   if (snap.phase === 'armed') Session.phase = 'idle'; // an intention doesn't survive a reload
   if (['running', 'break'].includes(Session.phase)) startTick(); // live phases tick again after reload
+  if (['running', 'paused', 'break'].includes(Session.phase) && kioskOn()) armKiosk();
 }
 
 /* ---------- strict enforcement ---------- */
 
 const strictOn = () => !!Store.state.settings.strict;
+
+/* ---------- strict kiosk ---------- */
+
+const kioskOn = () => isNative && !!Store.state.settings.kiosk;
+
+/** Keep the fail-open deadline at least two minutes ahead of the clock. */
+function kioskUntil() {
+  const now = Date.now();
+  const planned = Number(Session.plannedEnd);
+  const base = Number.isFinite(planned) && planned > now ? planned : now;
+  return base + 2 * 60_000;
+}
+
+function refreshKioskDeadline() {
+  if (!kioskArmed) return;
+  refreshStrict(kioskUntil());
+}
+
+async function armKiosk() {
+  if (!kioskOn() || kioskArming || kioskArmed) return;
+  kioskArming = true;
+  try {
+    const st = await strictStatus();
+    const packages = st?.packages || [];
+    const res = await startStrictMode({ packages, until: kioskUntil() });
+    if (!res) return;
+    kioskArmed = true;
+    kioskOwner = Boolean(res.deviceOwner);
+    kioskApps = res.apps?.length
+      ? res.apps
+      : packages.map((pkg) => ({ package: pkg, label: pkg }));
+    if (['running', 'paused', 'break'].includes(Session.phase)) renderHost();
+  } finally {
+    kioskArming = false;
+  }
+}
+
+function releaseKiosk() {
+  const wasArmed = kioskArmed;
+  kioskArmed = false;
+  kioskApps = [];
+  kioskOwner = false;
+  if (wasArmed) stopStrictMode();
+}
+
+async function openAllowed(app) {
+  const ok = await launchApp(app.package);
+  if (!ok) hint(`${app.label} could not open.`);
+}
+
+/** The allowlist dock inside a live strict session. */
+function kioskDock() {
+  if (!kioskArmed) return null;
+  return el('div', { class: 'kiosk-dock' },
+    el('div', { class: 'kiosk-dock-head' },
+      el('span', {}, 'Strict session'),
+      el('b', {}, kioskOwner ? 'Kiosk locked' : 'Screen pinned')),
+    kioskApps.length
+      ? el('div', { class: 'chips' },
+        kioskApps.slice(0, 6).map((app) => el('button', {
+          class: 'chip',
+          onclick: () => openAllowed(app),
+        }, svg('play', 11), app.label)))
+      : el('p', { class: 'tiny', style: 'margin:0' },
+        'Only Lockin is open right now. End the session below to release the phone.'));
+}
 
 /* ---------- earned exit ----------
    Real work buys the right to stop. At `exitGraceMin` the quit control stops
@@ -120,7 +199,10 @@ function updateExitUi() {
 
 function onVisibility() {
   if (document.visibilityState === 'hidden') {
-    if (Session.phase === 'running' && strictOn()) {
+    /* A kiosk session is enforced natively: opening an allowed app is not
+       "leaving". The web tab heuristic would punish exactly what the dock
+       invites, so it steps aside while the kiosk is armed. */
+    if (Session.phase === 'running' && strictOn() && !kioskArmed) {
       Store.set((s) => { if (s.session) s.session.goneAt = Date.now(); });
     }
   } else {
@@ -130,7 +212,7 @@ function onVisibility() {
       drawClock();
       if (Session.cfg?.mode === 'stop') snapshot();
     }
-    if (Session.phase === 'running' && strictOn()) processBack();
+    if (Session.phase === 'running' && strictOn() && !kioskArmed) processBack();
   }
 }
 
@@ -200,6 +282,7 @@ function begin() {
   takeOver(); // no-op safety net when armed-hold already latched it
   startTick();
   renderHost();
+  armKiosk();
 }
 
 /* ---------- stopwatch controls ---------- */
@@ -222,6 +305,7 @@ function resumeStop() {
   takeOver();
   startTick();
   renderHost();
+  if (!kioskArmed) armKiosk();
 }
 
 function stopSeconds() {
@@ -338,6 +422,7 @@ function finishBreak() {
 function finish(finished, opts = {}) {
   const earned = !!opts.earned;
   const discard = !!opts.discard;
+  releaseKiosk();
   clearInterval(timer);
   timer = null;
   releaseAll();
@@ -656,8 +741,19 @@ function setupScreen() {
 /* ---------- armed (intention) screen ---------- */
 
 function armedScreen() {
-  const btn = el('button', { class: 'holdbtn primary', onpointerdown: holdStart },
+  const btn = el('button', {
+    class: 'holdbtn primary',
+    'aria-label': 'Hold to start the session',
+    onpointerdown: holdStart,
+    onkeydown: (ev) => {
+      if (ev.key !== ' ' && ev.key !== 'Enter') return;
+      if (ev.repeat) return;
+      ev.preventDefault();
+      holdStart(ev);
+    },
+  },
     el('div', { class: 'fill' }), svg('lock'));
+
   const note = el('div', { class: 'muted' }, 'Hold until the ring closes');
 
   let raf = 0;
@@ -680,9 +776,16 @@ function armedScreen() {
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
-    try { btn.setPointerCapture(ev.pointerId); } catch (_) { /* the pointer may already be gone */ }
-    btn.addEventListener('pointerup', holdCancel);
-    btn.addEventListener('pointercancel', holdCancel);
+
+    if (ev.pointerId != null) {
+      try { btn.setPointerCapture(ev.pointerId); } catch (_) { /* the pointer may already be gone */ }
+      btn.addEventListener('pointerup', holdCancel);
+      btn.addEventListener('pointercancel', holdCancel);
+    } else {
+      /* Keyboard: the same hold, on Space or Enter. */
+      btn.addEventListener('keyup', holdCancel, { once: true });
+      btn.addEventListener('blur', holdCancel, { once: true });
+    }
   }
 
   function holdCancel() {
@@ -804,6 +907,7 @@ function paintQuit(b) {
     b.innerHTML = `${svg('check', 15)}<span>End session</span>`;
     b.onpointerdown = null;
     b.onclick = confirmQuit;
+    b.onkeydown = null;
     const why = state === 'free'
       ? 'End session — under 20 seconds, nothing logged'
       : state === 'earned'
@@ -815,6 +919,12 @@ function paintQuit(b) {
     b.innerHTML = `${svg('x', 15)}<span>Quit — hold</span>`;
     b.onclick = null;
     b.onpointerdown = startQuitHold;
+    b.onkeydown = (ev) => {
+      if (ev.key !== ' ' && ev.key !== 'Enter') return;
+      if (ev.repeat) return;
+      ev.preventDefault();
+      startQuitHold(ev);
+    };
     b.setAttribute('aria-label', 'Quit — hold to confirm');
   }
 }
@@ -856,6 +966,7 @@ function runningScreen() {
         ? `Ends at ${endsAt} · leaving for over ${GRACE_SEC}s is a slip`
         : `Ends at ${endsAt}`,
     }),
+    kioskDock(),
     el('footer', { class: 'sess-foot' }, exitHint(), quitButton())
   );
 }
@@ -871,6 +982,7 @@ function stopRunningScreen() {
       clockClass: 'stopwatch',
       breathe: true,
     }),
+    kioskDock(),
     el('footer', { class: 'sess-foot' },
       exitHint(),
       el('div', { class: 'sess-foot-split' },
@@ -890,6 +1002,7 @@ function pausedScreen() {
       clockClass: 'stopwatch is-muted',
       breathe: true,
     }),
+    kioskDock(),
     el('footer', { class: 'sess-foot sess-foot-split' },
       el('button', { class: 'btn btn-primary', onclick: resumeStop }, svg('play', 15), 'Resume'),
       el('button', { class: 'btn btn-subtle', onclick: stopEndSheet }, svg('flame', 15), 'End')
@@ -919,19 +1032,32 @@ function rerenderRunningChips() {
 function startQuitHold(ev) {
   ev.preventDefault();
   const btn = ev.currentTarget;
+  if (btn.dataset.holding === '1') return;
+  btn.dataset.holding = '1';
   const t0 = performance.now();
   const HOLD_MS = 2400;
   let raf = 0;
+
+  const cancel = () => {
+    cancelAnimationFrame(raf);
+    btn.style.filter = '';
+    delete btn.dataset.holding;
+  };
+
   const step = (now) => {
+    if (!document.contains(btn)) { cancel(); return; }
     const p = (now - t0) / HOLD_MS;
     btn.style.filter = `brightness(${1 + p * 0.6}) saturate(${1 + p * 1.5})`;
-    if (p >= 1) { confirmQuit(); return; }
+    if (p >= 1) { cancel(); confirmQuit(); return; }
     raf = requestAnimationFrame(step);
   };
   raf = requestAnimationFrame(step);
-  const cancel = () => { cancelAnimationFrame(raf); btn.style.filter = ''; };
+
+  /* Pointer, keyboard and focus loss all cancel the same hold. */
   btn.addEventListener('pointerup', cancel, { once: true });
   btn.addEventListener('pointercancel', cancel, { once: true });
+  btn.addEventListener('keyup', cancel, { once: true });
+  btn.addEventListener('blur', cancel, { once: true });
 }
 
 function confirmQuit() {
@@ -995,6 +1121,7 @@ function breakScreen() {
       tasks: false,
       pips: false,
     }),
+    kioskDock(),
     el('footer', { class: 'sess-foot sess-foot-split' },
       el('button', { class: 'btn btn-primary', onclick: () => { Session.plannedEnd = Date.now(); finishBreak(); } }, 'Back to focus'),
       el('button', { class: 'btn btn-ghost', onclick: confirmEndChain }, 'End here')

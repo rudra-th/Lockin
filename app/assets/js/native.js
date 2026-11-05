@@ -2,8 +2,8 @@
    The web app is the same code inside the Capacitor shell. This module is the
    only place that talks to LockinNative: it seeds exact alarms while Lockin is
    in the background, reads the notification tap route, and exposes the
-   permission and screen-time calls Settings uses. Outside the shell every
-   export is inert. */
+   permission, blocking, limit, screen-time and strict-mode calls Control uses.
+   Outside the shell every export is inert. */
 
 import { Store } from './store.js';
 import { Router } from './router.js';
@@ -122,7 +122,19 @@ export async function startNative() {
      the app was open are already in the window. */
   await cancelNativeAlarms();
   await pushBlockingWindows(true);
+  await clearStaleStrict();
   return true;
+}
+
+/** A killed app can leave strict armed with no session behind it. Fail open. */
+async function clearStaleStrict() {
+  const st = await strictStatus();
+  if (!st?.armed) return;
+  const phase = Store.state?.session?.phase;
+  const live = ['running', 'break', 'paused'].includes(phase);
+  if (!live || !Store.state?.settings?.kiosk) {
+    try { await plugin.stopStrictMode(); } catch (_) { /* fail open silently */ }
+  }
 }
 
 /* ---------- permissions ---------- */
@@ -130,20 +142,26 @@ export async function startNative() {
 export async function nativeStatus() {
   if (!isNative) return null;
   try {
-    const [exact, notifications, usage, fullScreen] = await Promise.all([
+    const [exact, notifications, usage, fullScreen, blocking] = await Promise.all([
       plugin.canScheduleExactAlarms(),
       plugin.notificationPermission(),
       plugin.hasUsageAccess(),
       plugin.fullScreenIntentAllowed(),
+      plugin.blockingStatus(),
     ]);
     return {
       exact: Boolean(exact?.exact),
       notifications: Boolean(notifications?.granted),
       usage: Boolean(usage?.granted),
       fullScreen: Boolean(fullScreen?.allowed),
+      accessibility: Boolean(blocking?.service),
+      deviceOwner: Boolean(blocking?.deviceOwner),
     };
   } catch (_) {
-    return { exact: false, notifications: false, usage: false, fullScreen: false };
+    return {
+      exact: false, notifications: false, usage: false, fullScreen: false,
+      accessibility: false, deviceOwner: false,
+    };
   }
 }
 
@@ -236,7 +254,17 @@ function windowOf(raw) {
   };
 }
 
-/** What the native service actually holds: switch, packages, windows. */
+function numberMap(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const out = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const n = Number(value);
+    if (key && Number.isFinite(n) && n > 0) out[key] = n;
+  }
+  return out;
+}
+
+/** What the native service actually holds: switch, packages, windows, limits. */
 export async function blockingStatus() {
   if (!isNative) return null;
   try {
@@ -248,6 +276,15 @@ export async function blockingStatus() {
       windowCount: Number(st?.windowCount) || 0,
       active: windowOf(st?.active),
       next: windowOf(st?.next),
+      /* package -> daily minutes, and package -> ms used today */
+      limits: numberMap(st?.limits),
+      usage: numberMap(st?.usage),
+      strictActive: Boolean(st?.strictActive),
+      strictArmed: Boolean(st?.strictArmed),
+      strictUntil: Number(st?.strictUntil) || 0,
+      strictPackages: Array.isArray(st?.strictPackages) ? st.strictPackages.map(String) : [],
+      deviceOwner: Boolean(st?.deviceOwner),
+      lockTask: String(st?.lockTask || 'none'),
     };
   } catch (_) {
     return null;
@@ -291,22 +328,149 @@ export function openAccessibilitySettings() {
   return plugin?.openAccessibilitySettings?.().catch(() => {});
 }
 
+/* ---------- per-app limits ---------- */
+
+/** Replace the allowance map (package -> daily minutes; 0/absent = no limit). */
+export async function saveAppLimits(limits) {
+  if (!isNative) return null;
+  try {
+    await plugin.setAppLimits({ limits: { ...limits } });
+    return await blockingStatus();
+  } catch (_) {
+    return null;
+  }
+}
+
+/* ---------- strict study mode ---------- */
+
+function strictOf(st) {
+  return {
+    deviceOwner: Boolean(st?.deviceOwner),
+    active: Boolean(st?.active),
+    armed: Boolean(st?.armed),
+    until: Number(st?.until) || 0,
+    lockTask: String(st?.lockTask || 'none'),
+    packages: Array.isArray(st?.packages) ? st.packages.map(String) : [],
+    apps: Array.isArray(st?.apps)
+      ? st.apps.map((row) => ({
+        package: String(row.package || ''),
+        label: String(row.label || row.package || ''),
+      })).filter((row) => row.package)
+      : [],
+  };
+}
+
+export async function strictStatus() {
+  if (!isNative) return null;
+  try {
+    return strictOf(await plugin.strictStatus());
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Change the allowlist without arming or disarming strict mode. */
+export async function saveStrictPackages(packages) {
+  if (!isNative) return null;
+  try {
+    return strictOf(await plugin.setStrictPackages({ packages: [...packages] }));
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Arm strict mode for a live session. `until` is the fail-open deadline:
+ * if the web app dies, the device releases itself when it passes.
+ */
+export async function startStrictMode({ packages = [], until = 0 } = {}) {
+  if (!isNative) return null;
+  try {
+    return strictOf(await plugin.startStrictMode({
+      packages: [...packages],
+      until: Number(until) || 0,
+    }));
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function stopStrictMode() {
+  if (!isNative) return null;
+  try {
+    return strictOf(await plugin.stopStrictMode());
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Push the deadline forward while the session is still running. */
+export async function refreshStrict(until) {
+  if (!isNative) return null;
+  try {
+    return strictOf(await plugin.refreshStrictMode({ until: Number(until) || 0 }));
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Open an allowlisted app from the session room. */
+export async function launchApp(pkg) {
+  if (!isNative) return false;
+  try {
+    await plugin.launchApp({ package: String(pkg || '') });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 /* ---------- screen time ---------- */
+
+function usageRows(result) {
+  const rows = Array.isArray(result?.usage) ? result.usage : [];
+  return rows
+    .map((row) => ({
+      package: String(row.package || ''),
+      label: String(row.label || row.package || ''),
+      ms: Number(row.ms) || 0,
+    }))
+    .filter((row) => row.ms > 0)
+    .sort((a, b) => b.ms - a.ms);
+}
 
 /** Per-app foreground time for the last `days`, largest first. */
 export async function queryUsage(days = 7) {
   if (!isNative) return [];
   try {
-    const result = await plugin.queryUsage({ days });
-    const rows = Array.isArray(result?.usage) ? result.usage : [];
+    return usageRows(await plugin.queryUsage({ days }));
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Per-app foreground time since local midnight, largest first. */
+export async function queryUsageToday() {
+  if (!isNative) return [];
+  try {
+    return usageRows(await plugin.queryUsageToday());
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Daily totals, oldest first: [{ day: 'YYYY-MM-DD', ms }]. */
+export async function queryUsageDaily(days = 7) {
+  if (!isNative) return [];
+  try {
+    const result = await plugin.queryUsageDaily({ days });
+    const rows = Array.isArray(result?.days) ? result.days : [];
     return rows
       .map((row) => ({
-        package: String(row.package || ''),
-        label: String(row.label || row.package || ''),
+        day: String(row.day || ''),
         ms: Number(row.ms) || 0,
       }))
-      .filter((row) => row.ms > 0)
-      .sort((a, b) => b.ms - a.ms);
+      .filter((row) => row.day);
   } catch (_) {
     return [];
   }
