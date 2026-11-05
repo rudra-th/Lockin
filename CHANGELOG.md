@@ -92,6 +92,9 @@ the Android shell follows once it ships.
   `:root` so theme-preview buttons cannot inherit the other theme.
 - Reduced motion turns off smooth scrolling too, and decorative SVGs are
   hidden from assistive technology.
+- Small phones: on a 320 px screen the Schedule hero stacks its ring, Settings
+  gives wide steppers and segmented groups their own line, and the pomodoro
+  chip no longer breaks mid-label.
 
 ### Verification and docs
 
