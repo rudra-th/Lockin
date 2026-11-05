@@ -258,8 +258,57 @@ function blockingCard() {
     autocomplete: 'off', spellcheck: 'false',
     oninput: () => { query = search.value.trim().toLowerCase(); renderApps(); },
   });
-  const list = el('div', { class: 'app-list', role: 'group', 'aria-label': 'Apps to block' });
+  const list = el('div', { class: 'app-list', role: 'group', 'aria-label': 'Every app on this phone' });
   const listWrap = el('div', { class: 'app-list-wrap' }, list);
+
+  /* The full picker is a long scrolling list. Keep it closed by default: the
+     chips show what is already blocked, and presets, limits and strict mode
+     stay above the fold until someone asks to browse. */
+  const picked = el('div', { class: 'app-picked', role: 'group', 'aria-label': 'Apps to block' });
+  const browseLabel = el('span', {}, 'Browse all apps');
+  const browse = el('button', {
+    class: 'btn btn-subtle btn-sm app-browse', type: 'button',
+    'aria-expanded': 'false', 'aria-controls': 'blocking-app-list',
+  }, svg('grid', 15), browseLabel);
+  const pickerBody = el('div', {
+    class: 'blocking-picker-body', id: 'blocking-app-list', hidden: true,
+  }, search, listWrap, el('p', { class: 'tiny' },
+    'Only apps with a launcher icon are listed. The overlay appears when an app comes to the front, and within about 15 seconds if it was already open when a window starts.'));
+
+  browse.onclick = () => {
+    const open = pickerBody.hidden;
+    pickerBody.hidden = !open;
+    browse.setAttribute('aria-expanded', String(open));
+    browseLabel.textContent = open ? 'Hide app list' : 'Browse all apps';
+    if (open) search.focus({ preventScroll: true });
+  };
+
+  function renderPicked() {
+    picked.replaceChildren();
+    if (!device) {
+      picked.append(el('p', { class: 'app-picked-empty' }, 'Reading blocking state…'));
+      return;
+    }
+    if (!device.packages.length) {
+      picked.append(el('p', { class: 'app-picked-empty' },
+        'No apps picked yet — nothing is blocked.'));
+      return;
+    }
+    const names = new Map(appList.map((app) => [app.package, app.label]));
+    for (const pkg of device.packages) {
+      const label = names.get(pkg) || pkg.split('.').pop();
+      picked.append(el('button', {
+        class: 'app-pick-chip', type: 'button', title: pkg,
+        'aria-label': `Stop blocking ${label}`,
+        onclick: () => {
+          if (!device) return;
+          device = { ...device, packages: device.packages.filter((p) => p !== pkg) };
+          paintAll();
+          persistBlocking();
+        },
+      }, el('span', {}, label), svg('x', 11)));
+    }
+  }
 
   const syncFade = () => {
     listWrap.classList.toggle('more',
@@ -359,6 +408,7 @@ function blockingCard() {
     }
     summary.textContent = text;
     summary.classList.toggle('warn', warn);
+    renderPicked();
     renderApps();
   }
 
@@ -376,10 +426,9 @@ function blockingCard() {
     el('div', { class: 'blocking-picker' },
       el('div', { class: 'blocking-picker-head' },
         el('b', {}, 'Apps to block'), count),
-      search,
-      listWrap,
-      el('p', { class: 'tiny' },
-        'Only apps with a launcher icon are listed. The overlay appears when an app comes to the front, and within about 15 seconds if it was already open when a window starts.')));
+      picked,
+      browse,
+      pickerBody));
 
   return { node, paint };
 }

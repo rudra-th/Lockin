@@ -26,6 +26,9 @@ needs.
       `/control` route.
 - [x] Control owns app blocking, distraction presets, per-app limits and the
       strict kiosk; Settings keeps a one-card pointer.
+- [x] The app picker stays collapsed to removable chips with **Browse all
+      apps** opening the searchable list, so limits and strict mode sit above
+      the fold.
 - [x] Screen time card moved from Control into Settings: total foreground time,
       top apps with bars, 7-day rail, refresh, usage-access CTA.
 - [x] Removed the compact Stats screen-time card and the Home "where the time

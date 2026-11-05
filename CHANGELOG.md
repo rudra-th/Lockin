@@ -12,6 +12,9 @@ the Android shell follows once it ships.
   distraction presets across Short videos / Feeds & chat / Streaming, per-app
   daily limits with live usage bars, and the strict kiosk. Settings keeps the
   permissions and a one-card pointer.
+- The app picker opens as **removable chips of what is blocked**, with the full
+  searchable list one tap behind **Browse all apps**, so presets, limits and
+  strict mode are visible without scrolling past every installed app.
 - **Screen time moved to Settings.** The full card shows today's foreground
   time, top apps, a 7-day rail, a refresh action and an honest usage-access
   empty state. It left Control, the compact Stats card and Home, so there is one
