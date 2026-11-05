@@ -11,8 +11,10 @@ import { svg } from '../icons.js';
 import { hint } from '../ui.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
-  openExactAlarmSettings, openUsageAccessSettings,
+  openExactAlarmSettings, openUsageAccessSettings, openFullScreenIntentSettings,
+  openAccessibilitySettings,
 } from '../native.js';
+import { accountState, signIn } from '../account.js';
 import { GRACE_SEC, RESCUE_CAP } from './focus.js';
 import {
   PRIMARY_EXAMS, MORE_EXAMS, MONTHS, examById, examByName, examDateFor,
@@ -132,11 +134,119 @@ function nameScene() {
     oninput: (ev) => { state.name = ev.target.value; },
     onkeydown: (ev) => { if (ev.key === 'Enter') { syncProfile(); go(idx + 1); } },
   });
+
+  const panel = el('div', { class: 'film-account', hidden: true });
+  const toggle = el('button', {
+    class: 'film-ghost film-account-toggle', type: 'button',
+    'aria-expanded': 'false',
+    onclick: () => {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-expanded', String(!panel.hidden));
+      if (!panel.hidden) paintAccount();
+    },
+  }, 'Already have an account?');
+
+  function adoptName(name) {
+    if (!name || state.name.trim()) return;
+    state.name = name;
+    input.value = name;
+  }
+
+  function paintAccount() {
+    const st = accountState();
+    panel.replaceChildren();
+    if (st.user) {
+      adoptName(st.user.name);
+      panel.append(
+        el('div', { class: 'film-signed' },
+          el('span', { class: 'film-signed-check' }, svg('check', 14)),
+          el('span', { class: 'grow' },
+            el('b', {}, st.user.name || 'Signed in'),
+            el('small', {}, st.user.email || 'Google account')),
+        ),
+        el('p', { class: 'tiny', style: 'margin:2px 0 0' },
+          'Your name is filled in. Continue when you are ready.'),
+      );
+      return;
+    }
+    panel.append(
+      el('button', {
+        class: `btn btn-subtle btn-block${st.signingIn ? ' is-busy' : ''}`,
+        type: 'button',
+        disabled: st.signingIn,
+        onclick: () => signIn(),
+      }, svg('google', 16), st.signingIn ? 'Opening Google…' : 'Sign in with Google'),
+      el('p', { class: 'tiny', style: 'margin:8px 0 0' },
+        'New here? Google creates the account on the first sign-in. Everything still works without one.'),
+    );
+    if (st.error) panel.insertBefore(el('p', { class: 'acct-error' }, st.error), panel.children[1]);
+  }
+
+  const onAccount = () => paintAccount();
+  document.addEventListener('lockin:account', onAccount);
+  sceneCleanup = () => document.removeEventListener('lockin:account', onAccount);
+  paintAccount();
+
   return [
     kicker('First, the name'),
     title('What should we ', el('em', {}, 'call you?')),
-    lede('It personalizes the greeting, the session screens and your stats. It stays on this device — no account, no cloud.'),
+    lede('It personalizes the greeting, the session screens and your stats. It stays on this device — a Google account is optional.'),
     el('label', { class: 'film-field' }, input),
+    toggle,
+    panel,
+  ];
+}
+
+function accountScene() {
+  const panel = el('div', { class: 'film-account is-open' });
+
+  function paint() {
+    const st = accountState();
+    panel.replaceChildren();
+    if (st.user) {
+      panel.append(
+        el('div', { class: 'film-signed' },
+          st.user.photo
+            ? el('img', { class: 'acct-avatar', src: st.user.photo, alt: '' })
+            : el('span', { class: 'acct-avatar acct-fallback' },
+              (st.user.name || st.user.email || '?').slice(0, 1).toUpperCase()),
+          el('span', { class: 'grow' },
+            el('b', {}, st.user.name || 'Signed in'),
+            el('small', {}, st.user.email || 'Google account')),
+          el('span', { class: 'film-signed-check' }, svg('check', 14)),
+        ),
+        el('p', { class: 'tiny', style: 'margin:2px 0 0' },
+          'Progress now mirrors to your own private cloud. Finish the walkthrough and it starts syncing.'),
+      );
+      return;
+    }
+    panel.append(
+      el('button', {
+        class: `btn btn-subtle btn-block${st.signingIn ? ' is-busy' : ''}`,
+        type: 'button',
+        disabled: st.signingIn,
+        onclick: () => signIn(),
+      }, svg('google', 16), st.signingIn ? 'Opening Google…' : 'Create account / Sign in with Google'),
+      el('p', { class: 'tiny', style: 'margin:8px 0 0' },
+        'Same button for both: Google creates the account on the first sign-in, and returns you to it on the next phone.'),
+      el('button', {
+        class: 'film-ghost', type: 'button',
+        onclick: () => go(idx + 1),
+      }, 'Not now — keep it on this device'),
+    );
+    if (st.error) panel.insertBefore(el('p', { class: 'acct-error' }, st.error), panel.children[1]);
+  }
+
+  const onAccount = () => paint();
+  document.addEventListener('lockin:account', onAccount);
+  sceneCleanup = () => document.removeEventListener('lockin:account', onAccount);
+  paint();
+
+  return [
+    kicker('Optional cloud'),
+    title('Keep your streak ', el('em', {}, 'on every device.')),
+    lede('Mirror tasks, sessions, stats and settings to your own private cloud. Nothing uploads until you sign in, and signing out never deletes what is on this phone.'),
+    panel,
   ];
 }
 
@@ -412,12 +522,16 @@ function paintPerm(item, { on = false, blocked = false, label = 'Allow', blocked
 
 function permissionsScene() {
   const native = isNative;
-  const notif = permissionRow('bell', 'Notifications', 'Block starts, five-minute warnings and the end of a round.');
-  const exact = permissionRow('clock', 'Alarms & reminders', 'Ring at the exact minute, even when Lockin is closed.');
-  const usage = permissionRow('grid', 'Usage access', 'A private 7-day screen-time panel on this device.');
+  const notif = permissionRow('bell', 'Notifications', 'Block starts, warnings and end-of-round alerts.');
+  const exact = permissionRow('clock', 'Alarms & reminders', 'Ring at the exact minute, even when closed.');
+  const full = permissionRow('phone', 'Full-screen alarm', 'Take over the lock screen on Android 14+.');
+  const access = permissionRow('shield', 'Accessibility service', 'Know which app is in front, so blocking works.');
+  const usage = permissionRow('grid', 'Usage access', 'A private screen-time card and daily limits.');
   const list = el('div', { class: 'film-perms' },
     notif.row,
     native ? exact.row : null,
+    native ? full.row : null,
+    native ? access.row : null,
     native ? usage.row : null,
   );
 
@@ -469,18 +583,16 @@ function permissionsScene() {
   async function paintNative() {
     const status = await nativeStatus();
     if (!status) {
-      paintPerm(notif, {
-        blocked: true, blockedLabel: 'Unavailable', action: 'Settings',
-        onClick: () => openNotificationSettings(),
-      });
-      paintPerm(exact, {
-        blocked: true, blockedLabel: 'Unavailable', action: 'Settings',
-        onClick: () => openExactAlarmSettings(),
-      });
-      paintPerm(usage, {
-        blocked: true, blockedLabel: 'Unavailable', action: 'Settings',
-        onClick: () => openUsageAccessSettings(),
-      });
+      for (const [item, open] of [
+        [notif, openNotificationSettings], [exact, openExactAlarmSettings],
+        [full, openFullScreenIntentSettings], [access, openAccessibilitySettings],
+        [usage, openUsageAccessSettings],
+      ]) {
+        paintPerm(item, {
+          blocked: true, blockedLabel: 'Unavailable', action: 'Settings',
+          onClick: () => open(),
+        });
+      }
       return;
     }
     if (status.notifications) {
@@ -495,6 +607,13 @@ function permissionsScene() {
     }
     if (status.exact) paintPerm(exact, { on: true });
     else paintPerm(exact, { label: 'Open', onClick: () => openExactAlarmSettings() });
+    if (status.fullScreen) paintPerm(full, { on: true });
+    else paintPerm(full, { label: 'Allow', onClick: () => openFullScreenIntentSettings() });
+    if (status.accessibility) paintPerm(access, { on: true });
+    else paintPerm(access, {
+      label: 'Enable', action: 'Enable',
+      onClick: () => openAccessibilitySettings(),
+    });
     if (status.usage) paintPerm(usage, { on: true });
     else paintPerm(usage, { label: 'Open', onClick: () => openUsageAccessSettings() });
   }
@@ -516,11 +635,11 @@ function permissionsScene() {
     kicker('Stay on time'),
     title('Let Lockin ', el('em', {}, 'reach you.')),
     lede(native
-      ? 'Notifications, exact alarms and usage access. All three are optional — the clock still runs without them.'
+      ? 'Notifications, exact alarms, full-screen alarms, accessibility and usage access. All optional — change any in Settings → Android.'
       : 'Notifications are optional. They arrive while Lockin is open; a closed tab cannot ring.'),
     list,
     el('p', { class: 'film-fine' }, native
-      ? 'Nothing here leaves the phone. Change any permission later in Settings → Android.'
+      ? 'Nothing here leaves the phone. Strict kiosk is an optional extra: set it up later from Control with one computer command.'
       : 'Android adds exact alarms that ring when the app is closed. On the web, the alarm needs a live Lockin tab.'),
   ];
 }
@@ -529,14 +648,14 @@ function permissionsScene() {
 
 const RENDERERS = {
   intro: introScene, name: nameScene, exam: examScene,
-  date: dateScene, hours: hoursScene, strict: strictScene,
-  permissions: permissionsScene,
+  date: dateScene, hours: hoursScene, account: accountScene,
+  strict: strictScene, permissions: permissionsScene,
 };
 
 function buildScenes(replay) {
   const hasProfile = !!(state.name && state.exam && state.examDate);
-  const full = ['intro', 'name', 'exam', 'date', 'hours', 'strict', 'permissions'];
-  return replay && hasProfile ? ['intro', 'strict', 'permissions'] : full;
+  const full = ['intro', 'name', 'exam', 'date', 'hours', 'account', 'strict', 'permissions'];
+  return replay && hasProfile ? ['intro', 'account', 'strict', 'permissions'] : full;
 }
 
 function sceneFooter(kind) {
@@ -549,6 +668,12 @@ function sceneFooter(kind) {
   if (kind === 'name') {
     return [
       primary('Continue', () => { syncProfile(); go(idx + 1); }),
+      ghost('Back', () => go(idx - 1)),
+    ];
+  }
+  if (kind === 'account') {
+    return [
+      primary('Continue', () => go(idx + 1)),
       ghost('Back', () => go(idx - 1)),
     ];
   }

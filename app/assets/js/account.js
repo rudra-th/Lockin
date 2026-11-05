@@ -7,6 +7,7 @@
 import { isNative } from './native.js';
 import { loadFirebase } from './firebase.js';
 import { startSync, stopSync, syncStatus, resetSyncMeta } from './sync.js';
+import { authErrorMessage, errorCodeOf, isCancel } from '../../core/auth-errors.js';
 
 const FLAG = 'lockin.sync.on'; // "the user wants the cloud" — set on sign-in
 
@@ -47,6 +48,10 @@ function adopt(fbUser) {
   emit();
 }
 
+function rememberCloud() {
+  try { localStorage.setItem(FLAG, '1'); } catch (_) { /* redirect still works this session */ }
+}
+
 function listen(auth, A) {
   if (listening) return;
   listening = true;
@@ -63,15 +68,48 @@ export async function initAccount() {
     listen(auth, A);
     try { await A.getRedirectResult(auth); } catch (_) { /* a stale redirect is not fatal */ }
   } catch (_) {
-    lastError = 'offline'; // the flag stays; the next online moment retries
+    lastError = authErrorMessage({ code: 'auth/network-request-failed' }); // the flag stays; the next online moment retries
     emit();
   }
+}
+
+/**
+ * The native sheet, then the Firebase credential. Credential Manager is the
+ * modern path; some phones (older Play services, no saved Google account in
+ * the manager) only work through the legacy GoogleSignIn intent, so a failed
+ * first attempt that is not a cancellation retries there before giving up.
+ */
+async function nativeGoogleTokens(plugin) {
+  if (!plugin) {
+    const err = new Error('native Google sign-in is not available');
+    err.code = 'lockin/native-auth-missing';
+    throw err;
+  }
+
+  const options = { skipNativeAuth: true };
+  let res;
+  try {
+    res = await plugin.signInWithGoogle({ ...options, useCredentialManager: true });
+  } catch (err) {
+    if (isCancel(err)) throw err;
+    res = await plugin.signInWithGoogle({ ...options, useCredentialManager: false });
+  }
+
+  const cred = res?.credential || {};
+  const idToken = cred.idToken || res?.idToken || '';
+  const accessToken = cred.accessToken || res?.accessToken || '';
+  if (!idToken) {
+    const err = new Error('Google returned no ID token');
+    err.code = 'lockin/no-id-token';
+    throw err;
+  }
+  return { idToken, accessToken };
 }
 
 export async function signIn() {
   if (signingIn || user) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    lastError = 'offline';
+    lastError = authErrorMessage({ code: 'auth/network-request-failed' });
     emit();
     return;
   }
@@ -81,30 +119,32 @@ export async function signIn() {
   try {
     const { auth, A } = await loadFirebase();
     listen(auth, A);
-    if (isNative && nativeAuth()) {
+
+    if (isNative) {
       /* Google blocks OAuth inside WebViews, so the shell uses the native
          sheet and hands the token to the JS SDK for Firestore. */
-      const res = await nativeAuth().signInWithGoogle({ skipNativeAuth: true });
-      const idToken = res?.credential?.idToken || undefined;
-      const accessToken = res?.credential?.accessToken || undefined;
-      const cred = A.GoogleAuthProvider.credential(idToken, accessToken);
+      const { idToken, accessToken } = await nativeGoogleTokens(nativeAuth());
+      const cred = A.GoogleAuthProvider.credential(idToken, accessToken || undefined);
       await A.signInWithCredential(auth, cred);
     } else {
-      await A.signInWithPopup(auth, new A.GoogleAuthProvider());
+      try {
+        await A.signInWithPopup(auth, new A.GoogleAuthProvider());
+      } catch (err) {
+        const code = errorCodeOf(err);
+        if (code === 'auth/popup-blocked'
+          || code === 'auth/operation-not-supported-in-this-environment') {
+          /* The redirect navigates away; boot finishes the flow through
+             getRedirectResult. Set the cloud flag first so initAccount runs. */
+          rememberCloud();
+          await A.signInWithRedirect(auth, new A.GoogleAuthProvider());
+          return;
+        }
+        throw err;
+      }
     }
     /* onAuthStateChanged adopts the user from here. */
   } catch (err) {
-    const code = String(err?.code || '');
-    if (code === 'auth/popup-blocked') {
-      try {
-        const { auth, A } = await loadFirebase();
-        await A.signInWithRedirect(auth, new A.GoogleAuthProvider());
-        return; // the page navigates; boot completes the flow via getRedirectResult
-      } catch (_) { /* fall through to the quiet error */ }
-    }
-    lastError = code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request'
-      ? ''
-      : String(code || err?.message || 'sign-in failed');
+    if (!isCancel(err)) lastError = authErrorMessage(err, { native: isNative });
   } finally {
     signingIn = false;
     emit();

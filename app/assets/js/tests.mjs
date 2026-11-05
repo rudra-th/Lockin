@@ -24,8 +24,13 @@ import {
   stableStringify, diffCollection, diffScalar, mergeDocs, mergeScalar, nextCursor,
 } from '../../core/sync.js';
 import {
-  MAX_LIMIT_MIN, limitMinutes, usedSeconds, isSpent, spentSites, msUntilReset,
+  MAX_LIMIT_MIN, MAX_COMMIT_SEC, limitMinutes, usedSeconds, isSpent, spentSites, msUntilReset,
+  matchSite, creditedSeconds,
 } from '../../core/limits.js';
+import {
+  SHORTS_SURFACES, shortSurface, isShortsUrl, surfaceForDomain, shortsFilters,
+} from '../../core/shorts.js';
+import { authErrorMessage, errorCodeOf, isCancel } from '../../core/auth-errors.js';
 
 /**
  * Run the suite against a reporter: { group(name), ok(name), bad(name, err) }.
@@ -451,6 +456,62 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
       [2026, 10, 5, 0, 0, 0],
     );
   });
+  test('matchSite maps subdomains to the most specific configured site', () => {
+    const sites = ['youtube.com', 'music.youtube.com', 'instagram.com'];
+    eq(matchSite('m.youtube.com', sites), 'youtube.com');
+    eq(matchSite('music.youtube.com', sites), 'music.youtube.com');
+    eq(matchSite('www.instagram.com', sites), 'instagram.com');
+    eq(matchSite('youtube.com.evil.test', sites), null);
+    eq(matchSite('notyoutube.com', sites), null);
+  });
+  test('creditedSeconds clips a sleep-sized gap but keeps a normal minute', () => {
+    eq(creditedSeconds(60_000), 60);
+    eq(creditedSeconds(0), 0);
+    eq(creditedSeconds(-5_000), 0);
+    eq(creditedSeconds(8 * 60 * 60 * 1000), MAX_COMMIT_SEC);
+    eq(creditedSeconds(89_400), 89);
+  });
+
+  group('Short-video matcher');
+  test('matches the short feed on each supported surface', () => {
+    eq(shortSurface('https://www.youtube.com/shorts/abc123')?.id, 'youtube-shorts');
+    eq(shortSurface('https://m.youtube.com/shorts')?.id, 'youtube-shorts');
+    eq(shortSurface('https://instagram.com/reels/')?.id, 'instagram-reels');
+    eq(shortSurface('https://www.instagram.com/reel/CxYz/')?.id, 'instagram-reels');
+    eq(shortSurface('https://facebook.com/reel/12345')?.id, 'facebook-reels');
+    eq(shortSurface('https://www.facebook.com/reels')?.id, 'facebook-reels');
+    eq(shortSurface('https://snapchat.com/spotlight/abc')?.id, 'snapchat-spotlight');
+  });
+  test('does not match normal pages, channel paths or lookalike hosts', () => {
+    eq(shortSurface('https://www.youtube.com/watch?v=abc'), null);
+    eq(shortSurface('https://youtube.com/@channel/shorts'), null);
+    eq(shortSurface('https://instagram.com/p/abc'), null);
+    eq(shortSurface('https://notyoutube.com/shorts/abc'), null);
+    eq(shortSurface('https://youtube.com.evil.test/shorts'), null);
+    eq(shortSurface('chrome://newtab'), null);
+    eq(shortSurface('not a url'), null);
+    eq(isShortsUrl(''), false);
+  });
+  test('path boundaries stop /shortsomething from matching', () => {
+    eq(isShortsUrl('https://youtube.com/shortstack'), false);
+    eq(isShortsUrl('https://instagram.com/reelsofsteel'), false);
+    eq(isShortsUrl('https://youtube.com/shorts?feature=share'), true);
+    eq(isShortsUrl('https://YOUTUBE.com/SHORTS/abc'), true);
+  });
+  test('surfaceForDomain finds the label shown on the blocked page', () => {
+    eq(surfaceForDomain('www.youtube.com')?.label, 'YouTube Shorts');
+    eq(surfaceForDomain('snapchat.com')?.label, 'Snapchat Spotlight');
+    eq(surfaceForDomain('example.com'), null);
+  });
+  test('shortsFilters dedupes and names the surface', () => {
+    const filters = shortsFilters();
+    const values = filters.map((f) => f.filter);
+    eq(new Set(values).size, values.length);
+    eq(values.includes('||youtube.com/shorts'), true);
+    eq(values.includes('||snapchat.com/spotlight'), true);
+    eq(filters.find((f) => f.filter === '||instagram.com/reel')?.surface, 'instagram-reels');
+    eq(SHORTS_SURFACES.length, 4);
+  });
 
   group('Sync merge math');
   test('stableStringify is key-order insensitive', () => {
@@ -540,6 +601,34 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(nextCursor(10, [{ updatedAt: 3 }, { updatedAt: 42 }]), 42);
     eq(nextCursor(42, []), 42);
     eq(nextCursor(0, [{ id: 'x' }]), 0);
+  });
+
+  group('Google sign-in errors');
+  test('cancellations stay silent', () => {
+    eq(isCancel({ code: 'auth/popup-closed-by-user' }), true);
+    eq(isCancel({ code: '12501' }), true);
+    eq(isCancel(new Error('Activity cancelled.')), true);
+    eq(authErrorMessage({ code: 'auth/popup-closed-by-user' }), '');
+  });
+  test('a disabled provider names the exact Firebase screen', () => {
+    const msg = authErrorMessage({ code: 'auth/operation-not-allowed' });
+    if (!msg.includes('Authentication')) throw new Error(msg);
+  });
+  test('an unauthorized domain is actionable', () => {
+    const msg = authErrorMessage({ code: 'auth/unauthorized-domain' });
+    if (!msg.includes('Authorized domains')) throw new Error(msg);
+  });
+  test('DEVELOPER_ERROR explains the signing certificate', () => {
+    const native = authErrorMessage({ code: '10', message: '10: DEVELOPER_ERROR' }, { native: true });
+    if (!native.includes('signing certificate')) throw new Error(native);
+  });
+  test('network failures are recognised from code or message', () => {
+    eq(authErrorMessage({ code: 'auth/network-request-failed' }), authErrorMessage(new Error('Failed to fetch')));
+    if (!authErrorMessage(new Error('Failed to fetch')).includes('connection')) throw new Error('no hint');
+  });
+  test('missing id token gets its own code', () => {
+    eq(errorCodeOf({ code: 'lockin/no-id-token' }), 'lockin/no-id-token');
+    if (!authErrorMessage({ code: 'lockin/no-id-token' }).includes('ID token')) throw new Error('no hint');
   });
 
   if (dom) {
