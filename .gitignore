@@ -1,6 +1,10 @@
 ## scratch / local tooling
 .superpowers/
 .taste-skill/
+.freebuff/
+
+## internal working docs (not part of the public repo)
+/docs/superpowers/
 
 ## editors / OS
 .vscode/
@@ -39,6 +43,8 @@ android/app/src/main/assets/public/
 
 ## signing keys & secrets — never commit these
 android/keystore.properties
+android/app/google-services.json
+android/app/*.jks
 *.jks
 *.keystore
 *.p12
