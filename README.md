@@ -90,6 +90,10 @@ node tools/pack-extension.mjs
 
 Open `chrome://extensions`, enable **Developer mode**, **Load unpacked**, pick `dist/extension`. The pack step copies the shared core and the UI fonts into the package; Chrome does not resolve imports outside an extension folder.
 
+Don't want to build it? Download the packed zip from
+**[lockin.surge.sh/downloads/lockin-extension.zip](https://lockin.surge.sh/downloads/lockin-extension.zip)**
+and unzip it first.
+
 ## Android
 
 ```bash
@@ -99,8 +103,10 @@ npm run android:icons      # regenerate launcher art (Windows, System.Drawing)
 
 Requires Android Studio (JDK 21) and SDK platform 36. See
 [`docs/android.md`](docs/android.md) for the native bridge, permissions and
-release signing. The debug APK is not committed; build it locally or download a
-release asset.
+release signing. The debug APK is not committed; build it locally or download
+the signed release from
+**[lockin.surge.sh/downloads/lockin.apk](https://lockin.surge.sh/downloads/lockin.apk)**
+(the `v1.11.0` build is also on the GitHub release page).
 
 App blocking is opt-in: **Control** opens the system accessibility screen, then
 the master switch, the app picker and the distraction presets do the rest. The
