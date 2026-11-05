@@ -7,8 +7,9 @@ shell adds the capabilities a browser cannot have.
 > Status: the Capacitor shell builds a debug APK, and the `LockinNative` bridge
 > covers exact alarms, full-screen alarm screens, notification permission, usage
 > access, per-app screen time, optional app blocking through a user-enabled
-> accessibility service, and optional Google sign-in for cloud sync. Device
-> testing is the remaining gate before sharing a release APK.
+> accessibility service, per-app daily limits, an optional device-owner strict
+> kiosk, and optional Google sign-in for cloud sync. Device testing is the
+> remaining gate before sharing a release APK.
 > Lockin distributes directly — no Play Store. The UI still states the web limit
 > plainly: the browser build rings only while Lockin is open.
 
@@ -53,11 +54,13 @@ android/
       LockinNativePlugin.java    bridge: alarms, usage, permissions, blocking
       AlarmReceiver.java         notification + full-screen intent
       AlarmActivity.java         lock-screen alarm screen
-      BlockingStore.java         device-local blocking config
-      LockinAccessibilityService.java  foreground detection + block overlay
+      BlockingStore.java         device-local blocking, limits and strict config
+      LockinAccessibilityService.java  foreground time, block overlay
+      LockinDeviceAdminReceiver.java   optional device owner for strict kiosk
       BootReceiver.java          re-seeds alarms after reboot
       AlarmScheduler.java        shared scheduling/cancel helpers
     res/xml/accessibility_service_config.xml
+    res/xml/device_admin.xml
     res/                         icons, splash, strings, overlay layout
   variables.gradle               SDK levels and AndroidX versions
   capacitor.settings.gradle
@@ -85,8 +88,10 @@ web and in the extension pack.
   (including one already running after midnight) plus a live Study Mode window
   while a session is running or paused. Breaks are not blocked.
 - Settings → Android shows live pills for exact alarms, notifications,
-  full-screen alarms and usage access, plus a 7-day screen-time panel from
-  `UsageStatsManager` and the app-blocking card.
+  full-screen alarms, usage access and the accessibility service, plus a 7-day
+  screen-time card from `UsageStatsManager`. App blocking, per-app limits and
+  the strict kiosk live in the separate **Control** tab; Settings keeps the
+  permissions and a pointer to it.
 
 ## Native capabilities
 
@@ -125,12 +130,14 @@ web and in the extension pack.
   `lockin-29758`, Android app `com.lockin.app`, release SHA-1 in
   [`android-release.md`](android-release.md)). The web config in
   `app/assets/js/firebase.js` is public by design; Firestore rules are the lock.
-- A **debug** APK is signed with the local debug keystore, whose SHA-1 is not
-  the release one registered in Firebase — Google sign-in will fail with
-  `DEVELOPER_ERROR` until that fingerprint is added to the Firebase Android app
-  (and `google-services.json` re-downloaded), or you test an `assembleRelease`
-  build signed with the release keystore. The debug fingerprint:
-  `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android`.
+- A **debug** APK normally signs with the local debug keystore, whose SHA-1 is
+  not the release one registered in Firebase — Google sign-in would then fail
+  with `DEVELOPER_ERROR`. This repository avoids that trap: when
+  `android/keystore.properties` is complete, `build.gradle` signs **both** debug
+  and release builds with the release keystore, so the certificate Google knows
+  is the one that ships. If the properties file is absent, the debug APK falls
+  back to the debug keystore; add its SHA-1 in Firebase → Project settings →
+  Your apps if you need sign-in on that build.
 - Signing out leaves local data untouched; Settings → **Delete cloud data**
   wipes the Firestore mirror and then signs out.
 
@@ -167,14 +174,61 @@ switch in Settings → Android.
   with a launcher icon, sorted by label, with a search field and per-app
   toggles. Lockin, launchers, Settings and the dialer are excluded.
 - **Where the config lives.** `BlockingStore` uses device-local
-  `SharedPreferences` (`lockin_blocking`): `enabled`, `packages` and `windows`.
-  It is deliberately not synced — which apps are blocked is a property of this
-  phone, not of the account.
+  `SharedPreferences` (`lockin_blocking`): `enabled`, `packages`, `windows`,
+  `limits` and the day-bucketed `usage` counters, plus the strict flags. It is
+  deliberately not synced — which apps are blocked is a property of this phone,
+  not of the account.
 - **Honest limitation.** The overlay appears when a window change is delivered.
   A 15-second safety check also re-reads the last foreground activity, so an
   app already open when a focus window starts is covered without waiting for an
   app switch. If the device is dozing, Android may delay both until the next
   wake. This is stated in the docs rather than papered over.
+
+### Per-app daily limits
+
+Each app can carry a daily allowance (15 minutes to 3 hours). The Control tab
+shows a live bar and a stepper; the same overlay used for blocking draws a
+**Daily limit reached** card once the allowance is spent.
+
+- The service tracks foreground time while it sees an app in front and flushes
+  on every app switch, screen-off, the 15-second safety tick and service
+  destroy. Time is stored per local day under `usage`, pruned to two days, so
+  the counter resets at midnight without a job to miss.
+- Limits only count while the accessibility service is on. The card says so
+  instead of implying device-wide coverage.
+- A spent limit is not a lock: raising the allowance in Control frees the app
+  immediately, and the overlay leaves the usual system escape routes alone.
+
+### Strict study mode (kiosk)
+
+Strict mode is the one place Lockin can actually hold the phone, and it is
+opt-in twice: the **Strict Mode** switch (tracking rules) and the **Strict
+kiosk** switch in Control. A start asks Android for lock task with
+`LOCK_TASK_FEATURE_NONE` and an allowlist of the user's chosen apps.
+
+- **Device owner is the real kiosk.** Run the one-time command from Control (or
+  `docs/android.md`) on a fresh install:
+  `adb shell dpm set-device-owner com.lockin.app/.LockinDeviceAdminReceiver`.
+  Only then can lock task keep the user out of launchers and Settings. Remove it
+  with `adb shell dpm remove-active-admin com.lockin.app/.LockinDeviceAdminReceiver`.
+- **Without device owner** Lockin falls back to screen pinning where Android
+  offers it, labels the state **Limited kiosk**, and never claims the system
+  hatch is closed. The accessibility service still covers every non-allowed app
+  with a **Strict study mode** overlay whose one action is **Back to Lockin**.
+- **Fail open on a deadline.** The JS engine refreshes `strictUntil` while a
+  session is live; native also schedules a `Handler` release at that deadline.
+  A killed app, a dead battery or a cancelled session cannot leave the phone
+  stuck. On boot, a stale strict flag with no live session is cleared.
+- **Never covered:** launchers, Settings, the dialer and Lockin itself. The
+  allowlist is a convenience for study material, not a way to lock the user out
+  of their phone.
+
+The distraction presets in Control add installed short-video, feed and streaming
+apps to the block list in one tap. Android can only see an app, not a path
+inside it: it cannot tell YouTube Shorts from a normal video without reading
+screen content, which Lockin refuses to do. The extension blocks the `/shorts`
+and `/reels` URLs themselves; the Android preset blocks the whole app during
+focus and says so.
 
 ## Permissions
 
@@ -190,14 +244,17 @@ Declared in `AndroidManifest.xml` as the features land:
 | `VIBRATE` | Alarm pattern |
 | `WAKE_LOCK` | Deliver the alarm receiver on time |
 | `PACKAGE_USAGE_STATS` | Per-app screen time (special access) |
-| Accessibility service (user-enabled) | Read the foreground package so chosen apps can be covered during a focus window. `canRetrieveWindowContent=false`; no text, content or keystrokes. |
+| Accessibility service (user-enabled) | Read the foreground package so chosen apps can be covered, foreground time counted and limits enforced during a focus window. `canRetrieveWindowContent=false`; no text, content or keystrokes. |
+| Device admin receiver (optional) | Inert until the one-time `dpm set-device-owner` command; then strict mode can use lock task. Protected by `BIND_DEVICE_ADMIN`. |
 
 ## Release signing
 
 The release signing setup lives in [`android-release.md`](android-release.md):
 a gitignored `android/keystore.properties` feeds `signingConfigs.release`, and
 `assembleRelease` fails fast — naming the missing piece — until the keystore
-exists. Debug builds never touch signing.
+exists. When that file is complete, **debug builds use the same release
+certificate**, so the SHA-1 registered with Google sign-in is the one on every
+APK you test. Without the file, debug uses the standard debug keystore.
 
 ## Play policy notes
 

@@ -1,12 +1,12 @@
 # Privacy
 
 Lockin is a study tool, not an advertising product. This document describes
-what the **shipped 1.6.0 build** does — local-first by default, with optional
+what the **shipped 1.11.0 build** does — local-first by default, with optional
 Google sign-in for cloud sync. It is written to be read, not to hide behind.
 
 ## The short version
 
-- 1.6.0 is local-first. Tasks, schedules, sessions, slips and settings live in
+- 1.11.0 is local-first. Tasks, schedules, sessions, slips and settings live in
   one `localStorage` key on your device.
 - Sync is opt-in. Signed out there is no account, no analytics and no
   third-party request.
@@ -37,8 +37,8 @@ third-party script, pixel or CDN. Signed in, the Firebase SDK loads from
 
 | Data | Where | Why |
 |---|---|---|
-| Site list, block deadline, per-day seconds | `chrome.storage.local` key `lockin.ext` | Blocking and the badge countdown |
-| Active tab URL | Memory + the same key | Attribute time to a domain and redirect blocked navigations |
+| Site list, block deadline, shorts toggle, per-day seconds | `chrome.storage.local` key `lockin.ext` | Blocking, short-video rules and the badge countdown |
+| Active tab URL | Memory + the same key | Attribute time to a domain, redirect blocked navigations, and match the `/shorts` or `/reels` path |
 
 The extension reads the active tab, not the history database, page content or
 form fields. It injects no content scripts. It makes no network requests.
@@ -57,14 +57,23 @@ The Capacitor shell adds capabilities the web cannot have:
 - **App blocking** (optional accessibility service) for the apps you choose
   during a focus window. The service config sets
   `canRetrieveWindowContent="false"`: it receives one event type and reads the
-  foreground package name, never screen text, page content or keystrokes. The
-  list of blocked apps and the window schedule live in device-local
-  `SharedPreferences` (`lockin_blocking`) and are never synced.
+  foreground package name, never screen text, page content or keystrokes.
+- **Per-app limits** use the same foreground package signal to add minutes to
+  a local day bucket. The bucket and the allowances live in device-local
+  `SharedPreferences` (`lockin_blocking`), are pruned to two days, and are never
+  synced. Limits count only while the service is on.
+- **Strict kiosk** (optional) is the one feature that can hold the phone.
+  Without device owner it falls back to screen pinning; with it, Android lock
+  task keeps Lockin and the apps you allowlisted in front. The allowlist,
+  active state and deadline live in `lockin_blocking`. The device admin receiver
+  is inert until you run the one-time `dpm set-device-owner` command, and a
+  deadline releases lock task even if the app dies.
 
-The service is off until you enable it in system settings and flip the master
-switch in Settings → Android. It is a focus aid, not a lock: Android lets you
-turn it off, and Lockin says so plainly. Without it, the app still measures,
-rings and logs.
+The blocked-app list, limits, usage counters and strict config stay on this
+phone. The service is off until you enable it in system settings and flip the
+master switch in Control → App blocking. It is a focus aid, not a lock: Android
+lets you turn it off, and Lockin says so plainly. Without it, the app still
+measures, rings and logs.
 
 Android data stays on the device unless you sign in and enable sync. The native
 Google sheet hands a token to the Firebase SDK; the same Firestore tree
@@ -102,13 +111,23 @@ listing and this document.
 - **Delete cloud data** wipes the Firestore copy, then signs out.
 - **Delete a schedule** in its editor (two-step).
 - **Disable alarms** globally in Settings → Schedule, or per block.
+- **Change or clear a daily limit** in Control → Per-app limits; **turn off**
+  app blocking or the strict kiosk there too.
+- **Remove device owner** with
+  `adb shell dpm remove-active-admin com.lockin.app/.LockinDeviceAdminReceiver`
+  (or uninstall the app). Strict mode then falls back to screen pinning.
 - Uninstall the extension to remove `lockin.ext`. Uninstalling the Android app
   removes its local data.
 
 ## Honest limits
 
 - The web app rings only while a Lockin page is alive. A closed tab cannot ring.
-- The extension sees the active Chrome tab, not other browsers or apps.
+- The extension sees the active Chrome tab, not other browsers or apps. Its
+  shorts rules match URL paths; they do not read the page.
+- Android sees a foreground package, not a page inside it. It cannot tell
+  Shorts from a normal YouTube video, so the Android preset blocks the whole
+  app during focus. Strict kiosk without device owner is pinning plus an
+  overlay, not a system-enforced lock.
 - Android exact alarms can be denied by the OS; the app falls back and says so.
 - No app can block another app on iOS. Lockin does not pretend otherwise.
 - Sync has no realtime listeners, so another device's edit can take a moment to

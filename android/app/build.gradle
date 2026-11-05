@@ -18,8 +18,8 @@ android {
         applicationId "com.lockin.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 200
-        versionName "1.10.0"
+        versionCode 210
+        versionName "1.11.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -41,6 +41,16 @@ android {
         }
     }
     buildTypes {
+        /* Google sign-in is bound to a signing certificate. The release
+           certificate is the one registered in google-services.json, so debug
+           builds sign with it too when keystore.properties is present —
+           otherwise a debug APK gets DEVELOPER_ERROR from Google. */
+        debug {
+            if (keystorePropsFile.exists()
+                && ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].every { keystoreProps.getProperty(it) }) {
+                signingConfig signingConfigs.release
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

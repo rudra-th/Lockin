@@ -3,6 +3,76 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.11.0 — 2026-11-05
+
+### Control, screen time in Settings, strict kiosk
+
+- A sixth tab, **Control**, sits between Focus and Stats and owns everything
+  device-side: a master app-blocking switch, a searchable picker, one-tap
+  distraction presets across Short videos / Feeds & chat / Streaming, per-app
+  daily limits with live usage bars, and the strict kiosk. Settings keeps the
+  permissions and a one-card pointer.
+- **Screen time moved to Settings.** The full card shows today's foreground
+  time, top apps, a 7-day rail, a refresh action and an honest usage-access
+  empty state. It left Control, the compact Stats card and Home, so there is one
+  place to read it and one place to grant the permission.
+- **Per-app daily limits** (15 min–3 h): the accessibility service tracks
+  foreground time in local day buckets (pruned to two days), and an app over its
+  allowance gets a **Daily limit reached** overlay with the reset time and one
+  action home. Limits count only while the service is on, and the card says so.
+  Raising an allowance frees the app immediately; midnight resets by day key.
+- **Strict study mode** is a real kiosk when Lockin is device owner: lock task
+  with `LOCK_TASK_FEATURE_NONE` and the user's allowlist holds the phone, and a
+  **Back to Lockin** overlay covers every non-allowed app. Without device owner
+  it falls back to screen pinning and labels the state **Limited kiosk** instead
+  of pretending. The JS engine refreshes a fail-open deadline that native also
+  enforces with a `Handler`, so a killed app cannot leave the phone stuck; a
+  stale flag is cleared on boot.
+- **Short-video presets** add installed YouTube, Instagram, Facebook, Snapchat,
+  TikTok, X, Reddit, Discord, Telegram, WhatsApp, Netflix, Prime Video and
+  Twitch to the block list in one tap. The copy is honest: Android sees an app,
+  not `/shorts`; the extension blocks the URL itself.
+
+### Opening film, account and Google sign-in
+
+- The name scene gains **Already have an account? → Sign in with Google**, with
+  a real four-colour Google mark and a signed-in state that fills the name.
+- A new **account scene** offers create-account-or-sign-in before the rules, and
+  a quiet **Not now — keep it on this device** route. Skipping Google is never
+  punished; the tour no longer assumes an account.
+- The permissions scene now asks for all five Android capabilities —
+  notifications, exact alarms, full-screen alarms, the accessibility service and
+  usage access — each with live status and a direct action, and it fits a 390 px
+  phone without hiding the last row.
+- **Google sign-in fixed on both surfaces.** The native path tries Credential
+  Manager, then retries the legacy Google sheet once on a non-cancel failure,
+  validates the ID token and reports a real error. The web path sets the cloud
+  flag before a redirect fallback and finishes through `getRedirectResult`.
+  A new pure `core/auth-errors.js` turns every Firebase, Play services and
+  Capacitor failure into one actionable sentence; cancellations stay silent.
+- Debug APKs now sign with the release keystore whenever
+  `android/keystore.properties` is complete, matching the certificate
+  registered with Google. No more `DEVELOPER_ERROR` from a test build.
+
+### Extension
+
+- **Shorts & Reels blocking**, on by default: pure path matching for YouTube
+  Shorts, Instagram Reels, Facebook Reels and Snapchat Spotlight, dynamic DNR
+  rules with `why=shorts`, an in-page navigation check, and a blocked page that
+  names the feed and offers a way back once the toggle is off.
+- Audit fixes: a manual block redirects immediately, sleep/quit credit is capped
+  so a closed laptop cannot bank hours, popup writes re-read state before
+  mutating it, subdomains canonicalise to the saved domain, and an expired block
+  gets a real **Back to the site** route.
+
+### Verification and docs
+
+- `npm test` 88/88 (new short-video, auth-error and limit groups), `npm run
+  check` and `npm run lint` clean; `assembleDebug` and `assembleRelease` build.
+- `docs/android.md`, `permissions.md`, `privacy.md`, `architecture.md`,
+  `README.md` and `extension/README.md` updated for Control, limits, strict
+  kiosk, the signing rule and short-video URL blocking.
+
 ## 1.10.0 — 2026-11-04
 
 ### App blocking on Android

@@ -5,7 +5,7 @@ owns the study session; the extension is deliberately smaller; Android is a
 shell around the same web UI, not a second UI.
 
 ```text
-                 app/core/  (pure JS: time, honesty, schedule, sync)
+                 app/core/  (pure JS: time, honesty, schedule, limits, sync)
                     │
       ┌─────────────┼─────────────────┐
       │             │                 │
@@ -13,17 +13,18 @@ shell around the same web UI, not a second UI.
    web PWA       Chrome MV3         Capacitor shell
    sessions      blocking +         exact alarms,
    tasks         active-tab time    usage access,
-   schedule                         per-app screen time,
-   alarms                           Google sign-in (sync)
+   schedule      shorts rules       screen time, limits,
+   alarms                           strict kiosk,
+                                    Google sign-in (sync)
 ```
 
 ## Surfaces
 
 | Surface | Owns | Does not own |
 |---|---|---|
-| **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, earned exit, Stats, Honesty Log, foreground alarms | Device-wide blocking, closed-app alarms |
-| **Extension** (`extension/`) | Site block list, per-site daily allowances, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
-| **Android** (`android/`) | Exact alarms, full-screen lock-screen alarms, notification permission, usage access, per-app screen time, optional app blocking through a user-enabled accessibility service, optional Google sign-in for cloud sync | A forked UI or a second data model. Blocking config is device-local `SharedPreferences`, not part of the synced store; screen time stays informational |
+| **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, earned exit, Stats, Honesty Log, foreground alarms, the **Control** tab's web explanation, Settings | Device-wide blocking, closed-app alarms |
+| **Extension** (`extension/`) | Site block list, per-site daily allowances, short-video URL rules, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
+| **Android** (`android/`) | Exact alarms, full-screen lock-screen alarms, notification permission, usage access, per-app screen time in Settings, app blocking and per-app limits in Control, the optional strict kiosk, optional Google sign-in for cloud sync | A forked UI or a second data model. Blocking, limits, usage and strict config are device-local `SharedPreferences`, not part of the synced store |
 
 The extension and the PWA cannot read each other's storage. Usage stays separate
 until sync exists. This is stated in `extension/README.md` and in the UI.
@@ -36,8 +37,13 @@ until sync exists. This is stated in `extension/README.md` and in the UI.
 - `honesty.js` — accident window, earned exit, free stop, neutral ends.
 - `schedule.js` — `HH:MM` parsing, spans, occurrences, next occurrence,
   reminder times, alarm events, day labels, input normalization.
+- `limits.js` — daily-allowance math: minutes used, remaining, the reset key.
+- `shorts.js` — the pure short-video matcher: YouTube Shorts, Instagram Reels,
+  Facebook Reels and Snapchat Spotlight paths plus the runtime filter list.
 - `sync.js` — stable diffing, last-write-wins and append merges, tombstones,
   pull cursors. No DOM, storage or network; the engine drives it.
+- `auth-errors.js` — one calm sentence for every Google sign-in failure code,
+  including native `DEVELOPER_ERROR` and cancellations that should stay silent.
 
 `app/assets/js/util.js` re-exports the core so views import one module. The
 extension pack copies `app/core/` into `dist/extension/`; Chrome cannot resolve
@@ -98,6 +104,12 @@ Sync adds two device-local keys outside the store — `lockin.sync.v1` (shadow
 snapshot + pull cursor) and `lockin.sync.on` (the user asked for the cloud) —
 so the store never contains sync-of-sync bookkeeping.
 
+Android keeps its device-control state in native `SharedPreferences`
+(`lockin_blocking`): the block switch and package list, push windows, per-app
+daily allowances, two days of foreground-time buckets, and the strict flags.
+That is deliberately outside the synced store and the device's own data is
+never uploaded.
+
 ## Sync (opt-in, shipped in 1.6.0)
 
 The store stays the source of truth. Sync mirrors six slices to Firestore and
@@ -123,7 +135,10 @@ document. Auth lives in `app/assets/js/account.js`: `signInWithPopup` on the
 web (redirect fallback), the `@capacitor-firebase/authentication` native sheet
 on Android feeding `signInWithCredential`, and a lazy Firebase SDK loaded from
 the pinned CDN in `app/assets/js/firebase.js`. Signed out, no Firebase code
-loads at all. Sync failure is always quiet and never blocks the app.
+loads at all. Failures are translated by `core/auth-errors.js`; cancellations
+stay silent, and native sign-in retries the legacy Google flow once when
+Credential Manager cannot complete. Sync failure is always quiet and never
+blocks the app.
 
 ## Build and check
 

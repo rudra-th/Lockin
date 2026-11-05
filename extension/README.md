@@ -1,9 +1,10 @@
 # Lockin — Block & Track
 
-The browser half of Lockin. It does three jobs and refuses the fourth:
+The browser half of Lockin. It does four jobs and refuses the fifth:
 
 - **Blocks** the sites on your list for a chosen stretch (25 min, 45 min, 1 h).
 - **Limits** any site to a daily allowance — 10 minutes to 2 hours. Spend it and the site holds until midnight.
+- **Cuts short videos** — YouTube Shorts, Instagram Reels, Facebook Reels and Snapchat Spotlight — on a toggle that is on by default.
 - **Tracks** the time the active Chrome tab spends on each site, per day.
 - **Does not** run the study clock. Timers, tasks, streaks and the Honesty Log live in the app.
 
@@ -26,6 +27,7 @@ One `chrome.storage.local` key: `lockin.ext`.
   sites: ['youtube.com', …],
   off: { 'x.com': true },          // unchecked, still on the list
   limits: { 'youtube.com': 30 },   // daily allowance in minutes; absent = none
+  shorts: true,                    // short-video URL blocking; default on
   blockUntil: 1730000000000,       // 0 = no block
   usage: { '2026-11-03': { 'youtube.com': 3120 } },
   active: { domain, since }        // the tab being counted right now
@@ -55,11 +57,35 @@ the allowance is spent.
 - The limit is a study aid, not a lock: raising it in the popup frees the site
   immediately, and an open blocked page refreshes itself.
 
+## Shorts & Reels
+
+The popup's **Short videos** card toggles URL-level blocking for the four
+infinite feeds people lose evenings to:
+
+| Site | Matched paths |
+|---|---|
+| YouTube | `/shorts`, `/shorts/<id>` |
+| Instagram | `/reel`, `/reels`, `/reels/<id>` |
+| Facebook | `/reel`, `/reels`, `/watch/reel` |
+| Snapchat | `/spotlight` |
+
+- The matcher (`app/core/shorts.js`) is pure and unit-tested: it reads the path,
+  not the page. A watch page, a channel or a normal post is untouched.
+- `syncRules` emits `declarativeNetRequest` redirects with `why=shorts`; the
+  worker also checks `tabs.onUpdated` so an in-page navigation into a feed is
+  caught even when the top-level URL did not change.
+- The blocked page names the surface (“Short videos”), explains that the feed
+  is the point, and offers **Back to the site** once the toggle is off. It never
+  pretends a daily limit is the reason.
+- Default on. Turning it off removes the rules immediately; nothing is stored
+  per day for shorts.
+
 ## Honest limits
 
 - It counts the **active tab in Chrome only** — not other browsers, not apps on your phone, not a second Chrome profile.
 - Usage is sampled on tab and window changes plus a one-minute alarm, so a count can be off by up to a minute.
 - Blocking is `declarativeNetRequest` on whole domains, top-level navigations. Subdomains are covered by the domain rule; embedded players inside an allowed page are not.
+- Shorts rules match URL paths. YouTube's in-page player, an embedded Reel, or a feed rendered without changing the URL can slip past; Chrome gives the extension the tab URL, not the page content.
 - The block deadline is local time. Changing the system clock can end a block early.
 
 The Android app is the surface that can see apps and hold a device-wide block. This extension is deliberately smaller than that.
