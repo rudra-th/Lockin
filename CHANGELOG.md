@@ -3,6 +3,17 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.11.1 — 2026-11-05
+
+### Google sign-in on Android
+
+- The Capacitor shell now registers `google.com` under
+  `plugins.FirebaseAuthentication.providers`. The plugin defaults that list to
+  empty, so 1.11.0 threw **“google.com sign-in provider is not enabled”** before
+  the native sheet could open. The config is synced into the Android assets and
+  the APK rebuilds as versionCode 211, so it installs over 1.11.0.
+- Web and extension behaviour is unchanged; they follow the shared version line.
+
 ## 1.11.0 — 2026-11-05
 
 ### Control, screen time in Settings, strict kiosk

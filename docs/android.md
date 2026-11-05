@@ -125,6 +125,12 @@ web and in the extension pack.
 - `@capacitor-firebase/authentication` opens the native Google sheet; the
   returned ID token goes to the Firebase JS SDK (`signInWithCredential`), which
   owns Firestore. `skipNativeAuth: true` keeps a single auth session.
+- `capacitor.config.json` registers `google.com` under
+  `plugins.FirebaseAuthentication.providers`. The plugin defaults to an empty
+  list, and without the entry the native sheet fails immediately with
+  “google.com sign-in provider is not enabled”. `npx cap sync android` copies
+  that config into `android/app/src/main/assets/capacitor.config.json`, so a
+  config change needs a sync **and** a rebuild.
 - `android/app/google-services.json` is required for the Firebase integration
   and is **gitignored** — download it from the Firebase console (project
   `lockin-29758`, Android app `com.lockin.app`, release SHA-1 in

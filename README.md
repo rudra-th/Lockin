@@ -106,7 +106,7 @@ Requires Android Studio (JDK 21) and SDK platform 36. See
 release signing. The debug APK is not committed; build it locally or download
 the signed release from
 **[lockin.surge.sh/downloads/lockin.apk](https://lockin.surge.sh/downloads/lockin.apk)**
-(the `v1.11.0` build is also on the GitHub release page).
+(the latest build is also on the GitHub release page).
 
 App blocking is opt-in: **Control** opens the system accessibility screen, then
 the master switch, the app picker and the distraction presets do the rest. The

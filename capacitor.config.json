@@ -7,5 +7,10 @@
   },
   "android": {
     "allowMixedContent": false
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "providers": ["google.com"]
+    }
   }
 }
