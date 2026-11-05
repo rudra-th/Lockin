@@ -32,21 +32,28 @@ export const Router = {
     document.body.dataset.view = path.slice(1);
     host.scrollTop = 0;
     window.scrollTo(0, 0);
-    this.announce(path);
+    this.announce(host, path);
   },
 
-  /* One dedicated live region instead of aria-live on the whole view: screen
-     readers hear "Settings screen", not every timer repaint. */
-  announce(path) {
+  /* A dedicated live region, plus focus on the new screen's heading. The
+     heading is the better announcement when it exists; the live region covers
+     screens that open with something other than an h1. */
+  announce(host, path) {
     const status = document.getElementById('a11y-status');
-    if (!status) return;
     const tab = document.querySelector(`.tabbar button[data-nav="#${path}"]`);
     const name = tab?.getAttribute('aria-label')
       || tab?.querySelector('span')?.textContent
       || (path === '/start' ? 'Welcome' : '');
-    if (!name) return;
-    status.textContent = `${name} screen`;
-    document.title = `${name} — Lockin`;
+    if (name) document.title = `${name} — Lockin`;
+
+    const heading = host.querySelector('h1');
+    if (heading) {
+      if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: true });
+      if (status) status.textContent = '';
+      return;
+    }
+    if (status && name) status.textContent = `${name} screen`;
   },
 
   start() {

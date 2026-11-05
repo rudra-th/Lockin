@@ -74,6 +74,9 @@ the Android shell follows once it ships.
   reader hears "Settings screen" once per navigation instead of every timer
   repaint. Tab changes also update the document title and reset the scroll
   container.
+- Navigating to a tab now moves focus to that screen's heading, and each
+  opening-film scene focuses its new title, so keyboard and screen-reader users
+  start at the top instead of on the button that vanished.
 - Text and accent tokens meet WCAG AA in both themes. The light accent and
   warning colours were darkened, and the `data-theme` token block is scoped to
   `:root` so theme-preview buttons cannot inherit the other theme.

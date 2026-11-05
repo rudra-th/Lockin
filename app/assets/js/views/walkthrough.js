@@ -92,7 +92,7 @@ function kicker(text) {
 }
 
 function title(...parts) {
-  return el('h1', { class: 'film-title' }, ...parts);
+  return el('h1', { class: 'film-title', tabindex: '-1' }, ...parts);
 }
 
 function lede(text) {
@@ -720,6 +720,12 @@ function render() {
   const foot = footParts.length ? el('footer', { class: 'film-foot' }, ...footParts) : null;
 
   host.append(el('section', { class: 'film' }, top, body, foot));
+
+  /* A scene change replaces the buttons that had focus. Move focus to the new
+     heading so a keyboard or screen-reader user lands at the top of the scene
+     instead of on the body. */
+  const heading = host.querySelector('.film-title');
+  if (heading) heading.focus({ preventScroll: true });
 }
 
 /* ---------- mounting ---------- */
