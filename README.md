@@ -53,6 +53,8 @@ The web app is the source of truth for a study session. The extension is deliber
 | Home | Schedule |
 |---|---|
 | <img src="docs/screenshots/home.png" width="260" alt="Home: days left, today's focus and the next block"> | <img src="docs/screenshots/schedule.png" width="260" alt="Schedule: next block hero, 24-hour ring, today's blocks and tasks"> |
+| **Study Mode** | **Control** |
+| <img src="docs/screenshots/focus.png" width="260" alt="Study Mode: the running room with its clock ring, daily-target meter, attached tasks, strict kiosk dock and quit control"> | <img src="docs/screenshots/control.png" width="260" alt="Control: accessibility service status, the blocking switch and the app picker"> |
 | **Stats** | **Settings** |
 | <img src="docs/screenshots/stats.png" width="260" alt="Stats: goal ring, all-time focus, 7-day bars and clean-day heatmap"> | <img src="docs/screenshots/settings.png" width="260" alt="Settings: enforcement, earned exit, goals and schedule alarms"> |
 

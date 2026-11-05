@@ -172,6 +172,10 @@ body {
 
 h1, h2, h3, p { margin: 0; }
 
+/* Headings we focus after a route or scene change are not tab stops. The new
+   screen is the cue; a giant outline box around an h1 is just noise. */
+[tabindex='-1']:focus { outline: none; }
+
 input, textarea, select { font-size: 16px; } /* never zooms the page on iOS */
 
 button, a, [role='button'], .chip, .tappable {
