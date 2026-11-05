@@ -53,6 +53,13 @@ export const Router = {
       if (status) status.textContent = '';
       return;
     }
+    /* A view that renders outside #view (a resumed live session) may already
+       have moved focus to its own heading. Do not talk over it. */
+    const active = document.activeElement;
+    if (active && /^H[1-6]$/.test(active.tagName)) {
+      if (status) status.textContent = '';
+      return;
+    }
     if (status && name) status.textContent = `${name} screen`;
   },
 

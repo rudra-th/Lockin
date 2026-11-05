@@ -17,6 +17,8 @@ export const RESCUE_CAP = 3;    // free rescues per day; beyond that it is a sli
 let timer = null;
 let wakeSentinel = null;
 let currentSessId = null;
+let lastPhase = null;           // last phase painted, for focus-on-change
+let lastWasPainted = false;     // has renderHost drawn at least once?
 
 /* Strict kiosk: armed per session, released on every way out. The flags are
    module-level so the dock and the visibility guard agree with native. */
@@ -508,6 +510,8 @@ export function initFocus(Router) {
 function renderHost() {
   const host = document.getElementById('view');
   if (!host || Router.parse().path !== '/focus') return;
+  const phaseChanged = Session.phase !== lastPhase;
+  lastPhase = Session.phase;
   host.textContent = '';
   document.querySelectorAll('body > .session').forEach((n) => n.remove());
   const live = ['running', 'break', 'paused'].includes(Session.phase);
@@ -527,6 +531,19 @@ function renderHost() {
   else host.append(el('div', { class: 'view-anim' }, screen));
 
   if (live) drawClock();
+
+  /* Starting, pausing or ending a session replaces the button that had focus.
+     Move focus to the new screen's heading so keyboard and screen-reader users
+     do not land back on <body>. A resumed live room focuses its heading on
+     mount; the plain setup screen leaves focus to the router. */
+  if (phaseChanged && (lastWasPainted || live)) {
+    const heading = screen.querySelector('h1') || screen.querySelector('h2');
+    if (heading) {
+      if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: true });
+    }
+  }
+  lastWasPainted = true;
 }
 
 /* ---------- setup screen ---------- */
@@ -871,9 +888,11 @@ function taskChips() {
 function sessionCore({ label, note, clockClass = '', breathe = false, tasks = true, pips = true }) {
   const chips = tasks ? taskChips() : [];
   return el('main', { class: 'sess-core' },
-    /* phase changes are the announcement; the clock itself is role=timer so
-       assistive tech decides when to read it instead of narrating every second */
-    el('div', { class: 'sess-phase', 'aria-live': 'polite' }, label),
+    /* The phase label is the screen's heading: renderHost moves focus here on
+       a phase change, so a screen reader hears the new state once. The clock
+       is role=timer so assistive tech decides when to read it instead of
+       narrating every second. */
+    el('h1', { class: 'sess-phase', tabindex: '-1' }, label),
     el('div', { class: `clock-wrap${breathe ? ' is-breathe' : ''}` },
       breathe ? null : el('svg', { class: 'clock-ring', viewBox: '0 0 240 240', 'aria-hidden': 'true' },
         el('circle', { class: 'ring-track', cx: 120, cy: 120, r: 108 }),
@@ -1179,7 +1198,7 @@ function doneScreen() {
   return el('div', { class: 'done-wrap' },
     el('div', { class: 'done-card view-anim' },
       celebrate ? confettiBurst() : null,
-      el('div', { class: `done-kicker ${good ? 'is-good' : 'is-warn'}` },
+      el('h1', { class: `done-kicker ${good ? 'is-good' : 'is-warn'}`, tabindex: '-1' },
         good ? 'Session banked' : d.discarded ? 'Session discarded' : 'Session ended',
         celebrate ? ' 🎉' : ''),
       el('div', { class: `done-amount${good ? '' : ' is-warn'}` },

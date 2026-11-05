@@ -80,7 +80,10 @@ the Android shell follows once it ships.
   container.
 - Navigating to a tab now moves focus to that screen's heading, and each
   opening-film scene focuses its new title, so keyboard and screen-reader users
-  start at the top instead of on the button that vanished.
+  start at the top instead of on the button that vanished. Starting, pausing,
+  resuming or ending a session does the same inside Study Mode.
+- The accident-window undo pill sits just above the stop controls, so it no
+  longer covers the daily-target meter.
 - Text and accent tokens meet WCAG AA in both themes. The light accent and
   warning colours were darkened, and the `data-theme` token block is scoped to
   `:root` so theme-preview buttons cannot inherit the other theme.

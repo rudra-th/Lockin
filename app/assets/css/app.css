@@ -2756,6 +2756,15 @@ body[data-mode='onboard'] #view {
   transition: opacity 220ms var(--ease), transform 220ms var(--ease);
 }
 .alarm-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* The undo pill duplicates the stop control, so it sits just above the foot
+   instead of covering the session chrome and the daily-target meter. */
+.undo-toast {
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 132px);
+  transform: translate(-50%, 14px);
+}
+.undo-toast.show { transform: translate(-50%, 0); }
 .alarm-toast-icon { color: var(--acc); line-height: 0; flex: 0 0 auto; }
 .alarm-toast-txt { flex: 1; min-width: 0; }
 .alarm-toast-txt b { display: block; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
