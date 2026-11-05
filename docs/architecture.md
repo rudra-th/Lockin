@@ -22,7 +22,7 @@ shell around the same web UI, not a second UI.
 
 | Surface | Owns | Does not own |
 |---|---|---|
-| **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, earned exit, Stats, Honesty Log, foreground alarms, the **Control** tab's web explanation, Settings | Device-wide blocking, closed-app alarms |
+| **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, earned exit, Progress in Settings, Honesty Log, foreground alarms, the **Control** tab's web explanation, Settings | Device-wide blocking, closed-app alarms |
 | **Extension** (`extension/`) | Site block list, per-site daily allowances, short-video URL rules, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
 | **Android** (`android/`) | Exact alarms, full-screen lock-screen alarms, notification permission, usage access, per-app screen time in Settings, app blocking and per-app limits in Control, the optional strict kiosk, optional Google sign-in for cloud sync | A forked UI or a second data model. Blocking, limits, usage and strict config are device-local `SharedPreferences`, not part of the synced store |
 

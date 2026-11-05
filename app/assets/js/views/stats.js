@@ -1,13 +1,11 @@
-/* Lockin - Stats: today, all time, the week, tasks, heat, honesty. */
+/* Lockin — Progress: today, all time, the week, tasks, heat, honesty.
+   Rendered inside Settings' Progress section, so these are cards to append,
+   not a screen with its own heading. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
 import { el, todayKey, addDays, prettyDate, fmtMin, parseKey } from '../util.js';
 import { svg } from '../icons.js';
-
-export function initStats(Router) {
-  Router.register('/stats', { mount, unmount: null });
-}
 
 const DAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const sum = (list) => list.reduce((a, b) => a + b, 0);
@@ -358,33 +356,18 @@ function honestyCard() {
   );
 }
 
-/* ---------- render ---------- */
+/* ---------- cards ---------- */
 
-function render(host) {
+export function progressCards() {
   const sessions = focusSessions();
-  const all = allTime();
-
-  host.append(el('section', { class: 'view-anim stagger' },
-    el('div', { class: 'app-head' },
-      el('div', { class: 'grow' },
-        el('h1', {}, 'Stats'),
-        el('div', { class: 'sub' }, 'Everything local. Everything honest.'),
-      ),
-    ),
-    sessions.length
-      ? [
-          todayCard(),
-          allTimeStrip(all),
-          weekCard(),
-          taskCard(),
-          heatCard(),
-          recentCard(),
-          honestyCard(),
-        ]
-      : [emptyHero(), taskCard()],
-  ));
-}
-
-function mount(host) {
-  render(host);
+  if (!sessions.length) return [emptyHero(), taskCard()];
+  return [
+    todayCard(),
+    allTimeStrip(allTime()),
+    weekCard(),
+    taskCard(),
+    heatCard(),
+    recentCard(),
+    honestyCard(),
+  ];
 }

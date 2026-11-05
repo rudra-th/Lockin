@@ -1220,7 +1220,7 @@ function doneScreen() {
       ),
       el('button', {
         class: 'done-more',
-        onclick: () => { Session.phase = 'idle'; Router.go('/stats'); },
+        onclick: () => { Session.phase = 'idle'; Router.go('/settings?section=progress'); },
       }, 'See the week', svg('chevR', 14)),
     )
   );

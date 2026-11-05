@@ -105,7 +105,7 @@ not just Lockin).
 - [ ] The system Back gesture/button closes sheets first, then exits — it
       never dumps the user out of a running session without the quit flow.
 - [ ] Dark and light theme both render correctly across Home, Schedule,
-      Focus, Stats and Settings (the light audit was code-only; this is the
+      Focus and Settings → Progress (the light audit was code-only; this is the
       visual confirmation).
 
 ---

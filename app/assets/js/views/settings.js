@@ -7,7 +7,8 @@ import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
 import { tryInstall } from '../install.js';
 import { examByName } from '../exams.js';
-import { group, setrow, toggle, stepper } from '../controls.js';
+import { setrow, toggle, stepper } from '../controls.js';
+import { progressCards } from './stats.js';
 import { ensureAlarmPermission } from '../alarms.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
@@ -19,7 +20,21 @@ import { syncNow } from '../sync.js';
 
 export function initSettings(Router) {
   Router.register('/settings', { mount, unmount: null });
+  /* Old #/stats bookmarks and links land in the Progress section. */
+  Router.register('/stats', {
+    mount: () => { Router.go('/settings?section=progress'); },
+    unmount: null,
+  });
 }
+
+/* Settings is grouped the way it is used: what a session does, what the phone
+   does, what the record shows, and who owns the data. */
+const SECTIONS = [
+  { id: 'study', label: 'Study', icon: 'book', blurb: 'Focus rules, rounds and alarms', short: 'Rules & rounds' },
+  { id: 'device', label: 'Device', icon: 'phone', blurb: 'Screen, alerts and Android access', short: 'Screen & alerts' },
+  { id: 'progress', label: 'Progress', icon: 'chart', blurb: 'Today, the week and the honest record', short: 'The record' },
+  { id: 'you', label: 'You', icon: 'user', blurb: 'Profile, account, data and credits', short: 'Profile & data' },
+];
 
 function enforcementCard() {
   const s = Store.state.settings;
@@ -33,17 +48,6 @@ function enforcementCard() {
       stepper(() => Store.state.settings.exitGraceMin,
         (v) => Store.set((st) => { st.settings.exitGraceMin = v; }),
         { lo: 0, hi: 60, step: 5, fmt: (v) => (v === 0 ? 'Off' : fmtMin(v)) })),
-    setrow('Keep screen awake',
-      'Screen Wake Lock during focus sessions — the phone stays awake while you study.',
-      toggle(() => s.wakelock, () => Store.set((st) => { st.settings.wakelock = !st.settings.wakelock; }))),
-    setrow('Notifications',
-      'A system notification and a buzz when a round completes (asks your browser for permission first time).',
-      toggle(() => s.notifs, () => {
-        Store.set((st) => { st.settings.notifs = !st.settings.notifs; });
-        if (Store.state.settings.notifs && 'Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
-      })),
     setrow('Daily focus goal', 'The ring you fill each day. Set it in hours and minutes.', stepper(
       () => Store.state.settings.goalMin,
       (v) => Store.set((st) => { st.settings.goalMin = v; }),
@@ -70,6 +74,24 @@ function pomoCard() {
       () => Store.state.settings.pomo.long,
       (v) => Store.set((st) => { st.settings.pomo.long = v; }),
       { lo: 10, hi: 45, step: 5, suffix: 'm' })),
+  );
+}
+
+function deviceBasicsCard() {
+  const s = Store.state.settings;
+  return el('div', { class: 'card' },
+    el('h2', {}, 'Screen & alerts'),
+    setrow('Keep screen awake',
+      'Screen Wake Lock during focus sessions — the phone stays awake while you study.',
+      toggle(() => s.wakelock, () => Store.set((st) => { st.settings.wakelock = !st.settings.wakelock; }))),
+    setrow('Notifications',
+      'A system notification and a buzz when a round completes (asks your browser for permission first time).',
+      toggle(() => s.notifs, () => {
+        Store.set((st) => { st.settings.notifs = !st.settings.notifs; });
+        if (Store.state.settings.notifs && 'Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      })),
   );
 }
 
@@ -307,6 +329,20 @@ function deviceCard() {
   );
 }
 
+/* The browser build has no usage or accessibility access; say that plainly
+   instead of showing empty Android controls. */
+function webDeviceCard() {
+  return el('div', { class: 'card ctl-pointer' },
+    el('h2', { class: 'blocking-head' }, svg('phone', 14), el('span', {}, 'Android build')),
+    el('p', { class: 'muted ctl-lede' },
+      'This tab is the web app. It runs every focus session, schedule and progress view — but screen time, per-app limits and the strict kiosk need Android’s own usage and accessibility services.'),
+    el('button', {
+      class: 'btn btn-subtle btn-block',
+      onclick: () => Router.go('/control'),
+    }, svg('shield', 16), 'See what Control unlocks'),
+  );
+}
+
 function lookCard() {
   const s = Store.state.settings;
   const seg = el('div', { class: 'segmented' },
@@ -522,30 +558,95 @@ function aboutCard() {
     el('div', { class: 'tiny' }, 'Focus, strictly. Built for one thing — study. 🎯'),
     el('div', { class: 'tiny', style: 'margin-top:4px' },
       el('a', { href: 'https://lockin.surge.sh', style: 'color:var(--tx-2)' }, 'lockin.surge.sh')),
+    el('div', { class: 'about-credit' },
+      el('span', {}, 'Made by '),
+      el('a', {
+        class: 'about-author',
+        href: 'https://github.com/rudra-th',
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        'aria-label': 'Made by Rudra — open GitHub profile',
+      }, svg('github', 16), el('span', {}, 'Rudra')),
+    ),
     el('div', { class: 'row', style: 'justify-content:center;gap:8px;margin-top:12px' },
       el('a', { class: 'chip', href: 'tests.html', style: 'text-decoration:none' }, 'Run the self-check'),
     ),
   );
 }
 
-function render(host) {
+function sectionHead(meta) {
+  return el('div', { class: 'setpanel-head' },
+    el('div', { class: 'setpanel-eyebrow' }, svg(meta.icon, 13), el('span', {}, meta.label)),
+    el('p', {}, meta.blurb),
+  );
+}
+
+function sectionNav(active, onPick) {
+  const nav = el('nav', { class: 'setnav', 'aria-label': 'Settings sections' });
+  SECTIONS.forEach((meta) => {
+    nav.append(el('button', {
+      type: 'button',
+      class: 'setnav-btn',
+      dataset: { section: meta.id },
+      'aria-pressed': String(meta.id === active),
+      'aria-controls': `setpanel-${meta.id}`,
+      onclick: () => onPick(meta.id),
+    },
+      el('span', { class: 'setnav-icon' }, svg(meta.icon, 17)),
+      el('span', { class: 'setnav-txt' },
+        el('b', {}, meta.label),
+        el('small', {}, meta.short)),
+    ));
+  });
+  return nav;
+}
+
+function render(host, params = {}) {
+  const initial = SECTIONS.some((s) => s.id === params.section) ? params.section : 'study';
+  const cards = {
+    study: [enforcementCard(), pomoCard(), alarmsCard()],
+    device: [
+      deviceBasicsCard(),
+      ...(isNative ? [screenTimeCard(), nativeCard(), deviceCard()] : [webDeviceCard()]),
+    ],
+    progress: progressCards(),
+    you: [profileCard(), lookCard(), accountCard(), dataCard(), aboutCard()],
+  };
+
+  const panels = new Map();
+  SECTIONS.forEach((meta) => {
+    panels.set(meta.id, el('section', {
+      class: 'setpanel',
+      id: `setpanel-${meta.id}`,
+      'aria-label': meta.label,
+      hidden: meta.id !== initial,
+    }, sectionHead(meta), ...cards[meta.id]));
+  });
+
+  const nav = sectionNav(initial, activate);
+  const scrollHost = host; // #view scrolls, not the window
+
+  function activate(id) {
+    panels.forEach((panel, key) => { panel.hidden = key !== id; });
+    nav.querySelectorAll('.setnav-btn').forEach((btn) => {
+      btn.setAttribute('aria-pressed', String(btn.dataset.section === id));
+    });
+    history.replaceState(null, '', `#/settings?section=${id}`);
+    scrollHost.scrollTop = 0;
+  }
+
   host.append(el('section', { class: 'view-anim stagger' },
     el('div', { class: 'app-head' },
       el('div', { class: 'grow' },
         el('h1', {}, 'Settings'),
-        el('div', { class: 'sub' }, 'Every lever, in the open.'),
+        el('div', { class: 'sub' }, 'Every lever, grouped the way you use it.'),
       ),
     ),
-    group('Focus', enforcementCard(), pomoCard()),
-    group('Schedule', alarmsCard()),
-    ...(isNative ? [group('Android', screenTimeCard(), nativeCard(), deviceCard())] : []),
-    group('You', profileCard(), lookCard()),
-    group('Account', accountCard()),
-    group('Your data', dataCard()),
-    group('About', aboutCard()),
+    nav,
+    [...panels.values()],
   ));
 }
 
-function mount(host) {
-  render(host);
+function mount(host, params) {
+  render(host, params);
 }

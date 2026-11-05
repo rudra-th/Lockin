@@ -8,7 +8,6 @@ import { initHome } from './views/home.js';
 import { initSchedule } from './views/schedule.js';
 import { initFocus } from './views/focus.js';
 import { initControl } from './views/control.js';
-import { initStats } from './views/stats.js';
 import { initSettings } from './views/settings.js';
 import { initWalkthrough } from './views/walkthrough.js';
 import { startAlarms } from './alarms.js';
@@ -41,7 +40,6 @@ initHome(Router);
 initSchedule(Router);
 initFocus(Router);
 initControl(Router);
-initStats(Router);
 initSettings(Router);
 initWalkthrough(Router);
 

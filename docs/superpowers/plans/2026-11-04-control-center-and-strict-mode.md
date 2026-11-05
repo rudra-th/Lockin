@@ -4,8 +4,8 @@
 
 The roadmap shipped in 1.10.0. This phase gives the phone side one home:
 a **Control** tab that owns blocking, per-app limits, short-video presets and a
-real strict study mode. Screen time moved to Settings, beside the permissions it
-needs.
+real strict study mode. Screen time and every stat moved to Settings, which is
+now grouped into Study, Device, Progress and You.
 
 ## Design rules
 
@@ -22,8 +22,8 @@ needs.
 
 ## Task 1: Control tab, Settings screen time (v1.11.0)
 
-- [x] Sixth main tab **Control** between Focus and Stats: shield icon,
-      `/control` route.
+- [x] New main tab **Control** between Focus and Settings; the bar ends at five
+      tabs once Stats folds into Settings → Progress (Task 7).
 - [x] Control owns app blocking, distraction presets, per-app limits and the
       strict kiosk; Settings keeps a one-card pointer.
 - [x] The app picker stays collapsed to removable chips with **Browse all
@@ -101,7 +101,25 @@ needs.
 ## Task 6: Verify and ship
 
 - [x] `check`, `lint`, `test`, `assembleDebug`/`assembleRelease`; visual pass
-      at 390 px for Control, Settings, Stats and the opening film.
+      at 390 px for Control, Settings and the opening film.
 - [x] Docs: `android.md`, `permissions.md`, `privacy.md`, `architecture.md`,
       `README.md`, extension README; CHANGELOG 1.11.0.
 - [x] Commit each task, tick boxes in the same commit, bump 1.11.0.
+
+## Task 7: Settings categories and Progress
+
+- [x] Stats folded into Settings as **Progress**: today's ring, all-time tiles,
+      7-day bars, tasks, 13-week heatmap, recent sessions, Honesty Log; honest
+      empty states kept.
+- [x] Five-tab bar (Stats button removed); old `#/stats` links redirect to
+      `#/settings?section=progress`; the done screen's "See the week" follows.
+- [x] Settings grouped into **Study**, **Device**, **Progress** and **You**, with
+      icons, one-line descriptions, a 2×2 chip grid on phones and deep links for
+      every section.
+- [x] Device keeps screen wake/notifications, screen time and Android
+      permissions; the web build gets an honest Android fallback card.
+- [x] About credits **Made by Rudra** with a GitHub mark linking to
+      `github.com/rudra-th`.
+- [x] README, CHANGELOG, release notes, architecture and QA docs updated; screens
+      regenerated; axe 0 violations on all four sections in both themes; 36/36
+      interaction checks.

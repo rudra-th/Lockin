@@ -48,13 +48,6 @@ function nameControl(control, id, title) {
   });
 }
 
-export function group(label, ...cards) {
-  return el('section', { class: 'setgroup', 'aria-label': label },
-    el('div', { class: 'setgroup-label', 'aria-hidden': 'true' }, label),
-    ...cards
-  );
-}
-
 export function setrow(title, desc, control) {
   const id = `setrow-${++rowSeq}`;
   const row = el('div', { class: 'setrow' },

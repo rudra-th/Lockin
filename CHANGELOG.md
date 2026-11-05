@@ -7,7 +7,7 @@ the Android shell follows once it ships.
 
 ### Control, screen time in Settings, strict kiosk
 
-- A sixth tab, **Control**, sits between Focus and Stats and owns everything
+- A new **Control** tab sits between Focus and Settings and owns everything
   device-side: a master app-blocking switch, a searchable picker, one-tap
   distraction presets across Short videos / Feeds & chat / Streaming, per-app
   daily limits with live usage bars, and the strict kiosk. Settings keeps the
@@ -17,8 +17,17 @@ the Android shell follows once it ships.
   strict mode are visible without scrolling past every installed app.
 - **Screen time moved to Settings.** The full card shows today's foreground
   time, top apps, a 7-day rail, a refresh action and an honest usage-access
-  empty state. It left Control, the compact Stats card and Home, so there is one
-  place to read it and one place to grant the permission.
+  empty state. It left Control, the compact progress view and Home, so there is
+  one place to read it and one place to grant the permission.
+- **Stats moved into Settings → Progress, and Settings is grouped.** The tab bar
+  is five tabs. Progress keeps today's goal ring and streak, all-time totals, the
+  7-day bars, task completion, the 13-week clean-day heatmap, recent sessions and
+  the Honesty Log. The categories are **Study** (rules, rounds, alarms),
+  **Device** (screen, alerts, screen time, Android access), **Progress** and
+  **You** (profile, appearance, account, data, About); each is addressable with
+  `#/settings?section=progress`, and old `#/stats` links redirect there. The About
+  card now credits **Made by Rudra** with a GitHub mark linking to
+  `github.com/rudra-th`.
 - **Per-app daily limits** (15 min–3 h): the accessibility service tracks
   foreground time in local day buckets (pruned to two days), and an app over its
   allowance gets a **Daily limit reached** overlay with the reset time and one

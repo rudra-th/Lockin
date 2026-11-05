@@ -1,7 +1,7 @@
 /* Lockin — Home: three honest facts about today.
    Days left, today's focus, and the next block.
-   Tasks live in Schedule; streaks, history and screen time live in Stats and
-   Settings. Nothing else. */
+   Tasks live in Schedule; streaks, history and screen time live in Settings.
+   Nothing else. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
