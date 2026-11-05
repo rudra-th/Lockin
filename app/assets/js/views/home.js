@@ -1,6 +1,7 @@
-/* Lockin — Home: four honest facts about today.
-   Days left, today's focus, where the time went, and the next block.
-   Tasks live in Schedule; streaks and history live in Stats. Nothing else. */
+/* Lockin — Home: three honest facts about today.
+   Days left, today's focus, and the next block.
+   Tasks live in Schedule; streaks, history and screen time live in Stats and
+   Settings. Nothing else. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
@@ -10,7 +11,6 @@ import {
 } from '../util.js';
 import { svg } from '../icons.js';
 import { formatExamMonth } from '../exams.js';
-import { isNative, nativeStatus, queryUsage, openUsageAccessSettings } from '../native.js';
 
 export function initHome(Router) {
   Router.register('/home', { mount, unmount });
@@ -244,77 +244,6 @@ function scheduleCard() {
   return { node: card, update };
 }
 
-/* ---------- where the time went (Android) ---------- */
-
-function screenCard() {
-  const card = el('div', { class: 'card home-screen' });
-  const body = el('div', { class: 'screen-body' });
-  card.append(
-    el('div', { class: 'screen-head' },
-      el('h2', {}, svg('phone', 14), el('span', {}, 'Screen time')),
-      el('span', { class: 'screen-day' }, 'Last 24h'),
-    ),
-    body,
-  );
-
-  let painting = false;
-  async function paint() {
-    if (painting) return;
-    painting = true;
-    try {
-      const st = await nativeStatus();
-      if (!document.contains(card)) return;
-      if (!st?.usage) {
-        body.replaceChildren(
-          el('p', { class: 'screen-copy' },
-            'See where the time went. Lockin reads foreground time only — never page content, keystrokes or files.'),
-          el('button', {
-            class: 'btn btn-subtle btn-block',
-            onclick: () => openUsageAccessSettings(),
-          }, svg('target', 16), 'Grant usage access'),
-        );
-        return;
-      }
-      body.replaceChildren(el('div', { class: 'screen-loading' },
-        el('i'), 'Reading the last 24 hours…'));
-      const rows = await queryUsage(1);
-      if (!document.contains(card)) return;
-      if (!rows.length) {
-        body.replaceChildren(el('p', { class: 'screen-copy' }, 'No usage recorded yet.'));
-        return;
-      }
-      const total = rows.reduce((n, r) => n + r.ms, 0);
-      const max = Math.max(...rows.map((r) => r.ms), 1);
-      body.replaceChildren(
-        el('div', { class: 'screen-total' },
-          el('span', {}, 'Foreground time'),
-          el('b', {}, fmtMin(Math.round(total / 60000))),
-        ),
-        ...rows.slice(0, 3).map((r, i) => el('div', { class: `screen-row${i === 0 ? ' is-top' : ''}` },
-          el('b', {}, r.label),
-          el('span', {}, r.ms < 60000 ? '<1m' : fmtMin(Math.round(r.ms / 60000))),
-          el('div', { class: 'screen-bar' },
-            el('i', { style: `width:${Math.max(2, Math.round((r.ms / max) * 100))}%` })),
-        )),
-      );
-    } finally {
-      painting = false;
-    }
-  }
-
-  /* Refresh when the owner returns from the system usage screen. */
-  const onVisible = () => {
-    if (!document.contains(card)) {
-      document.removeEventListener('visibilitychange', onVisible);
-      return;
-    }
-    if (!document.hidden) paint();
-  };
-  document.addEventListener('visibilitychange', onVisible);
-  paint();
-  return card;
-}
-
 /* ---------- render ---------- */
 
 let tickTimer = null;
@@ -343,7 +272,6 @@ function paint(host, animate = true) {
     el('div', { class: 'home-grid' },
       focus.node,
       sched.node,
-      isNative ? screenCard() : null,
     ),
   ));
 

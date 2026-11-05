@@ -2,7 +2,7 @@
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, fmtMin } from '../util.js';
+import { el, fmtMin, prettyDate, parseKey } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
 import { tryInstall } from '../install.js';
@@ -11,8 +11,8 @@ import { group, setrow, toggle, stepper } from '../controls.js';
 import { ensureAlarmPermission } from '../alarms.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
-  openExactAlarmSettings, openFullScreenIntentSettings, openUsageAccessSettings, queryUsage,
-  blockingStatus, listLaunchableApps, saveBlocking, openAccessibilitySettings,
+  openExactAlarmSettings, openFullScreenIntentSettings, openUsageAccessSettings,
+  openAccessibilitySettings, queryUsageToday, queryUsageDaily,
 } from '../native.js';
 import { accountState, signIn, signOut, deleteCloudData } from '../account.js';
 import { syncNow } from '../sync.js';
@@ -105,6 +105,121 @@ function pill(on, onText = 'On', offText = 'Off') {
   return el('span', { class: `native-pill${on ? ' on' : ''}` }, on ? onText : offText);
 }
 
+function fmtDur(ms) {
+  const mins = Math.max(0, Math.round((Number(ms) || 0) / 60000));
+  if (ms > 0 && mins < 1) return '<1m';
+  return fmtMin(mins);
+}
+
+/* ---------- screen time (Android only) ---------- */
+
+function screenTimeCard() {
+  if (!isNative) return null;
+
+  const node = el('div', { class: 'card set-screen' });
+  let usageOn = false;
+  let rows = [];
+  let week = [];
+  let loading = true;
+
+  const paint = () => {
+    const total = rows.reduce((sum, row) => sum + row.ms, 0);
+    const max = Math.max(...rows.map((r) => r.ms), 1);
+    const weekMax = Math.max(...week.map((r) => r.ms), 1);
+
+    const rail = el('div', {
+      class: 'ctl-rail', role: 'img',
+      'aria-label': week.length
+        ? `Daily screen time: ${week.map((r) => `${prettyDate(r.day)} ${fmtDur(r.ms)}`).join(', ')}.`
+        : 'No screen-time history yet.',
+    }, week.length
+      ? week.map((row) => {
+        const isToday = row.day === week[week.length - 1].day;
+        return el('div', {
+          class: `ctl-rail-day${isToday ? ' is-today' : ''}`,
+          title: `${prettyDate(row.day)} · ${fmtDur(row.ms)}`,
+        },
+          el('i', { style: `height:${Math.max(3, Math.round((row.ms / weekMax) * 100))}%` }),
+          el('span', {}, isToday
+            ? 'Today'
+            : parseKey(row.day).toLocaleDateString(undefined, { weekday: 'narrow' })));
+      })
+      : ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((letter) => el('div', { class: 'ctl-rail-day' },
+        el('i', { style: 'height:3%' }), el('span', {}, letter))));
+
+    if (!usageOn) {
+      node.replaceChildren(
+        el('div', { class: 'ctl-card-head' },
+          el('h2', { class: 'blocking-head' }, svg('clock', 14), el('span', {}, 'Screen time')),
+          el('span', { class: 'ctl-tag' }, loading ? '…' : 'Off')),
+        el('div', { class: 'ctl-empty' },
+          el('div', { class: 'ctl-empty-icon' }, svg('clock', 22)),
+          el('b', {}, 'Usage access is off'),
+          el('p', {}, 'Android only shares per-app foreground time with apps you allow. Lockin reads the app name and the minutes — never page content, text or keystrokes.'),
+          el('button', {
+            class: 'btn btn-subtle btn-sm',
+            onclick: () => openUsageAccessSettings(),
+          }, 'Open usage access')),
+      );
+      return;
+    }
+
+    node.replaceChildren(
+      el('div', { class: 'ctl-card-head' },
+        el('h2', { class: 'blocking-head' }, svg('clock', 14), el('span', {}, 'Screen time')),
+        el('button', {
+          class: 'iconbtn', 'aria-label': 'Refresh screen time',
+          onclick: () => load(),
+        }, svg('refresh', 15))),
+      el('div', { class: 'ctl-kicker' }, 'Foreground time since midnight'),
+      el('div', { class: 'ctl-total' },
+        fmtDur(total),
+        el('small', {}, total > 0 ? 'on screen' : 'nothing yet')),
+      rail,
+      rows.length
+        ? el('div', { class: 'ctl-apps' },
+          rows.slice(0, 6).map((row) => el('div', { class: 'ctl-app' },
+            el('span', { class: 'ctl-app-name' }, row.label),
+            el('span', { class: 'ctl-app-time' }, fmtDur(row.ms)),
+            el('span', { class: 'ctl-app-bar' },
+              el('i', { style: `width:${Math.max(2, Math.round((row.ms / max) * 100))}%` })))))
+        : el('p', { class: 'muted ctl-first' },
+          'No foreground time recorded yet today. Pick up the phone and this fills in.'),
+      el('div', { class: 'set-screen-foot' },
+        el('p', { class: 'tiny' },
+          'Per-app foreground time from Android. It stays on this phone.'),
+        el('button', {
+          class: 'btn btn-subtle btn-sm',
+          onclick: () => Router.go('/control'),
+        }, svg('shield', 14), 'Limits & blocking')),
+    );
+  };
+
+  async function load() {
+    const [status, today, daily] = await Promise.all([
+      nativeStatus(), queryUsageToday(), queryUsageDaily(7),
+    ]);
+    usageOn = Boolean(status?.usage);
+    rows = today;
+    week = daily;
+    loading = false;
+    paint();
+  }
+
+  const onVisible = () => {
+    if (!document.contains(node)) {
+      removeEventListener('visibilitychange', onVisible);
+      return;
+    }
+    if (!document.hidden) load();
+  };
+  addEventListener('visibilitychange', onVisible);
+  setTimeout(load, 0);
+
+  paint();
+  return node;
+}
+
 function nativeCard() {
   if (!isNative) return null;
 
@@ -112,9 +227,11 @@ function nativeCard() {
   const notifPill = pill(false);
   const fullPill = pill(false, 'On', 'Heads-up');
   const usagePill = pill(false);
+  const accessPill = pill(false);
   const exactBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openExactAlarmSettings() }, 'Settings');
   const fullBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openFullScreenIntentSettings() }, 'Allow');
   const usageBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openUsageAccessSettings() }, 'Open');
+  const accessBtn = el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openAccessibilitySettings() }, 'Enable');
   const notifBtn = el('button', { class: 'btn btn-subtle btn-sm' }, 'Allow');
 
   const refresh = async () => {
@@ -132,11 +249,14 @@ function nativeCard() {
     fullPill.classList.toggle('on', st.fullScreen);
     usagePill.textContent = st.usage ? 'On' : 'Off';
     usagePill.classList.toggle('on', st.usage);
+    accessPill.textContent = st.accessibility ? 'On' : 'Off';
+    accessPill.classList.toggle('on', st.accessibility);
     notifBtn.textContent = st.notifications ? 'Settings' : 'Allow';
     notifBtn.onclick = st.notifications
       ? () => openNotificationSettings()
       : async () => { await requestNotifications(); refresh(); };
     fullBtn.textContent = st.fullScreen ? 'Settings' : 'Allow';
+    accessBtn.textContent = st.accessibility ? 'Settings' : 'Enable';
   };
 
   const onVisible = () => { if (!document.hidden) refresh(); };
@@ -154,289 +274,31 @@ function nativeCard() {
     setrow('Full-screen alarm',
       'On Android 14+, a start alarm can take over the lock screen. If Android denies it, the alarm still arrives as a loud heads-up — never silently.',
       el('div', { class: 'native-ctrl' }, fullPill, fullBtn)),
+    setrow('Accessibility service',
+      'Lets Lockin see which app comes to the front, so blocking and per-app limits can work. It never reads screen content, text or keystrokes.',
+      el('div', { class: 'native-ctrl' }, accessPill, accessBtn)),
     setrow('Usage access',
-      'Reads per-app foreground time for the screen-time panel. Lockin can open the setting, but only you can grant it.',
+      'Reads per-app foreground time for the screen-time card below. Lockin can open the setting, but only you can grant it.',
       el('div', { class: 'native-ctrl' }, usagePill, usageBtn)),
     el('p', { class: 'tiny', style: 'margin:12px 0 0' },
       'Lockin reads how long an app was in the foreground. It does not read page content, keystrokes or files.'),
   );
 }
 
-/* ---------- app blocking ---------- */
+/* ---------- Control pointer ---------- */
 
-function whenLabel(ts) {
-  const d = new Date(ts);
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (d.toDateString() === new Date().toDateString()) return `today ${time}`;
-  return `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
-}
-
-function blockingCard() {
+function deviceCard() {
   if (!isNative) return null;
-
-  let state = {
-    service: false, enabled: false, packages: [], windowCount: 0, active: null, next: null,
-  };
-  let apps = [];
-  let loadedApps = false;
-  let ready = false;
-  let loadError = false;
-  let query = '';
-  let saving = false;
-  let dirty = false;
-  let failed = false;
-
-  const servicePill = pill(false, 'On', 'Off');
-  const serviceBtn = el('button', {
-    class: 'btn btn-subtle btn-sm',
-    onclick: () => openAccessibilitySettings(),
-  }, 'Enable');
-
-  const master = el('button', {
-    class: 'switch', role: 'switch', 'aria-checked': 'false',
-    onclick: () => setEnabled(!state.enabled),
-  });
-
-  const summary = el('p', { class: 'tiny blocking-summary' });
-  const count = el('span', { class: 'blocking-count' }, '0 selected');
-  const search = el('input', {
-    class: 'inp', type: 'search', placeholder: 'Search apps…', 'aria-label': 'Search apps',
-    autocomplete: 'off', spellcheck: 'false',
-    oninput: () => { query = search.value.trim().toLowerCase(); renderApps(); },
-  });
-  const list = el('div', { class: 'app-list', role: 'group', 'aria-label': 'Apps to block' });
-  const listWrap = el('div', { class: 'app-list-wrap' }, list);
-
-  const syncFade = () => {
-    listWrap.classList.toggle('more',
-      list.scrollHeight - list.scrollTop - list.clientHeight > 4);
-  };
-  list.addEventListener('scroll', syncFade);
-
-  /* Saves are serialized: tapping three apps quickly sends the latest list
-     once the in-flight save returns, instead of dropping two of the taps. */
-  async function save() {
-    if (!ready) return;
-    if (saving) { dirty = true; return; }
-    saving = true;
-    failed = false;
-    paint();
-    try {
-      do {
-        dirty = false;
-        const result = await saveBlocking({ enabled: state.enabled, packages: state.packages });
-        if (!result) {
-          failed = true;
-          break;
-        }
-        state = { ...state, ...result, packages: state.packages };
-      } while (dirty);
-    } finally {
-      saving = false;
-      if (failed) {
-        const actual = await blockingStatus();
-        if (actual) state = actual;
-      }
-      paint();
-    }
-  }
-
-  function setEnabled(on) {
-    if (!ready) return;
-    state.enabled = on;
-    paint();
-    save();
-  }
-
-  function toggleApp(pkg) {
-    if (!ready) return;
-    const set = new Set(state.packages);
-    if (set.has(pkg)) set.delete(pkg); else set.add(pkg);
-    state.packages = [...set];
-    paint();
-    save();
-  }
-
-  function renderApps() {
-    const scroll = list.scrollTop;
-    list.replaceChildren();
-    if (!loadedApps) {
-      list.append(el('p', { class: 'app-empty' }, 'Reading installed apps…'));
-      syncFade();
-      return;
-    }
-
-    const chosen = new Set(state.packages);
-    const matches = apps.filter((app) => !query
-      || app.label.toLowerCase().includes(query)
-      || app.package.toLowerCase().includes(query));
-
-    if (!matches.length) {
-      list.append(el('p', { class: 'app-empty' },
-        apps.length ? 'No app matches that.' : 'No launchable apps found.'));
-      syncFade();
-      return;
-    }
-
-    const shown = matches.slice(0, 80);
-    for (const app of shown) {
-      const on = chosen.has(app.package);
-      list.append(el('button', {
-        class: `app-row${on ? ' on' : ''}`,
-        type: 'button',
-        'aria-pressed': String(on),
-        disabled: !ready,
-        title: app.package,
-        onclick: () => toggleApp(app.package),
-      },
-        el('span', { class: 'app-check' }, on ? svg('check', 13) : ''),
-        el('span', { class: 'app-name' }, app.label),
-      ));
-    }
-
-    if (matches.length > shown.length) {
-      list.append(el('p', { class: 'app-empty' },
-        `${matches.length - shown.length} more — keep typing to narrow the list.`));
-    }
-    list.scrollTop = scroll;
-    syncFade();
-  }
-
-  function paint() {
-    servicePill.textContent = state.service ? 'On' : 'Off';
-    servicePill.classList.toggle('on', state.service);
-    serviceBtn.textContent = state.service ? 'Settings' : 'Enable';
-
-    master.setAttribute('aria-checked', String(state.enabled));
-    master.disabled = !ready || saving;
-    count.textContent = `${state.packages.length} selected`;
-
-    let text;
-    let warn = false;
-    if (!ready) {
-      text = loadError
-        ? 'Could not read the blocking state. Reopen Settings to try again.'
-        : 'Reading blocking status…';
-      warn = loadError;
-    } else if (failed) {
-      text = 'Could not save that change. Try again.';
-      warn = true;
-    } else if (!state.service) {
-      text = 'Service off — nothing is blocked yet. Enable the service, then pick apps.';
-      warn = true;
-    } else if (!state.enabled) {
-      text = 'Service on. Blocking is switched off.';
-    } else if (!state.packages.length) {
-      text = 'Service on, but no apps are selected.';
-      warn = true;
-    } else if (state.active) {
-      text = `Blocking now: ${state.active.label} · until ${whenLabel(state.active.end).replace(/^today /, '')}.`;
-    } else if (state.next) {
-      text = `Next window: ${state.next.label} · ${whenLabel(state.next.start)}.`;
-    } else {
-      text = 'No focus windows in the next 14 days. Add a schedule block or start a session.';
-    }
-    summary.textContent = text;
-    summary.classList.toggle('warn', warn);
-    renderApps();
-  }
-
-  const load = async () => {
-    const st = await blockingStatus();
-    if (st) {
-      state = st;
-      ready = true;
-    } else {
-      loadError = true;
-    }
-    paint();
-    if (!loadedApps) {
-      apps = await listLaunchableApps();
-      loadedApps = true;
-      renderApps();
-    }
-  };
-
-  const refresh = async () => {
-    if (!document.contains(servicePill)) {
-      removeEventListener('visibilitychange', onVisible);
-      return;
-    }
-    if (saving) return; // the in-flight save is the newer truth
-    const st = await blockingStatus();
-    if (!st) return;
-    state = st;
-    ready = true;
-    loadError = false;
-    paint();
-  };
-  const onVisible = () => { if (!document.hidden) refresh(); };
-  addEventListener('visibilitychange', onVisible);
-  setTimeout(load, 0); // the card is appended right after this returns
-
-  return el('div', { class: 'card' },
-    el('h2', { class: 'blocking-head' }, svg('lock', 14), el('span', {}, 'App blocking')),
-    setrow('Accessibility service',
-      'Android needs it to see which app comes to the front. Lockin never reads screen content, text or keystrokes.',
-      el('div', { class: 'native-ctrl' }, servicePill, serviceBtn)),
-    setrow('Block selected apps',
-      'Only during schedule blocks and Study Mode sessions. Your launcher, Settings and the dialer stay reachable.',
-      master),
-    summary,
-    el('div', { class: 'blocking-picker' },
-      el('div', { class: 'blocking-picker-head' },
-        el('b', {}, 'Apps to block'), count),
-      search,
-      listWrap,
-      el('p', { class: 'tiny' },
-        'Only apps with a launcher icon are listed. Lockin, your launcher, Settings and the dialer are never blocked.'),
-      el('p', { class: 'tiny' },
-        'The overlay appears when an app comes to the front, and within about 15 seconds if it was already open when a window starts.')),
-  );
-}
-
-function screenTimeCard() {
-  if (!isNative) return null;
-
-  const out = el('div', { class: 'native-usage' });
-  const btn = el('button', {
-    class: 'btn btn-subtle btn-block',
-    onclick: async () => {
-      btn.disabled = true;
-      btn.textContent = 'Reading usage…';
-      renderUsage(await queryUsage(7));
-      btn.disabled = false;
-      btn.textContent = 'Refresh 7-day screen time';
-    },
-  }, svg('clock', 16), 'Scan 7-day screen time');
-
-  function renderUsage(rows) {
-    out.replaceChildren();
-    if (!rows.length) {
-      out.append(el('p', { class: 'muted', style: 'margin:0' },
-        'Nothing to show yet. Grant usage access above, then scan.'));
-      return;
-    }
-    const total = rows.reduce((sum, row) => sum + row.ms, 0);
-    const max = Math.max(...rows.map((row) => row.ms), 1);
-    out.append(el('div', { class: 'native-total' },
-      el('span', {}, 'Last 7 days'),
-      el('b', {}, fmtMin(Math.round(total / 60000)))));
-    for (const row of rows.slice(0, 8)) {
-      out.append(el('div', { class: 'native-usage-row' },
-        el('b', {}, row.label),
-        el('span', {}, row.ms < 60000 ? '<1m' : fmtMin(Math.round(row.ms / 60000))),
-        el('div', { class: 'native-usage-bar' },
-          el('i', { style: `width:${Math.max(2, Math.round((row.ms / max) * 100))}%` }))));
-    }
-  }
-
-  return el('div', { class: 'card' },
-    el('h2', {}, 'Screen time'),
-    el('p', { class: 'muted', style: 'margin:0 0 12px' },
-      'Per-app foreground time from Android’s usage access. It stays on this device.'),
-    btn,
-    out,
+  return el('div', { class: 'card ctl-pointer' },
+    el('h2', { class: 'blocking-head' }, svg('shield', 14), el('span', {}, 'App blocking & strict mode')),
+    el('p', { class: 'muted ctl-lede' },
+      'Choose which apps are covered during focus, set a daily allowance per app, add short-video and feed presets, and arm the strict kiosk. All of it stays on this phone.'),
+    el('button', {
+      class: 'btn btn-subtle btn-block',
+      onclick: () => Router.go('/control'),
+    }, svg('shield', 16), 'Open Control'),
+    el('p', { class: 'tiny', style: 'margin:10px 0 0' },
+      'Permissions for these features stay one card above, under Android.'),
   );
 }
 
@@ -576,7 +438,7 @@ function accountCard() {
             class: `btn btn-primary btn-block${st.signingIn ? ' is-busy' : ''}`,
             disabled: st.signingIn,
             onclick: () => signIn(),
-          }, svg('cloud', 16), st.signingIn ? 'Signing in…' : 'Sign in with Google'),
+          }, svg('google', 16), st.signingIn ? 'Signing in…' : 'Sign in with Google'),
         ),
         st.error ? el('p', { class: 'acct-error' }, st.error) : null,
       );
@@ -671,7 +533,7 @@ function render(host) {
     ),
     group('Focus', enforcementCard(), pomoCard()),
     group('Schedule', alarmsCard()),
-    ...(isNative ? [group('Android', nativeCard(), blockingCard(), screenTimeCard())] : []),
+    ...(isNative ? [group('Android', screenTimeCard(), nativeCard(), deviceCard())] : []),
     group('You', profileCard(), lookCard()),
     group('Account', accountCard()),
     group('Your data', dataCard()),
