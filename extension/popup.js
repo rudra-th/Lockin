@@ -99,9 +99,17 @@ function nextLimit(cur, dir) {
 let state = null;
 let countdownTimer = 0;
 let sitesOpen = false;
+let pendingFocus = '';
+
+function announce(text) {
+  const el = document.getElementById('a11y-status');
+  if (el) el.textContent = text;
+}
 
 function render() {
   clearInterval(countdownTimer);
+  const active = document.activeElement;
+  if (active && $app.contains(active) && active.dataset.focus) pendingFocus = active.dataset.focus;
   $app.replaceChildren();
   if (!state) return;
 
@@ -162,7 +170,7 @@ function render() {
         h('div', {},
           h('b', { 'data-left': '' }, leftLabel(state.blockUntil - now)),
           h('span', {}, 'left')),
-        h('button', { class: 'endblock', type: 'button', onclick: endBlock }, 'End block')));
+        h('button', { class: 'endblock', type: 'button', 'data-focus': 'end-block', onclick: endBlock }, 'End block')));
     $app.append(card);
   } else {
     $app.append(h('section', { class: 'blockcard' },
@@ -171,7 +179,7 @@ function render() {
         h('div', { class: 'blockmeta' }, `${activeSites.length} on the list`)),
       h('div', { class: 'durations' },
         [25, 45, 60].map((m) => h('button', {
-          class: 'dur', type: 'button', onclick: () => startBlock(m),
+          class: 'dur', type: 'button', 'data-focus': `dur-${m}`, onclick: () => startBlock(m),
           'aria-label': `Block for ${m} minutes`,
         }, m === 60 ? '1h' : `${m}m`)))));
   }
@@ -186,6 +194,7 @@ function render() {
       class: `switch${shortsOn ? ' on' : ''}`,
       type: 'button',
       role: 'switch',
+      'data-focus': 'shorts',
       'aria-checked': String(shortsOn),
       'aria-label': 'Block short-video feeds',
       onclick: toggleShorts,
@@ -205,6 +214,7 @@ function render() {
       const pct = limit > 0 ? Math.min(100, Math.round((used / (limit * 60)) * 100)) : 0;
       const box = h('input', {
         type: 'checkbox', checked: !state.off[site],
+        'data-focus': `site-${site}`,
         onchange: () => toggleSite(site, box.checked),
         'aria-label': `Block ${site}`,
       });
@@ -214,7 +224,7 @@ function render() {
         h('div', { class: 'site-top' },
           h('label', { class: 'site-name' }, box, h('span', {}, site)),
           h('button', {
-            class: 'remove', type: 'button', 'aria-label': `Remove ${site}`,
+            class: 'remove', type: 'button', 'data-focus': `remove-${site}`, 'aria-label': `Remove ${site}`,
             onclick: () => removeSite(site),
             innerHTML: icon('<path d="M6 6l12 12M18 6 6 18"/>', 12),
           })),
@@ -230,12 +240,12 @@ function render() {
             limit > 0 ? `${short(used)} / ${limit}m` : `${short(used)} today`),
           h('div', { class: 'stepper', role: 'group', 'aria-label': `Daily limit for ${site}` },
             h('button', {
-              class: 'step', type: 'button', 'aria-label': `Lower limit for ${site}`,
+              class: 'step', type: 'button', 'data-focus': `limit-${site}-down`, 'aria-label': `Lower limit for ${site}`,
               disabled: limit === 0, onclick: () => setLimit(site, -1),
             }, '−'),
             h('span', { class: 'lim-val' }, limit ? `${limit}m` : 'Off'),
             h('button', {
-              class: 'step', type: 'button', 'aria-label': `Raise limit for ${site}`,
+              class: 'step', type: 'button', 'data-focus': `limit-${site}-up`, 'aria-label': `Raise limit for ${site}`,
               disabled: limit >= LIMIT_STEPS[LIMIT_STEPS.length - 1],
               onclick: () => setLimit(site, 1),
             }, '+'))),
@@ -247,7 +257,7 @@ function render() {
 
   const input = h('input', {
     type: 'text', placeholder: 'add a site, e.g. news.ycombinator.com',
-    autocomplete: 'off', spellcheck: false, 'aria-label': 'Add a site to block',
+    autocomplete: 'off', spellcheck: false, 'aria-label': 'Add a site to block', 'data-focus': 'add-input',
   });
   details.append(h('form', {
     class: 'addform',
@@ -255,7 +265,7 @@ function render() {
       ev.preventDefault();
       addSite(input.value);
     },
-  }, input, h('button', { type: 'submit' }, 'Add')));
+  }, input, h('button', { type: 'submit', 'data-focus': 'add-submit' }, 'Add')));
   $app.append(details);
 
   /* footer */
@@ -275,18 +285,38 @@ function render() {
       out.textContent = leftLabel(ms);
     }, 1000);
   }
+
+  /* A mutation re-renders the whole popup. Put focus back on the control that
+     caused it, or on the title when that control no longer exists. */
+  if (pendingFocus) {
+    const key = pendingFocus;
+    pendingFocus = '';
+    const next = $app.querySelector(`[data-focus="${CSS.escape(key)}"]`);
+    if (next && !next.disabled) {
+      next.focus({ preventScroll: true });
+    } else {
+      const heading = $app.querySelector('h1');
+      if (heading) {
+        heading.setAttribute('tabindex', '-1');
+        heading.focus({ preventScroll: true });
+      }
+    }
+  }
 }
 
 async function startBlock(mins) {
   await mutate((s) => { s.blockUntil = Date.now() + mins * 60000; });
+  announce(`Block set for ${mins} minutes.`);
 }
 
 async function endBlock() {
   await mutate((s) => { s.blockUntil = 0; });
+  announce('Block ended.');
 }
 
 async function toggleShorts() {
   await mutate((s) => { s.shorts = s.shorts === false; });
+  announce(state.shorts === false ? 'Short-video blocking off.' : 'Short-video blocking on.');
 }
 
 async function toggleSite(site, on) {
@@ -294,6 +324,7 @@ async function toggleSite(site, on) {
     if (on) delete s.off[site];
     else s.off[site] = true;
   });
+  announce(`${site} ${on ? 'blocked' : 'unblocked'}.`);
 }
 
 async function removeSite(site) {
@@ -302,6 +333,7 @@ async function removeSite(site) {
     delete s.off[site];
     delete s.limits[site];
   });
+  announce(`${site} removed.`);
 }
 
 async function setLimit(site, dir) {
@@ -310,6 +342,8 @@ async function setLimit(site, dir) {
     if (next) s.limits[site] = next;
     else delete s.limits[site];
   });
+  const limit = limitMinutes(state.limits, site);
+  announce(limit ? `${site} limit set to ${limit} minutes.` : `${site} limit removed.`);
 }
 
 async function addSite(raw) {
@@ -319,6 +353,7 @@ async function addSite(raw) {
     if (!s.sites.includes(site)) s.sites.push(site);
     delete s.off[site];
   });
+  announce(`${site} added.`);
 }
 
 (async () => {

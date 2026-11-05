@@ -9,7 +9,7 @@
   --line-2: rgba(255, 255, 255, 0.16);
   --tx: #eef0e6;
   --tx-2: #a7ac9e;
-  --tx-3: #71766a;
+  --tx-3: #7f8578;   /* 4.9:1 on the panel, 5.2:1 on the canvas */
   --acc: #c6f24e;
   --acc-ink: #0b0d12;
   --danger: #ff7a66;
@@ -61,6 +61,19 @@ body {
 }
 
 #app { padding: 18px 18px 16px; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* ---------- header ---------- */
 

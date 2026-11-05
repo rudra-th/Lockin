@@ -64,6 +64,10 @@ the Android shell follows once it ships.
   so a closed laptop cannot bank hours, popup writes re-read state before
   mutating it, subdomains canonicalise to the saved domain, and an expired block
   gets a real **Back to the site** route.
+- The popup now announces each change through its own live region instead of
+  making the whole panel live, names every stepper, checkbox and duration
+  button, and puts focus back on the control that changed (or on the heading
+  when it disappears). Tertiary text was lightened to clear WCAG AA.
 
 ### Accessibility and contrast
 
