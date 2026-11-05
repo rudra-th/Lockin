@@ -71,6 +71,8 @@ the Android shell follows once it ships.
   making the whole panel live, names every stepper, checkbox and duration
   button, and puts focus back on the control that changed (or on the heading
   when it disappears). Tertiary text was lightened to clear WCAG AA.
+- Adding a site explains a bad entry instead of silently doing nothing, and
+  says when the site is already on the list.
 
 ### Accessibility and contrast
 

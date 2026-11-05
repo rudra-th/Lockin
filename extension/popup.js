@@ -259,13 +259,23 @@ function render() {
     type: 'text', placeholder: 'add a site, e.g. news.ycombinator.com',
     autocomplete: 'off', spellcheck: false, 'aria-label': 'Add a site to block', 'data-focus': 'add-input',
   });
+  const addHint = h('p', { class: 'addhint', role: 'alert' });
   details.append(h('form', {
     class: 'addform',
-    onsubmit: (ev) => {
+    onsubmit: async (ev) => {
       ev.preventDefault();
-      addSite(input.value);
+      const outcome = await addSite(input.value);
+      if (outcome === 'bad') {
+        addHint.textContent = 'That does not look like a site. Try news.ycombinator.com.';
+        input.classList.add('is-bad');
+        input.focus();
+        return;
+      }
+      addHint.textContent = '';
+      input.classList.remove('is-bad');
+      if (outcome === 'dup') announce(`${cleanDomain(input.value)} is already on the list.`);
     },
-  }, input, h('button', { type: 'submit', 'data-focus': 'add-submit' }, 'Add')));
+  }, input, h('button', { type: 'submit', 'data-focus': 'add-submit' }, 'Add')), addHint);
   $app.append(details);
 
   /* footer */
@@ -348,12 +358,14 @@ async function setLimit(site, dir) {
 
 async function addSite(raw) {
   const site = cleanDomain(raw);
-  if (!site) return;
+  if (!site) return 'bad';
+  if (state.sites.includes(site)) return 'dup';
   await mutate((s) => {
     if (!s.sites.includes(site)) s.sites.push(site);
     delete s.off[site];
   });
   announce(`${site} added.`);
+  return 'added';
 }
 
 (async () => {
