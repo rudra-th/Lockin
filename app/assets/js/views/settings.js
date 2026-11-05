@@ -633,6 +633,11 @@ function render(host, params = {}) {
     });
     history.replaceState(null, '', `#/settings?section=${id}`);
     scrollHost.scrollTop = 0;
+    const status = document.getElementById('a11y-status');
+    if (status) {
+      const meta = SECTIONS.find((s) => s.id === id);
+      status.textContent = `${meta ? meta.label : id} settings section`;
+    }
   }
 
   host.append(el('section', { class: 'view-anim stagger' },
