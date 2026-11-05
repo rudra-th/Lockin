@@ -555,7 +555,12 @@ function setupScreen() {
     Number(q.get('min')) || Number(Store.state.settings.lastMin) || pomoSettings.focus || 25));
   let rounds = 1;
   let pomo = false;
-  let mode = q.get('mode') === 'stop' ? 'stop' : (Store.state.settings.lastMode === 'stop' ? 'stop' : 'timer');
+  /* A link may pin the mode (?mode=timer from Home's Start button); without
+     one the tab remembers what you used last. */
+  const qMode = q.get('mode');
+  let mode = qMode === 'stop' || qMode === 'timer'
+    ? qMode
+    : (Store.state.settings.lastMode === 'stop' ? 'stop' : 'timer');
   const pickedTasks = new Set();
   const tasksToday = Store.openTasks(todayKey());
 
