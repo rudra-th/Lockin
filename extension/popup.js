@@ -7,7 +7,7 @@ import {
 } from './core/limits.js';
 
 const KEY = 'lockin.ext';
-const DEFAULTS = { sites: [], off: {}, limits: {}, blockUntil: 0, usage: {} };
+const DEFAULTS = { sites: [], off: {}, limits: {}, shorts: true, blockUntil: 0, usage: {} };
 const LIMIT_STEPS = [0, 10, 15, 20, 25, 30, 45, 60, 90, 120];
 
 const $app = document.getElementById('app');
@@ -39,9 +39,18 @@ async function read() {
   return state;
 }
 
-async function write(state) {
-  await chrome.storage.local.set({ [KEY]: state });
+/**
+ * Read-modify-write against the newest stored state. The popup can sit open
+ * while the worker commits usage; writing the copy read at open time would
+ * roll the day's clock backwards.
+ */
+async function mutate(fn) {
+  const next = await read();
+  fn(next);
+  await chrome.storage.local.set({ [KEY]: next });
+  state = next;
   try { await chrome.runtime.sendMessage({ type: 'sync' }); } catch (_) { /* worker asleep */ }
+  render();
 }
 
 function cleanDomain(raw) {
@@ -167,6 +176,21 @@ function render() {
         }, m === 60 ? '1h' : `${m}m`)))));
   }
 
+  /* short videos */
+  const shortsOn = state.shorts !== false;
+  $app.append(h('section', { class: `shortcard${shortsOn ? ' on' : ''}` },
+    h('div', { class: 'shortcopy' },
+      h('div', { class: 'blocktitle' }, 'Short videos'),
+      h('div', { class: 'blockmeta' }, 'Shorts · Reels · Spotlight')),
+    h('button', {
+      class: `switch${shortsOn ? ' on' : ''}`,
+      type: 'button',
+      role: 'switch',
+      'aria-checked': String(shortsOn),
+      'aria-label': 'Block short-video feeds',
+      onclick: toggleShorts,
+    }, h('i', {}))));
+
   /* sites */
   const details = h('details', {
     class: 'sites', open: sitesOpen,
@@ -254,47 +278,47 @@ function render() {
 }
 
 async function startBlock(mins) {
-  state.blockUntil = Date.now() + mins * 60000;
-  await write(state);
-  render();
+  await mutate((s) => { s.blockUntil = Date.now() + mins * 60000; });
 }
 
 async function endBlock() {
-  state.blockUntil = 0;
-  await write(state);
-  render();
+  await mutate((s) => { s.blockUntil = 0; });
+}
+
+async function toggleShorts() {
+  await mutate((s) => { s.shorts = s.shorts === false; });
 }
 
 async function toggleSite(site, on) {
-  if (on) delete state.off[site];
-  else state.off[site] = true;
-  await write(state);
-  render();
+  await mutate((s) => {
+    if (on) delete s.off[site];
+    else s.off[site] = true;
+  });
 }
 
 async function removeSite(site) {
-  state.sites = state.sites.filter((s) => s !== site);
-  delete state.off[site];
-  delete state.limits[site];
-  await write(state);
-  render();
+  await mutate((s) => {
+    s.sites = s.sites.filter((x) => x !== site);
+    delete s.off[site];
+    delete s.limits[site];
+  });
 }
 
 async function setLimit(site, dir) {
-  const next = nextLimit(limitMinutes(state.limits, site), dir);
-  if (next) state.limits[site] = next;
-  else delete state.limits[site];
-  await write(state);
-  render();
+  await mutate((s) => {
+    const next = nextLimit(limitMinutes(s.limits, site), dir);
+    if (next) s.limits[site] = next;
+    else delete s.limits[site];
+  });
 }
 
 async function addSite(raw) {
   const site = cleanDomain(raw);
   if (!site) return;
-  if (!state.sites.includes(site)) state.sites.push(site);
-  delete state.off[site];
-  await write(state);
-  render();
+  await mutate((s) => {
+    if (!s.sites.includes(site)) s.sites.push(site);
+    delete s.off[site];
+  });
 }
 
 (async () => {

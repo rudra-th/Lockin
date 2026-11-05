@@ -5,7 +5,9 @@
 import { dateKey } from './core/time.js';
 import {
   isSpent as allowanceSpent, spentSites as spentSet, msUntilReset,
+  matchSite, creditedSeconds,
 } from './core/limits.js';
+import { isShortsUrl, shortsFilters } from './core/shorts.js';
 
 const KEY = 'lockin.ext';
 const TICK = 'lockin.tick';
@@ -15,6 +17,7 @@ const DEFAULTS = {
   sites: DEFAULT_SITES,
   off: {},                 // domain -> true when the user unchecks it
   limits: {},              // domain -> daily allowance in minutes (absent = none)
+  shorts: true,            // block short-video feeds (Shorts, Reels, Spotlight)
   blockUntil: 0,           // epoch ms; 0 means no block
   usage: {},               // { 'YYYY-MM-DD': { domain: seconds } }
   active: null,            // { domain, since }
@@ -63,6 +66,11 @@ function isSpentNow(domain, now = Date.now()) {
   return allowanceSpent(state?.limits, state?.usage, domain, now);
 }
 
+/** Usage and limits live on the configured site, never on a subdomain. */
+function siteOf(raw) {
+  return matchSite(raw, state?.sites);
+}
+
 function spentToday(now = Date.now()) {
   return spentSet(state?.sites, state?.off, state?.limits, state?.usage, now);
 }
@@ -71,21 +79,40 @@ function blockedPath(domain, why) {
   return `/blocked.html?d=${encodeURIComponent(domain)}&why=${why}`;
 }
 
-async function redirectSpent(tab, domain) {
-  if (!tab?.id || !domain || state?.off?.[domain] || !isSpentNow(domain)) return;
-  await chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(blockedPath(domain, 'limit')) });
+/** Redirect a tab that is already loaded. DNR only sees future navigations. */
+async function redirectIfBlocked(tab) {
+  if (!tab?.id || !tab.url) return;
+  const raw = domainOf(tab.url);
+  if (!raw) return;
+  const site = siteOf(raw);
+  if (site && !state?.off?.[site]) {
+    if (state.blockUntil > Date.now()) {
+      await chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(blockedPath(site, 'block')) });
+      return;
+    }
+    if (isSpentNow(site)) {
+      await chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(blockedPath(site, 'limit')) });
+      return;
+    }
+  }
+  if (state?.shorts !== false && isShortsUrl(tab.url)) {
+    await chrome.tabs.update(tab.id, {
+      url: chrome.runtime.getURL(blockedPath(site || raw, 'shorts')),
+    });
+  }
 }
 
 /* ---------- usage ---------- */
 
 function commit(now = Date.now()) {
   if (!state?.active) return;
-  const secs = Math.round((now - state.active.since) / 1000);
+  /* A gap after sleep or a killed worker is not time on screen: cap it. */
+  const secs = creditedSeconds(now - state.active.since);
+  state.active.since = now;
   if (secs <= 0) return;
   const day = dateKey(new Date(now));
   const bucket = state.usage[day] || (state.usage[day] = {});
   bucket[state.active.domain] = (bucket[state.active.domain] || 0) + secs;
-  state.active.since = now;
 }
 
 async function setActive(domain) {
@@ -102,14 +129,14 @@ async function activeTab() {
 
 async function trackFocusedTab() {
   const tab = await activeTab();
-  const domain = tab && tab.url ? domainOf(tab.url) : null;
-  await setActive(domain);
-  await redirectSpent(tab, domain);
+  const raw = tab && tab.url ? domainOf(tab.url) : null;
+  await setActive(raw ? siteOf(raw) || raw : null);
+  if (tab) await redirectIfBlocked(tab);
 }
 
-async function enforceSpentTab() {
+async function enforceActiveTab() {
   const tab = await activeTab();
-  await redirectSpent(tab, tab && tab.url ? domainOf(tab.url) : null);
+  if (tab) await redirectIfBlocked(tab);
 }
 
 /* ---------- blocking ---------- */
@@ -134,7 +161,7 @@ async function syncRules() {
     if (!why) continue;
     addRules.push({
       id: id++,
-      priority: 1,
+      priority: manual ? 3 : 2,
       action: {
         type: 'redirect',
         redirect: { extensionPath: blockedPath(site, why) },
@@ -144,6 +171,25 @@ async function syncRules() {
         resourceTypes: ['main_frame'],
       },
     });
+  }
+
+  /* Short feeds are their own toggle: they hold even when the whole site is
+     not on the list, and lose to a manual block or a spent allowance. */
+  if (state.shorts !== false) {
+    for (const { filter, host } of shortsFilters()) {
+      addRules.push({
+        id: id++,
+        priority: 1,
+        action: {
+          type: 'redirect',
+          redirect: { extensionPath: blockedPath(host, 'shorts') },
+        },
+        condition: {
+          urlFilter: filter,
+          resourceTypes: ['main_frame'],
+        },
+      });
+    }
   }
 
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
@@ -191,7 +237,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   await load();
   commit();
   await save();
-  await enforceSpentTab();
+  await enforceActiveTab();
   await syncRules();
 });
 
@@ -201,9 +247,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (!tab.active) return;
   if (changeInfo.url || changeInfo.status === 'complete') {
     await load();
-    const domain = tab.url ? domainOf(tab.url) : null;
-    await setActive(domain);
-    await redirectSpent({ id: tabId }, domain);
+    const raw = tab.url ? domainOf(tab.url) : null;
+    await setActive(raw ? siteOf(raw) || raw : null);
+    await redirectIfBlocked({ id: tabId, url: tab.url });
   }
 });
 
@@ -221,7 +267,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
      worker's cached copy before rebuilding, or it rebuilds from stale state
      and the block the user just started never reaches the ruleset. */
   state = null;
-  syncRules().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+  load()
+    .then(() => syncRules())
+    .then(() => enforceActiveTab())
+    .then(() => sendResponse({ ok: true }))
+    .catch(() => sendResponse({ ok: false }));
   return true;
 });
 
