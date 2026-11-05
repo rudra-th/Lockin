@@ -181,7 +181,12 @@ function screenTimeCard() {
           rows.slice(0, 6).map((row) => el('div', { class: 'ctl-app' },
             el('span', { class: 'ctl-app-name' }, row.label),
             el('span', { class: 'ctl-app-time' }, fmtDur(row.ms)),
-            el('span', { class: 'ctl-app-bar' },
+            el('span', {
+              class: 'ctl-app-bar', role: 'progressbar',
+              'aria-valuemin': '0', 'aria-valuemax': '100',
+              'aria-valuenow': String(Math.round((row.ms / max) * 100)),
+              'aria-label': `${row.label}: ${fmtDur(row.ms)} today`,
+            },
               el('i', { style: `width:${Math.max(2, Math.round((row.ms / max) * 100))}%` })))))
         : el('p', { class: 'muted ctl-first' },
           'No foreground time recorded yet today. Pick up the phone and this fills in.'),

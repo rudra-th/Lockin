@@ -171,7 +171,7 @@ function focusCard({ focusMin, live, suggestedMin }) {
       class: 'btn btn-primary btn-block',
       onclick: () => Router.go(live ? '/focus' : `/focus?min=${suggestedMin}`),
     }, svg(live ? 'play' : 'lock', live ? 17 : 18), live ? 'Back to the room' : 'Start Study Mode',
-    live ? null : el('span', { class: 'mono', style: 'font-size:12.5px;opacity:0.75' }, `· ${suggestedMin}m`)),
+    live ? null : el('span', { class: 'mono', style: 'font-size:12.5px' }, `· ${suggestedMin}m`)),
   );
 
   function update(min, nowLive) {

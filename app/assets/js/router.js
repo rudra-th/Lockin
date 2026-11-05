@@ -30,7 +30,23 @@ export const Router = {
     this.current = view;
     view.mount(host, params);
     document.body.dataset.view = path.slice(1);
+    host.scrollTop = 0;
     window.scrollTo(0, 0);
+    this.announce(path);
+  },
+
+  /* One dedicated live region instead of aria-live on the whole view: screen
+     readers hear "Settings screen", not every timer repaint. */
+  announce(path) {
+    const status = document.getElementById('a11y-status');
+    if (!status) return;
+    const tab = document.querySelector(`.tabbar button[data-nav="#${path}"]`);
+    const name = tab?.getAttribute('aria-label')
+      || tab?.querySelector('span')?.textContent
+      || (path === '/start' ? 'Welcome' : '');
+    if (!name) return;
+    status.textContent = `${name} screen`;
+    document.title = `${name} — Lockin`;
   },
 
   start() {

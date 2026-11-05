@@ -65,6 +65,21 @@ the Android shell follows once it ships.
   mutating it, subdomains canonicalise to the saved domain, and an expired block
   gets a real **Back to the site** route.
 
+### Accessibility and contrast
+
+- Every settings switch, stepper and segmented control now takes its
+  accessible name from the row ("Strict Mode", "Daily focus goal"), stepper
+  values announce their changes, and progress bars expose a label and value.
+- A dedicated route announcer replaces `aria-live` on the whole view: a screen
+  reader hears "Settings screen" once per navigation instead of every timer
+  repaint. Tab changes also update the document title and reset the scroll
+  container.
+- Text and accent tokens meet WCAG AA in both themes. The light accent and
+  warning colours were darkened, and the `data-theme` token block is scoped to
+  `:root` so theme-preview buttons cannot inherit the other theme.
+- Reduced motion turns off smooth scrolling too, and decorative SVGs are
+  hidden from assistive technology.
+
 ### Verification and docs
 
 - `npm test` 88/88 (new short-video, auth-error and limit groups), `npm run
