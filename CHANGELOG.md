@@ -3,6 +3,64 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.13.1 — 2026-11-06
+
+### Share the day — and take it to the browser
+
+- **Share card.** Once today's target is met, Home and the done screen offer
+  **Share today**: a 1080×1350 PNG with the date, focus time, a ring filled
+  against the target (plus an over-target arrow), the student's name and the
+  Lockin mark. It shares through the Web Share API where files are supported and
+  falls back to a download with the caption copied. The "made by Rudra" credit
+  can be hidden before sharing.
+- **Cloud summary for the extension.** Focus minutes, daily goal and phone
+  screen time now sync, and the app publishes a read-only `public/{code}` summary
+  so the extension can show the phone's week after a one-time pairing code.
+  The Google email stays in the private tree and is never published.
+- **Pairing in Settings.** Settings → Account shows the code, lets you copy it
+  or rotate it, and the extension popup links with a paste.
+- **Quieter sync.** Identical remote data no longer counts as a change, cycles
+  wait for real local edits, the indicator settles instead of flashing, and
+  polling is slower.
+- **Profile picture fix.** Google avatars now resolve through the provider and
+  native Google result, with an initial fallback when the image cannot load.
+- **Mode switch fix.** Starting Study Mode from Home pins the timer once; picking
+  Stopwatch by hand now sticks instead of snapping back.
+- Removed the old "no analytics / no trackers / no network" copy now that sync
+  and the optional phone summary are real.
+
+### Release
+
+- Bumped to 1.13.1 (versionCode 231): signed release APK, extension zip and the
+  packed site deploy.
+
+## 1.13.0 — 2026-11-06
+
+### A calmer, easier app — screen time first
+
+- **Control is now the screen-time home.** A seven-day bar chart, today's total,
+  the delta against your week's average and the four most-used apps sit at the
+  top, next to the limits that act on them. On Android the numbers come from
+  `UsageStats`; in the trial they are clearly labelled demo data.
+- **One master switch per surface.** App blocking gains a single "Block selected
+  apps" switch, and Schedule gains "Schedule on / paused" that pauses or resumes
+  every recurring block at once.
+- **Bigger touch targets throughout.** Pill buttons at 54px, 46px minimum taps,
+  58px switches, 999px radii and calmer flat cards replace the smaller dense
+  controls. Card titles are sentence case instead of micro-caps.
+- **Less duplication.** The old screen-time card in Settings is now a single
+  pointer to Control, so there is one place for usage and one place for limits.
+- **Readable labels.** The heatmap, chart and schedule rows use body-size text
+  instead of 8–10px uppercase mono labels; repeating blocks show their days as
+  words rather than a letter strip.
+- The browser trial keeps its honest Android-only upgrade card; the web app at
+  `/app/` and the Android APK share the same redesigned source.
+
+### Release
+
+- Bumped to 1.13.0 (versionCode 230): signed release APK, extension zip and the
+  packed site deploy.
+
 ## 1.12.0 — 2026-11-05
 
 ### The landing page, the live trial, the upgrade path

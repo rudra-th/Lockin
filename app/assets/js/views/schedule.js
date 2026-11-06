@@ -151,8 +151,27 @@ function heroCard(now) {
     );
   }
 
+  const enabled = schedules.filter((s) => s.enabled).length;
+  const master = schedules.length
+    ? el('div', { class: 'sched-master' },
+      el('div', { class: 'sched-master-txt' },
+        el('b', {}, enabled ? 'Schedule on' : 'Schedule paused'),
+        el('span', {}, enabled
+          ? `${enabled} of ${schedules.length} block${schedules.length === 1 ? '' : 's'} active`
+          : 'Paused — no block will ring until you turn one back on.')),
+      toggle(() => enabled > 0, () => setAllSchedules(!(enabled > 0))))
+    : null;
+
   return el('div', { class: 'card sched-hero-card' },
-    el('div', { class: 'sched-hero' }, text, dayRing(occs, now, next)));
+    el('div', { class: 'sched-hero' }, text, dayRing(occs, now, next)),
+    master);
+}
+
+/** Pause or resume every recurring block at once. */
+function setAllSchedules(on) {
+  Store.set((st) => {
+    st.schedules.forEach((s) => { s.enabled = on; });
+  });
 }
 
 /* ---------- today ---------- */
@@ -210,11 +229,8 @@ function scheduleRow(sch) {
       el('span', { class: 'sched-row-mark' }),
       el('span', { class: 'sched-row-txt' },
         el('b', {}, sch.name),
-        el('span', {}, spanLabel(sch)))),
-    el('div', { class: 'sched-row-side' },
-      el('div', { class: 'weekstrip', 'aria-hidden': 'true' },
-        DAYS.map((d, i) => el('i', { class: sch.days.includes(i) ? 'on' : '', title: d }, d[0]))),
-      sw));
+        el('span', {}, `${spanLabel(sch)} · ${daysLabel(sch.days)}`))),
+    el('div', { class: 'sched-row-side' }, sw));
 }
 
 function repeatingSection() {

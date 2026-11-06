@@ -15,6 +15,10 @@ function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function screenAppsKey(apps) {
+  return (apps || []).map((a) => `${a.package}:${a.label}:${a.mins}`).join('|');
+}
+
 function blankState() {
   return {
     v: VERSION,
@@ -30,7 +34,8 @@ function blankState() {
     schedules: [],
     sessions: [],
     slips: [],
-    profile: { name: '', exam: '', examId: '', examDate: '' }, // filled by the opening film
+    screenTime: [], // daily phone usage: { id, day, mins, apps: [{package,label,mins}] }
+    profile: { name: '', email: '', exam: '', examId: '', examDate: '' }, // filled by the opening film
     settings: {
       theme: 'system',
       strict: true,
@@ -57,6 +62,7 @@ function migrate(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== VERSION) return null;
   raw.profile = raw.profile || {}; // v1 stores predate the opening film
   if (typeof raw.profile.name !== 'string') raw.profile.name = '';
+  if (typeof raw.profile.email !== 'string') raw.profile.email = '';
   if (typeof raw.profile.exam !== 'string') raw.profile.exam = '';
   if (typeof raw.profile.examId !== 'string') raw.profile.examId = '';
   if (typeof raw.profile.examDate !== 'string') raw.profile.examDate = '';
@@ -66,6 +72,28 @@ function migrate(raw) {
      removed flag make them count as real focus. */
   raw.sessions = (raw.sessions || []).filter((s) => !s.demo);
   raw.sessions.forEach((s) => { delete s.demo; });
+
+  /* v1.13: daily phone screen time travels with the store so the browser
+     extension can show the same week the phone measured. */
+  raw.screenTime = Array.isArray(raw.screenTime)
+    ? raw.screenTime
+      .filter((row) => row && typeof row.day === 'string' && row.day)
+      .map((row) => ({
+        id: row.day,
+        day: row.day,
+        mins: Math.max(0, Math.round(Number(row.mins) || 0)),
+        apps: Array.isArray(row.apps)
+          ? row.apps
+            .filter((a) => a && typeof a.label === 'string')
+            .map((a) => ({
+              package: String(a.package || ''),
+              label: a.label,
+              mins: Math.max(0, Math.round(Number(a.mins) || 0)),
+            }))
+            .filter((a) => a.mins > 0)
+          : [],
+      }))
+    : [];
   raw.flags = raw.flags || {};
   delete raw.flags.seeded;
 
@@ -323,6 +351,57 @@ const Store = {
       kind, sessId: sessId || null, awaySec: Math.round(awaySec || 0) };
     this.set((s) => s.slips.push(entry));
     return entry;
+  },
+
+  /* ---------- screen time ---------- */
+
+  /** One stored day, or null. */
+  screenDay(dateKey) {
+    return (this.state.screenTime || []).find((row) => row.day === dateKey) || null;
+  },
+
+  /**
+   * Fold a native usage snapshot (daily totals + today's per-app rows) into
+   * the store. Identical snapshots write nothing, so a foreground app cannot
+   * keep the sync engine awake. Returns true when something changed.
+   */
+  recordScreenTime(days, apps) {
+    if (isTrial || !Array.isArray(days) || !days.length) return false;
+    const today = todayKey();
+    const now = Date.now();
+    const top = (apps || [])
+      .map((a) => ({
+        package: String(a.package || ''),
+        label: String(a.label || a.package || '').slice(0, 48),
+        mins: Math.max(0, Math.round((Number(a.ms) || 0) / 60000)),
+      }))
+      .filter((a) => a.label && a.mins > 0)
+      .sort((a, b) => b.mins - a.mins)
+      .slice(0, 6);
+
+    const byId = new Map((this.state.screenTime || []).map((row) => [row.day, row]));
+    let changed = false;
+    for (const row of days) {
+      if (!row || typeof row.day !== 'string' || !row.day) continue;
+      const prev = byId.get(row.day);
+      const mins = Math.max(0, Math.round((Number(row.ms) || 0) / 60000));
+      const nextApps = row.day === today ? top : (prev?.apps || []);
+      const same = prev
+        && prev.mins === mins
+        && screenAppsKey(prev.apps) === screenAppsKey(nextApps);
+      if (same) continue;
+      byId.set(row.day, {
+        id: row.day, day: row.day, mins, apps: nextApps, updatedAt: now,
+      });
+      changed = true;
+    }
+    if (!changed) return false;
+
+    const cutoff = addDays(today, -31);
+    for (const day of [...byId.keys()]) if (day < cutoff) byId.delete(day);
+    const next = [...byId.values()].sort((a, b) => a.day.localeCompare(b.day));
+    this.set((s) => { s.screenTime = next; });
+    return true;
   },
 
   /* ---------- data hygiene ---------- */

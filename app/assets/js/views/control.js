@@ -1,17 +1,19 @@
 /* Lockin — Control: the phone side in one place.
-   App blocking, per-app limits, distraction presets and the strict kiosk.
-   Everything here is device-local by design; the synced store only holds the
-   "pinned sessions" preference. Screen time itself lives in Settings. */
+   Screen time, app blocking, per-app limits, distraction presets and the
+   strict kiosk. Everything here is device-local by design; the synced store
+   only holds the "pinned sessions" preference. */
 
 import { Store } from '../store.js';
-import { el, fmtMin } from '../util.js';
+import { el, fmtMin, parseKey } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
 import { setrow } from '../controls.js';
 import {
   isNative, blockingStatus, saveBlocking, listLaunchableApps,
   saveAppLimits, openAccessibilitySettings, strictStatus, saveStrictPackages,
+  nativeStatus, queryUsageToday, queryUsageDaily, openUsageAccessSettings,
 } from '../native.js';
+import { isTrial, trialScreenTime } from '../trial.js';
 
 export function initControl(Router) {
   Router.register('/control', { mount, unmount });
@@ -192,6 +194,7 @@ function mount(host) {
   const limits = limitsCard();
   const distractions = distractionCard();
   const strictCardView = strictCard();
+  const screen = screenTimeCard();
 
   paints = [
     blocking.paint, limits.paint, distractions.paint, strictCardView.paint,
@@ -206,18 +209,21 @@ function mount(host) {
       isNative
         ? el('button', {
           class: 'iconbtn', 'aria-label': 'Refresh device state',
-          onclick: () => refresh(),
+          onclick: () => { refresh(); screen.load(); },
         }, svg('refresh', 17))
         : null,
     ),
     isNative
-      ? [blocking.node, limits.node, distractions.node, strictCardView.node]
-      : [webCard()],
+      ? [screen.node, blocking.node, limits.node, distractions.node, strictCardView.node]
+      : [...(isTrial ? [screen.node] : []), webCard()],
   ));
 
   const onVisible = () => { if (!document.hidden) refresh(); };
   addEventListener('visibilitychange', onVisible);
-  cleanup = () => removeEventListener('visibilitychange', onVisible);
+  cleanup = () => {
+    removeEventListener('visibilitychange', onVisible);
+    screen.cleanup();
+  };
 
   refresh();
 }
@@ -226,6 +232,166 @@ function unmount() {
   if (cleanup) cleanup();
   cleanup = null;
   paints = [];
+}
+
+/* ---------- screen time ---------- */
+
+function appHue(label) {
+  let h = 0;
+  for (let i = 0; i < label.length; i += 1) h = (h * 31 + label.charCodeAt(i)) % 360;
+  return h;
+}
+
+function lastSeven(rows) {
+  const byDay = new Map(rows.map((row) => [row.day, row.ms]));
+  const now = new Date();
+  const out = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    out.push({ day: key, ms: byDay.get(key) || 0 });
+  }
+  return out;
+}
+
+function screenTimeCard() {
+  const node = el('div', { class: 'card ctl-screen' });
+  let data = { loading: true, usageOn: isNative || isTrial, week: [], apps: [], demo: isTrial };
+  let busy = false;
+
+  function fmtDay(day) {
+    const d = parseKey(day);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return 'Today';
+    return d.toLocaleDateString(undefined, { weekday: 'short' });
+  }
+
+  function paint() {
+    const { week, apps, demo, usageOn, loading } = data;
+    const days = lastSeven(week);
+    const total = days[days.length - 1].ms || apps.reduce((n, row) => n + row.ms, 0);
+    const max = Math.max(...days.map((row) => row.ms), 1);
+    const previous = days.slice(0, -1).filter((row) => row.ms > 0);
+    const average = previous.length
+      ? previous.reduce((n, row) => n + row.ms, 0) / previous.length
+      : 0;
+    const diff = average && total ? total - average : 0;
+    const deltaText = !average || !total
+      ? 'No week to compare yet'
+      : Math.abs(diff) < 10 * 60000
+        ? 'About your 7-day average'
+        : `${fmtDur(Math.abs(diff))} ${diff > 0 ? 'above' : 'below'} your 7-day average`;
+
+    const head = el('div', { class: 'ctl-card-head' },
+      el('h2', { class: 'blocking-head' }, svg('clock', 16), el('span', {}, 'Screen time')),
+      el('span', { class: 'ctl-tag' }, loading ? '…' : demo ? 'Demo' : usageOn ? 'Today' : 'Off'));
+
+    if (!usageOn) {
+      node.replaceChildren(
+        head,
+        el('div', { class: 'ctl-empty' },
+          el('div', { class: 'ctl-empty-icon' }, svg('clock', 24)),
+          el('b', {}, 'Usage access is off'),
+          el('p', {}, 'Android only shares per-app foreground time with apps you allow. Lockin reads the app name and the minutes — never page content, text or keystrokes.'),
+          el('button', {
+            class: 'btn btn-primary btn-block',
+            onclick: () => openUsageAccessSettings(),
+          }, 'Open usage access')),
+      );
+      return;
+    }
+
+    const chartLabel = `Daily screen time: ${days.map((row) => `${fmtDay(row.day)} ${fmtDur(row.ms)}`).join(', ')}.`;
+    const chart = el('div', {
+      class: 'ctl-chart', role: 'img', 'aria-label': chartLabel,
+    }, days.map((row, i) => {
+      const today = i === days.length - 1;
+      const pct = Math.max(6, Math.round((row.ms / max) * 100));
+      return el('div', {
+        class: `ctl-day${today ? ' is-today' : ''}`,
+        title: `${fmtDay(row.day)} · ${fmtDur(row.ms)}`,
+      },
+        el('div', { class: 'ctl-day-bar' }, el('i', { style: `height:${pct}%` })),
+        el('span', { class: 'ctl-day-name' }, today ? 'Today' : fmtDay(row.day)));
+    }));
+
+    const top = apps.slice(0, 4);
+    const appMax = Math.max(...top.map((row) => row.ms), 1);
+    const most = top.length
+      ? el('div', { class: 'ctl-apps' }, top.map((row) => {
+        const label = String(row.label || row.package || 'App');
+        const pct = Math.max(4, Math.round((row.ms / appMax) * 100));
+        return el('div', { class: 'ctl-app' },
+          el('span', {
+            class: 'ctl-app-badge', style: `--h:${appHue(label)}`,
+            'aria-hidden': 'true',
+          }, label.charAt(0).toUpperCase()),
+          el('span', { class: 'ctl-app-name' }, label),
+          el('span', { class: 'ctl-app-time' }, fmtDur(row.ms)),
+          el('span', {
+            class: 'ctl-app-bar', role: 'progressbar',
+            'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct),
+            'aria-label': `${label}: ${fmtDur(row.ms)} today`,
+          }, el('i', { style: `width:${pct}%` })));
+      }))
+      : el('p', { class: 'muted ctl-first' }, 'No foreground time yet today. Pick up the phone and this fills in.');
+
+    node.replaceChildren(
+      head,
+      el('div', { class: 'ctl-screen-total' },
+        el('b', {}, total ? fmtDur(total) : '0m'),
+        el('span', {}, 'on screen today')),
+      el('p', { class: `ctl-delta${diff > 0 ? ' is-up' : ''}` }, deltaText),
+      chart,
+      el('div', { class: 'ctl-chart-foot' }, el('span', {}, 'Last 7 days')),
+      el('div', { class: 'ctl-most-head' },
+        el('b', {}, 'Most used'),
+        el('span', {}, demo ? 'Demo data' : 'Today')),
+      most,
+      el('p', { class: 'tiny ctl-note' }, demo
+        ? 'Demo week for the trial. On Android this is your real foreground time, read on the phone.'
+        : 'Per-app foreground time from Android. It stays on this phone.'),
+    );
+  }
+
+  async function load() {
+    if (busy) return;
+    busy = true;
+    try {
+      if (isTrial) {
+        const demo = trialScreenTime();
+        data = { loading: false, usageOn: true, week: demo.week, apps: demo.apps, demo: true };
+      } else if (isNative) {
+        const [status, today, week] = await Promise.all([
+          nativeStatus(), queryUsageToday(), queryUsageDaily(7),
+        ]);
+        data = {
+          loading: false, usageOn: Boolean(status?.usage),
+          week, apps: today, demo: false,
+        };
+      } else {
+        data = { loading: false, usageOn: false, week: [], apps: [], demo: false };
+      }
+      paint();
+    } finally {
+      busy = false;
+    }
+  }
+
+  paint();
+  setTimeout(load, 0);
+
+  const onVisible = () => {
+    if (!document.contains(node)) { removeEventListener('visibilitychange', onVisible); return; }
+    if (!document.hidden) load();
+  };
+  addEventListener('visibilitychange', onVisible);
+
+  return {
+    node,
+    load,
+    cleanup: () => removeEventListener('visibilitychange', onVisible),
+  };
 }
 
 /* ---------- app blocking ---------- */
@@ -412,16 +578,19 @@ function blockingCard() {
     renderApps();
   }
 
-  const node = el('div', { class: 'card' },
+  const node = el('div', { class: 'card ctl-blocking' },
     el('div', { class: 'ctl-card-head' },
-      el('h2', { class: 'blocking-head' }, svg('lock', 14), el('span', {}, 'App blocking')),
+      el('h2', { class: 'blocking-head' }, svg('lock', 16), el('span', {}, 'App blocking')),
       el('span', { class: 'ctl-tag' }, 'During focus')),
+    el('div', { class: 'ctl-master' },
+      el('div', { class: 'ctl-master-icon' }, svg('shield', 21)),
+      el('div', { class: 'ctl-master-txt' },
+        el('b', {}, 'Block selected apps'),
+        el('span', {}, 'Only during schedule blocks and Study Mode.')),
+      master),
     setrow('Accessibility service',
       'Android needs it to see which app comes to the front. Lockin never reads screen content, text or keystrokes.',
       el('div', { class: 'native-ctrl' }, servicePill, serviceBtn)),
-    setrow('Block selected apps',
-      'Only during schedule blocks and Study Mode sessions. Your launcher, Settings and the dialer stay reachable.',
-      master),
     summary,
     el('div', { class: 'blocking-picker' },
       el('div', { class: 'blocking-picker-head' },
@@ -570,7 +739,7 @@ function limitsCard() {
 
   const node = el('div', { class: 'card' },
     el('div', { class: 'ctl-card-head' },
-      el('h2', { class: 'blocking-head' }, svg('clock', 14), el('span', {}, 'Daily limits')),
+      el('h2', { class: 'blocking-head' }, svg('clock', 16), el('span', {}, 'Daily limits')),
       el('span', { class: 'ctl-tag' }, 'Per app')),
     el('p', { class: 'muted ctl-lede' },
       'A soft ceiling per app, every day. When it is spent, the app is covered until midnight.'),
@@ -641,7 +810,7 @@ function distractionCard() {
 
     node.replaceChildren(
       el('div', { class: 'ctl-card-head' },
-        el('h2', { class: 'blocking-head' }, svg('film', 14), el('span', {}, 'Distraction apps')),
+        el('h2', { class: 'blocking-head' }, svg('film', 16), el('span', {}, 'Distraction apps')),
         el('span', { class: `native-pill${chosen ? ' on' : ''}` },
           chosen ? `${chosen}/${total}` : 'None')),
       el('p', { class: 'muted ctl-lede' },
@@ -870,7 +1039,7 @@ function strictCard() {
 
   const node = el('div', { class: 'card ctl-strict' },
     el('div', { class: 'ctl-card-head' },
-      el('h2', { class: 'blocking-head' }, svg('shield', 14), el('span', {}, 'Strict study mode')),
+      el('h2', { class: 'blocking-head' }, svg('shield', 16), el('span', {}, 'Strict study mode')),
       pillEl),
     el('p', { class: 'muted ctl-lede' },
       'No exits, no “just one reel”. While a strict session runs, Lockin holds the phone and only the apps you allow can open.'),
@@ -892,27 +1061,28 @@ function strictCard() {
 /* ---------- web fallback ---------- */
 
 function webCard() {
-  const item = (icon, text) => el('li', {}, svg(icon, 15), el('span', {}, text));
-  return el('div', { class: 'card' },
-    el('h2', { class: 'blocking-head' }, svg('phone', 14), el('span', {}, 'Only available on the Android app')),
-    el('p', { class: 'muted ctl-lede' },
-      'App blocking, per-app limits, distraction presets and the strict kiosk need Android’s own accessibility and usage services. A browser cannot see or cover another app, and this trial will not pretend it can. Everything else — schedule, tasks, Study Mode and Progress — works here.'),
+  const item = (icon, text) => el('li', {}, svg(icon, 16), el('span', {}, text));
+  return el('div', { class: 'card ctl-upgrade' },
+    el('div', { class: 'ctl-upgrade-badge' }, svg('phone', 26)),
+    el('h2', {}, 'The phone side needs Android'),
+    el('p', { class: 'ctl-upgrade-lede' },
+      'Blocking, daily limits and strict sessions use Android’s own accessibility and usage services. A browser cannot see or cover another app — and this trial will not pretend it can.'),
     el('ul', { class: 'ctl-web-list' },
-      item('clock', 'Screen time and per-app foreground minutes.'),
-      item('lock', 'A block list that covers chosen apps during focus windows.'),
-      item('shield', 'Strict sessions that pin the phone to Lockin and an allowlist.'),
-      item('film', 'Short-video and feed presets. The browser extension covers the URLs instead.')),
-    el('div', { class: 'btn-stack', style: 'margin-top:12px' },
+      item('clock', 'Your real screen time, read on the phone.'),
+      item('lock', 'Chosen apps covered during focus blocks.'),
+      item('shield', 'Strict sessions that pin the phone to Lockin.'),
+      item('film', 'Short-video and feed presets.')),
+    el('div', { class: 'btn-stack ctl-upgrade-actions' },
       el('a', {
         class: 'btn btn-primary btn-block',
         href: '/downloads/lockin.apk', download: '',
-      }, svg('phone', 16), 'Download for Android'),
+      }, svg('phone', 17), 'Get the Android app'),
       el('a', {
         class: 'btn btn-subtle btn-block',
         href: '/downloads/lockin-extension.zip', download: '',
-      }, svg('copy', 16), 'Get the Chrome extension'),
+      }, svg('copy', 17), 'Add the Chrome extension'),
     ),
-    el('p', { class: 'tiny', style: 'margin:0' },
+    el('p', { class: 'ctl-upgrade-note' },
       'The extension blocks sites, sets daily site limits and cuts Shorts/Reels URLs. Chrome and Edge only.'),
   );
 }

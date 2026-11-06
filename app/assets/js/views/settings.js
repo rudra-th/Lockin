@@ -2,9 +2,9 @@
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, fmtMin, prettyDate, parseKey } from '../util.js';
+import { el, fmtMin } from '../util.js';
 import { svg } from '../icons.js';
-import { openSheet, hint } from '../ui.js';
+import { openSheet, hint, accountAvatar } from '../ui.js';
 import { tryInstall } from '../install.js';
 import { examByName } from '../exams.js';
 import { setrow, toggle, stepper } from '../controls.js';
@@ -13,10 +13,11 @@ import { ensureAlarmPermission } from '../alarms.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
   openExactAlarmSettings, openFullScreenIntentSettings, openUsageAccessSettings,
-  openAccessibilitySettings, queryUsageToday, queryUsageDaily,
+  openAccessibilitySettings,
 } from '../native.js';
 import { accountState, signIn, signOut, deleteCloudData } from '../account.js';
 import { syncNow } from '../sync.js';
+import { ensurePairCode, rotatePairCode } from '../summary.js';
 import { isTrial, resetTrial } from '../trial.js';
 
 export function initSettings(Router) {
@@ -128,124 +129,21 @@ function pill(on, onText = 'On', offText = 'Off') {
   return el('span', { class: `native-pill${on ? ' on' : ''}` }, on ? onText : offText);
 }
 
-function fmtDur(ms) {
-  const mins = Math.max(0, Math.round((Number(ms) || 0) / 60000));
-  if (ms > 0 && mins < 1) return '<1m';
-  return fmtMin(mins);
-}
-
-/* ---------- screen time (Android only) ---------- */
+/* ---------- screen time lives in Control ---------- */
 
 function screenTimeCard() {
   if (!isNative) return null;
 
-  const node = el('div', { class: 'card set-screen' });
-  let usageOn = false;
-  let rows = [];
-  let week = [];
-  let loading = true;
-
-  const paint = () => {
-    const total = rows.reduce((sum, row) => sum + row.ms, 0);
-    const max = Math.max(...rows.map((r) => r.ms), 1);
-    const weekMax = Math.max(...week.map((r) => r.ms), 1);
-
-    const rail = el('div', {
-      class: 'ctl-rail', role: 'img',
-      'aria-label': week.length
-        ? `Daily screen time: ${week.map((r) => `${prettyDate(r.day)} ${fmtDur(r.ms)}`).join(', ')}.`
-        : 'No screen-time history yet.',
-    }, week.length
-      ? week.map((row) => {
-        const isToday = row.day === week[week.length - 1].day;
-        return el('div', {
-          class: `ctl-rail-day${isToday ? ' is-today' : ''}`,
-          title: `${prettyDate(row.day)} · ${fmtDur(row.ms)}`,
-        },
-          el('i', { style: `height:${Math.max(3, Math.round((row.ms / weekMax) * 100))}%` }),
-          el('span', {}, isToday
-            ? 'Today'
-            : parseKey(row.day).toLocaleDateString(undefined, { weekday: 'narrow' })));
-      })
-      : ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((letter) => el('div', { class: 'ctl-rail-day' },
-        el('i', { style: 'height:3%' }), el('span', {}, letter))));
-
-    if (!usageOn) {
-      node.replaceChildren(
-        el('div', { class: 'ctl-card-head' },
-          el('h2', { class: 'blocking-head' }, svg('clock', 14), el('span', {}, 'Screen time')),
-          el('span', { class: 'ctl-tag' }, loading ? '…' : 'Off')),
-        el('div', { class: 'ctl-empty' },
-          el('div', { class: 'ctl-empty-icon' }, svg('clock', 22)),
-          el('b', {}, 'Usage access is off'),
-          el('p', {}, 'Android only shares per-app foreground time with apps you allow. Lockin reads the app name and the minutes — never page content, text or keystrokes.'),
-          el('button', {
-            class: 'btn btn-subtle btn-sm',
-            onclick: () => openUsageAccessSettings(),
-          }, 'Open usage access')),
-      );
-      return;
-    }
-
-    node.replaceChildren(
-      el('div', { class: 'ctl-card-head' },
-        el('h2', { class: 'blocking-head' }, svg('clock', 14), el('span', {}, 'Screen time')),
-        el('button', {
-          class: 'iconbtn', 'aria-label': 'Refresh screen time',
-          onclick: () => load(),
-        }, svg('refresh', 15))),
-      el('div', { class: 'ctl-kicker' }, 'Foreground time since midnight'),
-      el('div', { class: 'ctl-total' },
-        fmtDur(total),
-        el('small', {}, total > 0 ? 'on screen' : 'nothing yet')),
-      rail,
-      rows.length
-        ? el('div', { class: 'ctl-apps' },
-          rows.slice(0, 6).map((row) => el('div', { class: 'ctl-app' },
-            el('span', { class: 'ctl-app-name' }, row.label),
-            el('span', { class: 'ctl-app-time' }, fmtDur(row.ms)),
-            el('span', {
-              class: 'ctl-app-bar', role: 'progressbar',
-              'aria-valuemin': '0', 'aria-valuemax': '100',
-              'aria-valuenow': String(Math.round((row.ms / max) * 100)),
-              'aria-label': `${row.label}: ${fmtDur(row.ms)} today`,
-            },
-              el('i', { style: `width:${Math.max(2, Math.round((row.ms / max) * 100))}%` })))))
-        : el('p', { class: 'muted ctl-first' },
-          'No foreground time recorded yet today. Pick up the phone and this fills in.'),
-      el('div', { class: 'set-screen-foot' },
-        el('p', { class: 'tiny' },
-          'Per-app foreground time from Android. It stays on this phone.'),
-        el('button', {
-          class: 'btn btn-subtle btn-sm',
-          onclick: () => Router.go('/control'),
-        }, svg('shield', 14), 'Limits & blocking')),
-    );
-  };
-
-  async function load() {
-    const [status, today, daily] = await Promise.all([
-      nativeStatus(), queryUsageToday(), queryUsageDaily(7),
-    ]);
-    usageOn = Boolean(status?.usage);
-    rows = today;
-    week = daily;
-    loading = false;
-    paint();
-  }
-
-  const onVisible = () => {
-    if (!document.contains(node)) {
-      removeEventListener('visibilitychange', onVisible);
-      return;
-    }
-    if (!document.hidden) load();
-  };
-  addEventListener('visibilitychange', onVisible);
-  setTimeout(load, 0);
-
-  paint();
-  return node;
+  return el('div', { class: 'card ctl-pointer' },
+    el('div', { class: 'ctl-card-head' },
+      el('h2', { class: 'blocking-head' }, svg('clock', 16), el('span', {}, 'Screen time')),
+      el('span', { class: 'ctl-tag' }, 'In Control')),
+    el('p', { class: 'muted ctl-lede' },
+      'Your week chart, today’s total and most-used apps now live in Control — next to the limits that act on them.'),
+    el('button', {
+      class: 'btn btn-subtle btn-block',
+      onclick: () => Router.go('/control'),
+    }, svg('chart', 17), 'Open Control'));
 }
 
 function nativeCard() {
@@ -461,8 +359,8 @@ function dataCard() {
     el('h2', {}, 'Data & privacy'),
     el('p', { class: 'muted', style: 'margin:0 0 4px' },
       isTrial
-        ? 'This trial keeps a separate copy in this browser’s localStorage: no analytics, no trackers, no Google account and no network calls. Your real Lockin store is not read or written.'
-        : 'Everything lives in this browser’s localStorage. No analytics, no trackers — and no network calls unless you sign in above to mirror a copy to your own cloud.'),
+        ? 'This trial keeps a separate copy in this browser’s localStorage. Your real Lockin store is not read or written.'
+        : 'Everything lives in this browser’s localStorage. Sign in above to mirror a copy to your own private cloud.'),
     el('div', { class: 'btn-stack' }, exportBtn, installBtn, replayBtn),
     el('div', { class: 'btn-stack' }, importBtn, wipeBtn),
     input,
@@ -476,6 +374,39 @@ function agoLabel(ts) {
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs} h ago`;
   return `${Math.round(hrs / 24)} d ago`;
+}
+
+function pairingBlock() {
+  const code = ensurePairCode();
+  const codeEl = el('code', {}, code);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeEl.textContent);
+      hint('Pairing code copied');
+    } catch (_) {
+      hint('Select the code and copy it');
+    }
+  };
+  return el('div', { class: 'pairing' },
+    el('div', { class: 'pairing-head' }, svg('phone', 14), el('span', {}, 'Browser extension')),
+    el('p', { class: 'muted', style: 'margin:0 0 8px' },
+      'Paste this code into the Lockin Chrome extension to see your phone’s screen time and focus minutes next to the browser’s.'),
+    el('div', { class: 'pairing-code' },
+      codeEl,
+      el('button', {
+        class: 'iconbtn', type: 'button', 'aria-label': 'Copy pairing code',
+        onclick: copy,
+      }, svg('copy', 15)),
+    ),
+    el('button', {
+      class: 'btn btn-subtle btn-block', style: 'margin-top:8px',
+      onclick: async () => {
+        await rotatePairCode();
+        codeEl.textContent = Store.state.settings.pairCode;
+        hint('New code — paste it in the extension');
+      },
+    }, svg('repeat', 15), 'Replace the code'),
+  );
 }
 
 function accountCard() {
@@ -539,9 +470,7 @@ function accountCard() {
     card.append(
       el('div', { class: 'acct-id' },
         el('div', { class: `acct-avatar-wrap${syncing ? ' is-syncing' : ''}` },
-          st.user.photo
-            ? el('img', { class: 'acct-avatar', src: st.user.photo, alt: '' })
-            : el('span', { class: 'acct-avatar acct-fallback' }, (st.user.name || st.user.email || '?').slice(0, 1).toUpperCase()),
+          accountAvatar(st.user),
           st.status === 'idle' && st.lastSyncAt ? el('span', { class: 'acct-badge' }, svg('check', 10)) : null,
         ),
         el('div', { class: 'acct-who' },
@@ -576,6 +505,7 @@ function accountCard() {
           ]),
         }, svg('trash', 16), 'Delete cloud data'),
       ),
+      pairingBlock(),
     );
   }
 

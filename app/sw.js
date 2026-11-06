@@ -1,7 +1,7 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.12.0';
+const VERSION = 'lockin.v1.13.1';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
 const BASE = new URL('./', self.location).pathname;
@@ -32,6 +32,9 @@ const PRECACHE = [
   './assets/js/firebase.js',
   './assets/js/account.js',
   './assets/js/sync.js',
+  './assets/js/summary.js',
+  './assets/js/usage.js',
+  './assets/js/share.js',
   './assets/js/app.js',
   './assets/js/views/home.js',
   './assets/js/views/schedule.js',

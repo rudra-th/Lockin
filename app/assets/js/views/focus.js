@@ -6,6 +6,7 @@ import { Router } from '../router.js';
 import { el, fmtClock, fmtWatch, fmtMin, todayKey, decideAway, earnedExit, FREE_EXIT_SEC } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
+import { openShareSheet } from '../share.js';
 import {
   isNative, pushBlockingWindows, strictStatus, startStrictMode, stopStrictMode,
   refreshStrict, launchApp,
@@ -589,6 +590,14 @@ function setupScreen() {
       'aria-pressed': String(mode === m),
       onclick: () => {
         if (mode === m) return;
+        /* A link can pin the mode once (Home's Start button). Once the user
+           picks a mode by hand, drop that pin so the choice survives the
+           re-render instead of snapping back to the link's mode. */
+        const parts = (location.hash.split('?')[1] || '');
+        const qs = new URLSearchParams(parts);
+        qs.delete('mode');
+        const rest = qs.toString();
+        history.replaceState(null, '', `#/focus${rest ? `?${rest}` : ''}`);
         Store.set((s) => { s.settings.lastMode = m; });
         renderHost();
       },
@@ -1195,6 +1204,8 @@ function doneScreen() {
   const good = d.done || d.earned;
   const celebrate = d.done && clean;
   const today = d.today ?? Store.focusMinutesOn(todayKey());
+  const goal = Store.state.settings.goalMin || 0;
+  const canShare = good && goal > 0 && today >= goal;
   let line;
   if (d.earned) line = 'Ended on your terms. Nothing broken.';
   else if (d.discarded) line = 'Nothing banked. The clock reset clean.';
@@ -1218,6 +1229,10 @@ function doneScreen() {
         }, 'Again'),
         el('button', { class: 'btn btn-subtle', onclick: () => { Session.phase = 'idle'; Router.go('/home'); } }, 'Home')
       ),
+      canShare ? el('button', {
+        class: 'btn btn-subtle btn-block', style: 'margin-top:10px',
+        onclick: () => openShareSheet({ mins: today, goal }),
+      }, svg('share', 15), 'Share today') : null,
       el('button', {
         class: 'done-more',
         onclick: () => { Session.phase = 'idle'; Router.go('/settings?section=progress'); },

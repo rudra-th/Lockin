@@ -90,7 +90,9 @@ export function mergeDocs(localArr, remoteDocs, mode) {
       arr.push({ ...doc });
       byId.set(doc.id, arr[arr.length - 1]);
       added += 1;
-    } else if (remoteAt > localAt || (remoteAt === localAt && !sameContent(local, doc))) {
+    } else if (remoteAt >= localAt && !sameContent(local, doc)) {
+      /* Identical content is never an update, even when the remote clock is
+         newer — replacing it would re-trigger "changed" and sync forever. */
       arr[arr.indexOf(local)] = { ...doc };
       byId.set(doc.id, arr[arr.indexOf(local)]);
       updated += 1;

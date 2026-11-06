@@ -12,9 +12,13 @@ import {
   diffCollection, diffScalar, mergeDocs, mergeScalar, nextCursor,
 } from '../../core/sync.js';
 import { loadFirebase } from './firebase.js';
+import { publishSummary } from './summary.js';
 
 const META_KEY = 'lockin.sync.v1';
-const DEBOUNCE_MS = 1500;
+const DEBOUNCE_MS = 3000;
+const MIN_GAP_MS = 30000;          // never auto-sync more than twice a minute
+const POLL_MS = 5 * 60 * 1000;     // pick up remote edits while this device is quiet
+const SLOW_SYNC_MS = 700;          // only flash "Syncing…" when a cycle is real work
 const PAGE = 500; // Firestore query page and write-batch chunk
 
 /* Array slices and how they merge; profile and settings are single docs. */
@@ -23,6 +27,7 @@ const COLLECTIONS = [
   { name: 'tasks', mode: 'lww' },
   { name: 'sessions', mode: 'append' },
   { name: 'slips', mode: 'append' },
+  { name: 'screenTime', mode: 'lww' },
 ];
 const SCALARS = ['profile', 'settings'];
 
@@ -36,9 +41,12 @@ let busy = false;
 let pending = false;    // a change arrived mid-cycle
 let applying = false;   // the engine itself is writing the store
 let timer = 0;
+let pollTimer = 0;
+let statusTimer = 0;
 let status = 'idle';    // idle | syncing | offline | error
 let lastSyncAt = 0;
 let lastError = '';
+let lastAutoAt = 0;     // last automatic cycle — keeps quick edits from stacking up
 
 /* ---------- sync metadata (never inside the store) ---------- */
 
@@ -59,13 +67,29 @@ function saveMeta() {
 
 /* ---------- status ---------- */
 
-function setStatus(next, err = '') {
-  status = next;
-  lastError = err;
-  if (next === 'idle') lastSyncAt = Date.now();
+function emitSync() {
   document.dispatchEvent(new CustomEvent('lockin:sync', {
     detail: { status, lastSyncAt, error: lastError },
   }));
+}
+
+function setStatus(next, err = '') {
+  clearTimeout(statusTimer);
+  /* A healthy cycle is usually a few hundred milliseconds. Showing the
+     spinner for that makes the app look permanently busy, so only surface
+     "syncing" when the work is actually slow. */
+  if (next === 'syncing') {
+    lastError = '';
+    statusTimer = setTimeout(() => {
+      status = 'syncing';
+      emitSync();
+    }, SLOW_SYNC_MS);
+    return;
+  }
+  status = next;
+  lastError = err;
+  if (next === 'idle') lastSyncAt = Date.now();
+  emitSync();
 }
 
 /** Current engine state for the Settings card. */
@@ -99,29 +123,35 @@ async function pullCollection(F, db, uid, name) {
   return docs;
 }
 
-/** Apply pulled docs to the store under the re-entrancy guard. */
+/** Apply pulled docs to the store only when the merge actually changed something. */
 function mergeRemote(pulled) {
+  const s = Store.state;
+  const next = {};
+  let touched = 0;
+  for (const { name, mode } of COLLECTIONS) {
+    const docs = pulled[name] || [];
+    if (!docs.length) continue;
+    const out = mergeDocs(s[name], docs, mode);
+    const changes = out.added + out.updated + out.deleted;
+    if (!changes) continue;
+    next[name] = out.arr;
+    touched += changes;
+  }
+  for (const name of SCALARS) {
+    const doc = (pulled[name] || [])[0];
+    if (!doc) continue;
+    const merged = mergeScalar(s[name], doc);
+    if (merged === s[name]) continue;
+    next[name] = merged;
+    touched += 1;
+  }
+  if (!touched) return;
+  /* Data just arrived on a device that never met the owner: skip the film. */
+  if (!s.flags.onboarded) next.flags = { ...s.flags, onboarded: true };
+
   applying = true;
   try {
-    Store.set((s) => {
-      let touched = 0;
-      for (const { name, mode } of COLLECTIONS) {
-        const docs = pulled[name] || [];
-        if (!docs.length) continue;
-        const out = mergeDocs(s[name], docs, mode);
-        s[name] = out.arr;
-        touched += out.added + out.updated + out.deleted;
-      }
-      for (const name of SCALARS) {
-        const doc = (pulled[name] || [])[0];
-        if (!doc) continue;
-        const before = s[name];
-        s[name] = mergeScalar(s[name], doc);
-        if (s[name] !== before) touched += 1;
-      }
-      /* Data just arrived on a device that never met the owner: skip the film. */
-      if (touched > 0 && !s.flags.onboarded) s.flags.onboarded = true;
-    });
+    Store.set((st) => Object.assign(st, next));
   } finally {
     applying = false;
   }
@@ -247,6 +277,9 @@ export async function syncNow(reason = 'manual') {
       await batch.commit();
     }
     absorbPushed(writes);
+    /* Keep the phone-readable summary current for the browser extension.
+       It is best-effort and never lets a summary write fail the sync. */
+    await publishSummary({ db, F, uid: ownerId });
 
     saveMeta();
     setStatus('idle');
@@ -265,15 +298,35 @@ export async function syncNow(reason = 'manual') {
 
 /* ---------- triggers ---------- */
 
+/** True when a synced slice differs from what the cloud already has. */
+function localDirty() {
+  const s = Store.state;
+  if (SCALARS.some((name) => diffScalar(s[name], shadow?.[name]))) return true;
+  return COLLECTIONS.some(({ name }) => {
+    const d = diffCollection(s[name] || [], shadow?.[name] || {});
+    return d.upserts.length > 0 || d.removedIds.length > 0;
+  });
+}
+
 function schedulePush() {
   if (!started || applying) return;
   clearTimeout(timer);
-  timer = setTimeout(() => { syncNow('change'); }, DEBOUNCE_MS);
+  /* Edits queued close together ride one cycle; the app never sits in a
+     permanent "Syncing…" state because quiet changes are skipped entirely. */
+  const wait = Math.max(DEBOUNCE_MS, MIN_GAP_MS - (Date.now() - lastAutoAt));
+  timer = setTimeout(() => {
+    timer = 0;
+    if (!started || busy || applying) return;
+    if (!localDirty()) return;
+    lastAutoAt = Date.now();
+    syncNow('change');
+  }, wait);
 }
 
 function onChange() {
   if (!started || applying) return;
   if (busy) { pending = true; return; }
+  if (!localDirty()) return;
   schedulePush();
 }
 
@@ -283,6 +336,10 @@ function onVisible() {
 
 function onOnline() {
   syncNow('online');
+}
+
+function onPoll() {
+  if (!document.hidden) syncNow('poll');
 }
 
 /* ---------- lifecycle ---------- */
@@ -300,6 +357,8 @@ export function startSync(fbUser) {
   document.addEventListener('lockin:changed', onChange);
   document.addEventListener('visibilitychange', onVisible);
   addEventListener('online', onOnline);
+  clearInterval(pollTimer);
+  pollTimer = setInterval(onPoll, POLL_MS);
   syncNow('start');
 }
 
@@ -309,6 +368,9 @@ export function stopSync() {
   started = false;
   user = null;
   clearTimeout(timer);
+  clearInterval(pollTimer);
+  clearTimeout(statusTimer);
+  pollTimer = 0;
   pending = false;
   document.removeEventListener('lockin:changed', onChange);
   document.removeEventListener('visibilitychange', onVisible);
@@ -316,9 +378,7 @@ export function stopSync() {
   saveMeta();
   status = 'idle';
   lastError = '';
-  document.dispatchEvent(new CustomEvent('lockin:sync', {
-    detail: { status, lastSyncAt, error: '' },
-  }));
+  emitSync();
 }
 
 /** Wipe the engine's bookkeeping — used when the cloud copy is deleted. */

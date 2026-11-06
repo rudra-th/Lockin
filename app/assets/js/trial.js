@@ -222,6 +222,25 @@ function addSessions(list, day, mins) {
   });
 }
 
+/** Demo screen time for the trial's Control screen. Generated, labelled as
+    demo, and never read from the device or sent anywhere. */
+export function trialScreenTime(now = new Date()) {
+  const hours = [4.6, 3.2, 5.1, 3.8, 6.2, 4.4, 4.2];
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+  const week = hours.map((h, i) => {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    return { day: dateKey(d), ms: Math.round(h * 3600000) };
+  });
+  const apps = [
+    ['YouTube', 1.62],
+    ['Instagram', 0.86],
+    ['WhatsApp', 0.68],
+    ['Chrome', 0.52],
+    ['Spotify', 0.34],
+  ].map(([label, h]) => ({ label, ms: Math.round(h * 3600000) }));
+  return { week, apps };
+}
+
 /** Restore the demo week. The real store is never touched. */
 export function resetTrial() {
   try { localStorage.removeItem(TRIAL_KEY); } catch (_) { /* private mode */ }

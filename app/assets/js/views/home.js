@@ -11,6 +11,7 @@ import {
 } from '../util.js';
 import { svg } from '../icons.js';
 import { formatExamMonth } from '../exams.js';
+import { openShareSheet } from '../share.js';
 
 export function initHome(Router) {
   Router.register('/home', { mount, unmount });
@@ -155,6 +156,11 @@ function focusCard({ focusMin, live, suggestedMin }) {
       }, meterFill)
     : null;
   const caption = el('div', { class: 'hf-caption' }, focusCaption(focusMin, live));
+  const share = el('button', {
+    class: 'share-today', type: 'button',
+    onclick: () => openShareSheet({ mins: Store.focusMinutesOn(todayKey()), goal }),
+  }, svg('share', 15), 'Share today');
+  share.hidden = !(goal > 0 && focusMin >= goal);
 
   const card = el('div', { class: 'card home-focus' },
     el('div', { class: 'hf-head' },
@@ -167,6 +173,7 @@ function focusCard({ focusMin, live, suggestedMin }) {
     ),
     meter,
     caption,
+    share,
     el('button', {
       class: 'btn btn-primary btn-block',
       onclick: () => Router.go(live ? '/focus' : `/focus?min=${suggestedMin}&mode=timer`),
@@ -177,6 +184,7 @@ function focusCard({ focusMin, live, suggestedMin }) {
   function update(min, nowLive) {
     num.textContent = fmtMin(min);
     caption.textContent = focusCaption(min, nowLive);
+    share.hidden = !(goal > 0 && min >= goal);
     if (meter) {
       const pct = Math.round(clamp01(min / goal) * 100);
       meterFill.style.setProperty('--pct', `${pct}%`);

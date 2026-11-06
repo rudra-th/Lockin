@@ -8,7 +8,7 @@ import { Store } from '../store.js';
 import { Router } from '../router.js';
 import { el, daysUntil } from '../util.js';
 import { svg } from '../icons.js';
-import { hint } from '../ui.js';
+import { hint, accountAvatar } from '../ui.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
   openExactAlarmSettings, openUsageAccessSettings, openFullScreenIntentSettings,
@@ -118,7 +118,7 @@ function readout(main, sub) {
 
 function introScene() {
   return [
-    kicker('A study clock, not a tracker'),
+    kicker('A study clock, built for focus'),
     title('Study has ', el('em', {}, 'a shape.')),
     lede('Set a daily target. Then run it in Study Mode — the clock stays awake, the target stays in front of you, and the app remembers when you leave.'),
     el('div', { class: 'film-meta' },
@@ -206,10 +206,7 @@ function accountScene() {
     if (st.user) {
       panel.append(
         el('div', { class: 'film-signed' },
-          st.user.photo
-            ? el('img', { class: 'acct-avatar', src: st.user.photo, alt: '' })
-            : el('span', { class: 'acct-avatar acct-fallback' },
-              (st.user.name || st.user.email || '?').slice(0, 1).toUpperCase()),
+          accountAvatar(st.user),
           el('span', { class: 'grow' },
             el('b', {}, st.user.name || 'Signed in'),
             el('small', {}, st.user.email || 'Google account')),

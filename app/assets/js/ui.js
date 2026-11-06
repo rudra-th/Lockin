@@ -3,6 +3,23 @@
 import { el } from './util.js';
 import { svg } from './icons.js';
 
+/* ---------- shared widgets ---------- */
+
+/** Google/account avatar with a letter fallback when the photo is missing or fails. */
+export function accountAvatar(user, cls = 'acct-avatar') {
+  const initial = (user?.name || user?.email || '?').slice(0, 1).toUpperCase();
+  const fallback = el('span', { class: `${cls} acct-fallback` }, initial);
+  if (!user?.photo) return fallback;
+  const img = el('img', {
+    class: cls,
+    src: user.photo,
+    alt: '',
+    referrerpolicy: 'no-referrer',
+    onerror: () => img.replaceWith(fallback),
+  });
+  return img;
+}
+
 /* ---------- bottom sheet ---------- */
 
 let sheetEl = null;

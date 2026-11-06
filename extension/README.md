@@ -1,11 +1,12 @@
 # Lockin — Block & Track
 
-The browser half of Lockin. It does four jobs and refuses the fifth:
+The browser half of Lockin. It does five jobs and refuses the sixth:
 
 - **Blocks** the sites on your list for a chosen stretch (25 min, 45 min, 1 h).
 - **Limits** any site to a daily allowance — 10 minutes to 2 hours. Spend it and the site holds until midnight.
 - **Cuts short videos** — YouTube Shorts, Instagram Reels, Facebook Reels and Snapchat Spotlight — on a toggle that is on by default.
 - **Tracks** the time the active Chrome tab spends on each site, per day.
+- **Links to your phone** — paste the pairing code from Lockin's Settings → Account and the popup shows today's phone screen time, focus minutes and most-used apps.
 - **Does not** run the study clock. Timers, tasks, streaks and the Honesty Log live in the app.
 
 ## Build and load
@@ -34,7 +35,9 @@ One `chrome.storage.local` key: `lockin.ext`.
 }
 ```
 
-Nothing leaves the browser. The extension has no account and no network calls.
+A second key, `lockin.cloud`, holds the optional phone link: the pairing code and the last summary fetched. It contains no account credentials.
+
+Nothing is uploaded. The extension has no account and makes one kind of network request: a read-only `GET` for the public summary document that matches your pairing code. No personal data, browsing history or site list is sent. The code can be rotated at any time in the app.
 
 ## Daily limits
 

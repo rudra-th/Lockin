@@ -7,6 +7,8 @@
 import { isNative } from './native.js';
 import { loadFirebase } from './firebase.js';
 import { startSync, stopSync, syncStatus, resetSyncMeta } from './sync.js';
+import { Store } from './store.js';
+import { ensurePairCode } from './summary.js';
 import { authErrorMessage, errorCodeOf, isCancel } from '../../core/auth-errors.js';
 import { isTrial, TRIAL_ACCOUNT } from './trial.js';
 
@@ -16,6 +18,7 @@ let user = isTrial ? { ...TRIAL_ACCOUNT } : null; // { uid, name, email, photo }
 let signingIn = false;
 let listening = false;
 let lastError = '';
+let nativeProfile = null; // photo/name straight from the Google sheet, in case Firebase omits them
 
 /* Inside the Capacitor shell the plugin is wired by cap sync and reached
    through the global bridge — no npm import, no bundler. */
@@ -31,14 +34,23 @@ export function accountState() {
   return { user, signingIn, trial: isTrial, ...sync, error: lastError || sync.error };
 }
 
+function photoOf(fbUser) {
+  return fbUser?.photoURL
+    || fbUser?.providerData?.find((p) => p?.photoURL)?.photoURL
+    || nativeProfile?.photoUrl
+    || nativeProfile?.photoURL
+    || '';
+}
+
 function adopt(fbUser) {
   if (fbUser) {
     user = {
       uid: fbUser.uid,
-      name: fbUser.displayName || '',
-      email: fbUser.email || '',
-      photo: fbUser.photoURL || '',
+      name: fbUser.displayName || nativeProfile?.displayName || '',
+      email: fbUser.email || nativeProfile?.email || '',
+      photo: photoOf(fbUser),
     };
+    rememberProfile(user);
     try { localStorage.setItem(FLAG, '1'); } catch (_) { /* flag is a bonus */ }
     startSync(fbUser);
   } else {
@@ -47,6 +59,20 @@ function adopt(fbUser) {
     stopSync();
   }
   emit();
+}
+
+/** Keep the signed-in Google address (backup + account label) and the
+    extension pairing code in the store, so both sync to the user's tree. */
+function rememberProfile(account) {
+  const email = String(account?.email || '').trim();
+  if (!email) return;
+  const code = ensurePairCode();
+  const s = Store.state;
+  if (s.profile.email === email && s.settings.pairCode === code) return;
+  Store.set((st) => {
+    st.profile.email = email;
+    st.settings.pairCode = code;
+  });
 }
 
 function rememberCloud() {
@@ -105,6 +131,9 @@ async function nativeGoogleTokens(plugin) {
     err.code = 'lockin/no-id-token';
     throw err;
   }
+  /* The native sheet knows the photo even when Firebase's restored profile
+     drops it; keep it for adopt(). */
+  nativeProfile = res?.user || null;
   return { idToken, accessToken };
 }
 
@@ -171,7 +200,7 @@ export async function deleteCloudData() {
   try {
     const { db, F } = await loadFirebase();
     const uid = user.uid;
-    for (const name of ['profile', 'settings', 'schedules', 'tasks', 'sessions', 'slips']) {
+    for (const name of ['profile', 'settings', 'schedules', 'tasks', 'sessions', 'slips', 'screenTime']) {
       const snap = await F.getDocs(F.collection(db, 'users', uid, name));
       const docs = snap.docs;
       for (let i = 0; i < docs.length; i += 400) {
@@ -179,6 +208,11 @@ export async function deleteCloudData() {
         for (const d of docs.slice(i, i + 400)) batch.delete(d.ref);
         await batch.commit();
       }
+    }
+    /* The extension's public summary is part of the cloud copy too. */
+    const code = Store.state.settings?.pairCode;
+    if (code) {
+      try { await F.deleteDoc(F.doc(db, 'public', code)); } catch (_) { /* already gone */ }
     }
     resetSyncMeta(); // a later sign-in re-uploads from scratch
     await signOut();

@@ -7,6 +7,9 @@ import {
 } from './core/limits.js';
 
 const KEY = 'lockin.ext';
+const CLOUD_KEY = 'lockin.cloud';
+const CLOUD_PROJECT = 'lockin-29758';
+const CLOUD_API = 'AIzaSyCpgy7nEoqaHNgQeDsJXggzNeMDuMP91pY';
 const DEFAULTS = { sites: [], off: {}, limits: {}, shorts: true, blockUntil: 0, usage: {} };
 const LIMIT_STEPS = [0, 10, 15, 20, 25, 30, 45, 60, 90, 120];
 
@@ -67,6 +70,58 @@ const fmtMins = (mins) => {
   return hh ? (mm ? `${hh}h ${String(mm).padStart(2, '0')}m` : `${hh}h`) : `${mm}m`;
 };
 
+/* ---------- phone summary (public doc, pairing code) ---------- */
+
+function fsValue(v) {
+  if (!v || typeof v !== 'object') return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return Number(v.doubleValue);
+  if ('booleanValue' in v) return Boolean(v.booleanValue);
+  if ('nullValue' in v) return null;
+  if ('mapValue' in v) return fsMap(v.mapValue?.fields);
+  if ('arrayValue' in v) return (v.arrayValue?.values || []).map(fsValue);
+  return null;
+}
+
+function fsMap(fields = {}) {
+  const out = {};
+  for (const [k, v] of Object.entries(fields || {})) out[k] = fsValue(v);
+  return out;
+}
+
+async function readCloud() {
+  const got = await chrome.storage.local.get(CLOUD_KEY);
+  const saved = got[CLOUD_KEY] || {};
+  return {
+    code: typeof saved.code === 'string' ? saved.code : '',
+    data: saved.data || null,
+    fetchedAt: Number(saved.fetchedAt) || 0,
+    error: String(saved.error || ''),
+  };
+}
+
+async function fetchCloud(code) {
+  const url = `https://firestore.googleapis.com/v1/projects/${CLOUD_PROJECT}/databases/(default)/documents/public/${encodeURIComponent(code)}?key=${CLOUD_API}`;
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (res.status === 404) return { error: 'No summary yet. Open Lockin on your phone.' };
+    if (!res.ok) return { error: 'Could not reach the Lockin cloud.' };
+    const doc = await res.json();
+    return { data: fsMap(doc.fields), fetchedAt: Date.now(), error: '' };
+  } catch (_) {
+    return { error: 'Offline — showing the last summary.' };
+  }
+}
+
+function ago(ts) {
+  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
+}
+
 function todayUsage(state) {
   const bucket = state.usage?.[dateKey()] || {};
   const rows = Object.entries(bucket)
@@ -97,6 +152,8 @@ function nextLimit(cur, dir) {
 }
 
 let state = null;
+let cloud = null;          // { code, data, fetchedAt, error }
+let pairing = false;
 let countdownTimer = 0;
 let sitesOpen = false;
 let pendingFocus = '';
@@ -104,6 +161,119 @@ let pendingFocus = '';
 function announce(text) {
   const el = document.getElementById('a11y-status');
   if (el) el.textContent = text;
+}
+
+function pairForm() {
+  const input = h('input', {
+    class: 'pairinput', type: 'text', value: cloud?.code || '',
+    placeholder: 'paste pairing code', autocomplete: 'off', spellcheck: false,
+    'aria-label': 'Pairing code from Lockin settings', 'data-focus': 'pair-input',
+  });
+  const err = h('p', { class: 'pairerr', role: 'alert' }, cloud?.error || '');
+  return h('form', {
+    class: 'pairform',
+    onsubmit: async (ev) => {
+      ev.preventDefault();
+      const code = input.value.trim().toLowerCase();
+      if (!/^[a-z0-9]{16,40}$/.test(code)) {
+        err.textContent = 'That code does not look right. Copy it from Settings → Account.';
+        return;
+      }
+      cloud = { code, data: null, fetchedAt: 0, error: '' };
+      pairing = false;
+      await chrome.storage.local.set({ [CLOUD_KEY]: cloud });
+      render();
+      refreshCloud();
+    },
+  },
+    input,
+    h('button', { type: 'submit', 'data-focus': 'pair-save' }, 'Link'),
+    err);
+}
+
+function cloudCard() {
+  const card = h('section', { class: 'phonecard' });
+  const linked = Boolean(cloud?.code);
+  card.append(h('div', { class: 'blocktop' },
+    h('div', {},
+      h('div', { class: 'blocktitle' }, 'Your phone'),
+      h('div', { class: 'blockmeta' }, cloud?.data ? 'Screen time · focus' : 'Screen time · focus')),
+    linked
+      ? h('button', {
+        class: 'phonelink', type: 'button', 'data-focus': 'pair-toggle',
+        onclick: () => { pairing = !pairing; render(); },
+      }, pairing ? 'Close' : 'Change')
+      : null));
+
+  if (!linked || pairing) {
+    card.append(h('p', { class: 'phonecopy' },
+      'Link the app to see your phone’s screen time and focus minutes here. The code is in Settings → Account.'));
+    card.append(pairForm());
+    if (linked) {
+      card.append(h('button', {
+        class: 'phonelink', type: 'button', style: 'margin-top:8px',
+        onclick: async () => {
+          cloud = { code: '', data: null, fetchedAt: 0, error: '' };
+          pairing = false;
+          await chrome.storage.local.set({ [CLOUD_KEY]: cloud });
+          render();
+        },
+      }, 'Unlink this phone'));
+    }
+    return card;
+  }
+
+  if (!cloud.data) {
+    card.append(h('p', { class: 'phonecopy' },
+      cloud.error || 'Waiting for the phone to publish. Open Lockin there once.'));
+    return card;
+  }
+
+  const data = cloud.data;
+  const screenMin = Math.max(0, Math.round(Number(data.screen?.today) || 0));
+  const focusMin = Math.max(0, Math.round(Number(data.focus?.today) || 0));
+  const goalMin = Math.max(0, Math.round(Number(data.goalMin) || 0));
+  const week = Array.isArray(data.screen?.week) ? data.screen.week.slice(-7) : [];
+  const max = Math.max(1, ...week.map((w) => Number(w?.mins) || 0));
+
+  card.append(h('div', { class: 'phoneheadline' },
+    h('b', {}, fmtMins(screenMin)),
+    h('span', {}, 'on your phone today')));
+
+  card.append(h('div', { class: 'phonebadges' },
+    h('span', { class: 'phonebadge' }, `Focus ${fmtMins(focusMin)}`),
+    goalMin ? h('span', { class: 'phonebadge is-quiet' }, `Goal ${fmtMins(goalMin)}`) : null));
+
+  if (week.length) {
+    card.append(h('div', {
+      class: 'weekbars', role: 'img',
+      'aria-label': `Screen time this week: ${week.map((w) => fmtMins(Number(w?.mins) || 0)).join(', ')}`,
+    }, week.map((w) => h('i', {
+      style: `height:${Math.max(4, Math.round(((Number(w?.mins) || 0) / max) * 100))}%`,
+      title: `${w?.day || ''} · ${fmtMins(Number(w?.mins) || 0)}`,
+    }))));
+  }
+
+  const apps = Array.isArray(data.screen?.apps) ? data.screen.apps.slice(0, 3) : [];
+  if (apps.length) {
+    card.append(h('ul', { class: 'phoneapps' },
+      apps.map((a) => h('li', {},
+        h('span', {}, String(a?.label || 'App')),
+        h('span', { class: 'time' }, fmtMins(Number(a?.mins) || 0))))));
+  }
+
+  card.append(h('div', { class: 'phonefoot' },
+    h('span', {}, cloud.fetchedAt ? `Updated ${ago(cloud.fetchedAt)}` : ''),
+    h('button', { class: 'phonelink', type: 'button', onclick: () => refreshCloud() }, 'Refresh')));
+  return card;
+}
+
+async function refreshCloud() {
+  if (!cloud?.code) return;
+  const out = await fetchCloud(cloud.code);
+  cloud = { ...cloud, ...out };
+  try { await chrome.storage.local.set({ [CLOUD_KEY]: cloud }); } catch (_) { /* popup closed */ }
+  render();
 }
 
 function render() {
@@ -158,6 +328,8 @@ function render() {
     $app.append(h('p', { class: 'empty' },
       'Nothing tracked yet. Open a tab and the clock starts — this counts Chrome, not your phone.'));
   }
+
+  $app.append(cloudCard());
 
   /* block */
   const activeSites = state.sites.filter((s) => !state.off[s]);
@@ -370,5 +542,7 @@ async function addSite(raw) {
 
 (async () => {
   state = await read();
+  cloud = await readCloud();
   render();
+  if (cloud.code) refreshCloud();
 })();

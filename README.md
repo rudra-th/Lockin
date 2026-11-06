@@ -14,7 +14,7 @@ The marketing home lives at [`site/`](site/) and the product lives at
 trial runs the real app at [`/app/?trial=1`](https://lockin.surge.sh/app/?trial=1)
 on a local **Test Account** with a seeded demo week.
 
-Vanilla JavaScript. No build step, no framework, no analytics. Everything lives in your browser's localStorage — and an optional Google account can mirror a copy to your own private cloud.
+Vanilla JavaScript. No build step, no framework. Everything lives in your browser's localStorage - and an optional Google account can mirror a copy to your own private cloud.
 
 ## The premise
 

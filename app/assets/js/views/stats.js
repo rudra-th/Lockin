@@ -242,7 +242,7 @@ function heatCard() {
   const cell = 12;
   const gap = 3;
   const labelW = 19;
-  const top = 13;
+  const top = 16;
   const W = labelW + WEEKS * (cell + gap) - gap;
   const H = top + 7 * (cell + gap) - gap;
 
@@ -255,7 +255,7 @@ function heatCard() {
   [1, 3, 5].forEach((di) => {
     svgEl.append(el('text', {
       x: 0, y: top + di * (cell + gap) + cell - 2,
-      fill: 'var(--tx-3)', 'font-size': '8', 'font-family': 'var(--font-mono)',
+      fill: 'var(--tx-3)', 'font-size': '11', 'font-family': 'var(--font-sans)',
     }, DAY_LETTERS[di]));
   });
 
@@ -268,8 +268,8 @@ function heatCard() {
     const month = parseKey(weekStart).getMonth();
     if (month !== lastMonth) {
       svgEl.append(el('text', {
-        x: labelW + wi * (cell + gap), y: 8,
-        fill: 'var(--tx-3)', 'font-size': '8', 'font-family': 'var(--font-mono)',
+        x: labelW + wi * (cell + gap), y: 12,
+        fill: 'var(--tx-3)', 'font-size': '11', 'font-family': 'var(--font-sans)',
       }, parseKey(weekStart).toLocaleDateString(undefined, { month: 'short' })));
       lastMonth = month;
     }

@@ -25,10 +25,24 @@ const OUT = path.join(DIST, 'site');
 const pkg = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
 
 async function newest(names, pattern) {
-  const versionOf = (name) => Number((/[\d.]+$/.exec(name)?.[0]) || 0);
+  /* Compare dotted versions numerically: string order puts "1.5.0" above
+     "1.13.0", which once shipped a stale APK. */
+  const parts = (name) => {
+    const found = /(\d+(?:\.\d+)+)/.exec(name);
+    return found ? found[1].split('.').map(Number) : [0];
+  };
+  const compare = (a, b) => {
+    const pa = parts(a);
+    const pb = parts(b);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+      const diff = (pa[i] || 0) - (pb[i] || 0);
+      if (diff) return diff;
+    }
+    return String(a).localeCompare(String(b));
+  };
   const match = names
     .filter((name) => pattern.test(name))
-    .sort((a, b) => versionOf(a) - versionOf(b) || String(a).localeCompare(String(b)));
+    .sort(compare);
   if (match.length) return match[match.length - 1];
   return null;
 }

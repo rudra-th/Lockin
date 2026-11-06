@@ -222,6 +222,36 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(Store.sessionMins({ start: 1000, end: 0 }), 0); // end before start
   });
 
+  group('Screen time');
+  test('records daily totals and today’s top apps', () => {
+    Store.set((s) => { s.screenTime = []; });
+    const day = todayKey();
+    const wrote = Store.recordScreenTime(
+      [{ day, ms: 90 * 60000 }, { day: addDays(day, -1), ms: 30 * 60000 }],
+      [
+        { package: 'com.google.android.youtube', label: 'YouTube', ms: 60 * 60000 },
+        { package: 'com.android.chrome', label: 'Chrome', ms: 15 * 60000 },
+      ],
+    );
+    eq(wrote, true);
+    eq(Store.screenDay(day).mins, 90);
+    eq(Store.screenDay(addDays(day, -1)).mins, 30);
+    eq(Store.screenDay(day).apps.map((a) => a.label), ['YouTube', 'Chrome']);
+  });
+  test('an unchanged snapshot writes nothing', () => {
+    const before = Store.state.screenTime;
+    const day = todayKey();
+    const wrote = Store.recordScreenTime(
+      [{ day, ms: 90 * 60000 }],
+      [
+        { package: 'com.google.android.youtube', label: 'YouTube', ms: 60 * 60000 },
+        { package: 'com.android.chrome', label: 'Chrome', ms: 15 * 60000 },
+      ],
+    );
+    eq(wrote, false);
+    eq(Store.state.screenTime, before); // identity: no Store.set, no sync trigger
+  });
+
   group('Strict Mode accident window');
   test('≤10s away is a rescue when rescues remain', () => {
     eq(decideAway({ awaySec: 3, usedRescues: 0 }), 'rescue');
@@ -563,6 +593,15 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
       'lww');
     eq(out.arr[0].title, 'new');
     eq(out.updated, 1);
+  });
+  test('mergeDocs lww: identical content never counts as a change', () => {
+    const local = [{ id: 't1', title: 'same', updatedAt: 100 }];
+    const out = mergeDocs(
+      local,
+      [{ id: 't1', title: 'same', updatedAt: 900 }],
+      'lww');
+    eq(out.arr, local);       // keeps the exact object
+    eq(out.updated, 0);       // so the sync engine never re-syncs it
   });
   test('mergeDocs lww: a newer local survives', () => {
     const local = [{ id: 't1', title: 'mine', updatedAt: 300 }];

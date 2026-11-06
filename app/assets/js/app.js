@@ -13,6 +13,7 @@ import { initSettings } from './views/settings.js';
 import { initWalkthrough } from './views/walkthrough.js';
 import { startAlarms } from './alarms.js';
 import { startNative, isNative } from './native.js';
+import { startUsageSnapshots } from './usage.js';
 import { initAccount } from './account.js';
 
 Store.load();
@@ -80,6 +81,7 @@ Router.start();
 applyTheme();
 startAlarms();
 startNative();
+startUsageSnapshots(); // Android only; folds usage into the synced store
 initAccount(); // only touches the network when the user asked for the cloud
 
 /* ---------- tab bar ---------- */
