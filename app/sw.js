@@ -32,6 +32,7 @@ const PRECACHE = [
   './assets/js/controls.js',
   './assets/js/alarms.js',
   './assets/js/native.js',
+  './assets/js/glance.js',
   './assets/js/firebase.js',
   './assets/js/account.js',
   './assets/js/sync.js',

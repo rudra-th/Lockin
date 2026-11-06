@@ -24,7 +24,7 @@ shell around the same web UI, not a second UI.
 |---|---|---|
 | **Web app** (`app/`) | Tasks, schedules, Study Mode sessions, daily targets and target-day streaks, Progress in Settings, the weekly share card, foreground alarms, the **Control** tab's web explanation, Settings | Device-wide blocking, closed-app alarms |
 | **Extension** (`extension/`) | Site block list, per-site daily allowances, short-video URL rules, active-Chrome-tab seconds, badge countdown | Sessions, tasks, streaks, the PWA's localStorage |
-| **Android** (`android/`) | Exact alarms, full-screen lock-screen alarms, notification Start/Skip actions, notification permission, usage access, per-app screen time in Settings, app blocking and per-app limits in Control, the optional kiosk, optional Google sign-in for cloud sync | A forked UI or a second data model. Blocking, limits, usage and kiosk config are device-local `SharedPreferences`, not part of the synced store |
+| **Android** (`android/`) | Exact alarms, full-screen lock-screen alarms, notification Start/Skip actions, notification permission, usage access, per-app screen time in Settings, app blocking and per-app limits in Control, the optional kiosk, the home-screen widget and Quick Settings tile, optional Google sign-in for cloud sync | A forked UI or a second data model. Blocking, limits, usage and kiosk config are device-local `SharedPreferences`, not part of the synced store. The widget and tile render a snapshot the app pushes, never their own numbers |
 
 The extension and the PWA cannot read each other's storage. Usage stays separate
 until sync exists. This is stated in `extension/README.md` and in the UI.
