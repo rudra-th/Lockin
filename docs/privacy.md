@@ -1,20 +1,21 @@
 # Privacy
 
 Lockin is a study tool, not an advertising product. This document describes
-what the **shipped 1.14.0 build** does — local-first by default, with optional
+what the **shipped 1.15.0 build** does — local-first by default, with optional
 Google sign-in for cloud sync. It is written to be read, not to hide behind.
 
 ## The short version
 
-- 1.14.0 is local-first. Tasks, schedules, sessions, target history and settings
+- 1.15.0 is local-first. Tasks, schedules, sessions, target history and settings
   live in one `localStorage` key on your device.
 - Sync is opt-in. Signed out there is no account, no analytics and no
   third-party request.
 - Signed in, the synced slices mirror to your own Firestore tree
   (`users/{uid}/…`), locked to your Google account by Firestore rules. The
   Firebase SDK loads from Google's CDN for this.
-- The extension keeps its own state in `chrome.storage.local` and makes no
-  network requests. Extension sync is not shipped.
+- The extension keeps its own state in `chrome.storage.local`. It makes one
+  read-only request when you pair a phone code, for that summary document.
+  Extension sync is not shipped.
 - Export is a plain JSON file you control. Treat it like a diary.
 
 ## Web app
@@ -39,9 +40,12 @@ third-party script, pixel or CDN. Signed in, the Firebase SDK loads from
 |---|---|---|
 | Site list, block deadline, shorts toggle, per-day seconds | `chrome.storage.local` key `lockin.ext` | Blocking, short-video rules and the badge countdown |
 | Active tab URL | Memory + the same key | Attribute time to a domain, redirect blocked navigations, and match the `/shorts` or `/reels` path |
+| Pairing code and the last fetched summary | `chrome.storage.local` key `lockin.cloud` | Show the phone's week without an account |
 
 The extension reads the active tab, not the history database, page content or
-form fields. It injects no content scripts. It makes no network requests.
+form fields. It injects no content scripts. When you pair a phone code it makes
+one read-only `GET` for that public summary document; the code is the only
+value in the request, and no browsing data is sent.
 
 The extension cannot read the PWA's `localStorage`, and the PWA cannot read the
 extension's storage. Usage is separate until sync ships.
