@@ -25,9 +25,10 @@ window to ship a fix before publishing details.
 ## What Lockin stores
 
 The current web build is local-first: one `localStorage` key
-(`lockin.store.v1`) holds tasks, schedules, sessions, slips and settings. The
-extension keeps its state under `lockin.ext` in `chrome.storage.local`. Neither
-surface sends data to a server in 1.4.1.
+(`lockin.store.v1`) holds tasks, schedules, sessions, target history and
+settings. The extension keeps its state under `lockin.ext` in
+`chrome.storage.local`. Neither surface sends data to a server unless you opt
+into cloud sync with Google.
 
 Exports are plain JSON and may contain your study history. Treat them like a
 diary; do not attach them to public issues.

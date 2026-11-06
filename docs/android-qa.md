@@ -8,7 +8,7 @@ verified in a browser or an emulator with confidence.
 `docs/android-release.md` · **Version:** ______ · **Device:** ______ ·
 **Date:** ______
 
-Progress: **0 / 34 checked**
+Progress: **0 / 38 checked**
 
 ---
 
@@ -54,6 +54,12 @@ of these.
       the exact minute.
 - [ ] Alarm fires after a device reboot (reboot ≥1 min before the block).
 - [ ] Tapping the alarm notification opens Lockin on the **Schedule** tab.
+- [ ] The start notification shows **Start session** and **Skip today**. Start
+      opens Lockin and the block's session begins; Skip hides that occurrence
+      from the next-block hero for today.
+- [ ] When Android grants the full-screen intent, the lock-screen alarm shows
+      **Start session**, **Skip today** and **Dismiss**, and each does the same
+      thing as its notification counterpart.
 - [ ] The alarm is audible/vibrating with the phone locked and silent media
       volume (alarm channel, not media).
 - [ ] A block with the alarm toggle off produces no notification.
@@ -65,8 +71,9 @@ not just Lockin).
 
 - [ ] The Settings screen-time panel renders non-zero daily totals for days
       with real usage.
-- [ ] The panel's total for today is within a few minutes of Android's own
-      Digital Wellbeing number for today.
+- [ ] Lockin never appears in the per-app rows, and the daily total excludes
+      the time spent studying in it (Digital Wellbeing will be higher by exactly
+      that much).
 - [ ] A day with zero phone use shows 0 — not blank, not yesterday's number.
 - [ ] The 7-day rail matches Digital Wellbeing's per-day ordering (which days
       were heavy vs light).
@@ -87,14 +94,19 @@ not just Lockin).
 
 - [ ] Start a 10m session, lock the screen for 2 minutes, unlock: the clock
       shows the correct remaining time (no drift — it's timestamp-based).
-- [ ] Start a session, swipe the app away, return within the grace window:
-      the session is still running and the return is a rescue, not a slip.
-- [ ] Leave the app past the grace window with Strict on: returning shows
-      the slip honestly in the log.
+- [ ] Start a session, swipe the app away, return: the session is still running
+      (timestamp-based), with no penalty and no log entry.
+- [ ] Leave Lockin mid-session and come back: the minutes before the gap are
+      kept, and ending early keeps them too — the session is recorded as
+      ended-early, not as a failure.
 - [ ] Screen stays awake during a running session (wake lock) with the
       "keep screen awake" setting on, and doesn't with it off.
 - [ ] Kill the app entirely mid-session, reopen: the session resumes from
       its snapshot (started time preserved, not restarted).
+- [ ] Ending is a 1.4-second hold on the ring; there is no confirm sheet and no
+      second gate.
+- [ ] Ending inside the first 20 seconds discards the session instead of
+      banking a sliver of a minute.
 
 ## 7. Shell & offline
 

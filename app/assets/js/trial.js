@@ -7,7 +7,7 @@
 import { dateKey, parseKey } from './util.js';
 import { examById, examDateFor, expectedYear } from './exams.js';
 
-export const TRIAL_KEY = 'lockin.trial.store.v1';
+export const TRIAL_KEY = 'lockin.trial.store.v2';
 export const TRIAL_QUERY = 'trial';
 
 export const TRIAL_ACCOUNT = {
@@ -64,40 +64,28 @@ export function trialSeed(now = new Date()) {
     },
   ];
 
-  /* Thirteen finished days, oldest first. `mins` is what the day banked;
-     `slip` is the honest mark that keeps that day from being clean. */
+  /* Thirteen finished days, oldest first. `mins` is what the day banked. */
   const history = [
-    { mins: 95, slip: null },
-    { mins: 140, slip: null },
-    { mins: 65, slip: 'slip' },
-    { mins: 0, slip: null },
-    { mins: 120, slip: null },
-    { mins: 155, slip: null },
-    { mins: 80, slip: null },
-    { mins: 105, slip: 'rescue' },
-    { mins: 0, slip: null },
-    { mins: 130, slip: null },
-    { mins: 145, slip: 'abandon' },
-    { mins: 90, slip: null },
-    { mins: 115, slip: null },
+    { mins: 95 },
+    { mins: 140 },
+    { mins: 65 },
+    { mins: 0 },
+    { mins: 120 },
+    { mins: 155 },
+    { mins: 80 },
+    { mins: 105 },
+    { mins: 0 },
+    { mins: 130 },
+    { mins: 145 },
+    { mins: 90 },
+    { mins: 115 },
   ];
 
   const sessions = [];
-  const slips = [];
 
   history.forEach((row, i) => {
     const day = dateKey(new Date(parseKey(today).getFullYear(), parseKey(today).getMonth(), parseKey(today).getDate() - (history.length - i)));
     if (row.mins > 0) addSessions(sessions, day, row.mins);
-    if (row.slip) {
-      slips.push({
-        id: `sl_demo_${i}`,
-        ts: parseKey(day).getTime() + 17 * 3600000,
-        day,
-        kind: row.slip,
-        sessId: null,
-        awaySec: row.slip === 'slip' ? 96 : row.slip === 'rescue' ? 7 : 0,
-      });
-    }
   });
 
   /* Today is a session in progress, not a finished day. At 2am there is no
@@ -178,7 +166,6 @@ export function trialSeed(now = new Date()) {
     schedules,
     tasks,
     sessions,
-    slips,
     profile: {
       name: TRIAL_ACCOUNT.name,
       exam: exam.name,
@@ -188,7 +175,7 @@ export function trialSeed(now = new Date()) {
     settings: {
       theme: 'dark',
       goalMin: 120,
-      strict: true,
+      goalHistory: [{ day: dateKey(new Date(nowMs - 14 * 86400000)), min: 120 }],
       scheduleAlarms: true,
       alarmSound: true,
       alarmVibrate: true,

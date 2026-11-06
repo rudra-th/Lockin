@@ -1,9 +1,9 @@
 {
   "name": "lockin",
-  "version": "1.13.1",
+  "version": "1.14.0",
   "private": true,
   "type": "module",
-  "description": "A study-first focus app: recurring schedule blocks, alarms, wake-locked Study Mode and an honest slip log.",
+  "description": "A study-first focus app: recurring schedule blocks, alarms, wake-locked Study Mode and a daily target built from real minutes.",
   "scripts": {
     "check": "node tools/check.mjs",
     "test": "node tools/run-tests.mjs",

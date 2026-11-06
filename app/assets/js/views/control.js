@@ -1,7 +1,7 @@
 /* Lockin — Control: the phone side in one place.
    Screen time, app blocking, per-app limits, distraction presets and the
-   strict kiosk. Everything here is device-local by design; the synced store
-   only holds the "pinned sessions" preference. */
+   optional kiosk. Everything here is device-local by design; the synced store
+   only holds the kiosk preference. */
 
 import { Store } from '../store.js';
 import { el, fmtMin, parseKey } from '../util.js';
@@ -428,7 +428,7 @@ function blockingCard() {
   const listWrap = el('div', { class: 'app-list-wrap' }, list);
 
   /* The full picker is a long scrolling list. Keep it closed by default: the
-     chips show what is already blocked, and presets, limits and strict mode
+     chips show what is already blocked, and presets, limits and the kiosk
      stay above the fold until someone asks to browse. */
   const picked = el('div', { class: 'app-picked', role: 'group', 'aria-label': 'Apps to block' });
   const browseLabel = el('span', {}, 'Browse all apps');
@@ -842,13 +842,13 @@ function distractionCard() {
   return { node, paint };
 }
 
-/* ---------- strict study mode ---------- */
+/* ---------- optional kiosk ---------- */
 
 function strictCard() {
   const pillEl = el('span', { class: 'native-pill' }, 'Reading…');
   const liveRow = el('div', { class: 'ctl-live is-idle' },
     el('i', { class: 'ctl-live-dot' }),
-    el('span', { class: 'ctl-live-text' }, 'Reading strict mode…'));
+    el('span', { class: 'ctl-live-text' }, 'Reading kiosk…'));
   const chipsEl = el('div', { class: 'ctl-chips' });
   const allowCount = el('span', { class: 'blocking-count' }, '0 allowed');
   const setupBody = el('div');
@@ -857,7 +857,7 @@ function strictCard() {
   const kioskSwitch = el('button', {
     class: 'switch', role: 'switch',
     'aria-checked': String(Boolean(Store.state.settings.kiosk)),
-    'aria-label': 'Use kiosk mode for strict sessions',
+    'aria-label': 'Use kiosk mode during sessions',
     onclick: () => {
       const next = !Store.state.settings.kiosk;
       Store.set((s) => { s.settings.kiosk = next; });
@@ -902,7 +902,7 @@ function strictCard() {
   }
 
   function openStrictPicker() {
-    openSheet('Allowed in strict mode', (close) => {
+    openSheet('Allowed in the kiosk', (close) => {
       const search = el('input', {
         class: 'inp', type: 'search', placeholder: 'Search apps…',
         'aria-label': 'Search allowed apps', autocomplete: 'off', spellcheck: 'false',
@@ -950,7 +950,7 @@ function strictCard() {
       render();
       return [
         el('p', { class: 'tiny', style: 'margin:0 0 10px' },
-          'Lockin itself is always allowed. Everything else on the phone is covered while a strict session runs.'),
+          'Lockin itself is always allowed. Everything else on the phone is covered while a kiosk session runs.'),
         search, wrap, done,
       ];
     });
@@ -969,7 +969,7 @@ function strictCard() {
     liveRow.classList.toggle('is-idle', !active);
     const liveText = liveRow.querySelector('.ctl-live-text');
     if (!strict) {
-      liveText.textContent = 'Reading strict mode…';
+      liveText.textContent = 'Reading kiosk…';
     } else if (active) {
       liveText.textContent = locked
         ? 'Kiosk holding now — Home, Recents and Settings are closed. End the session in Lockin.'
@@ -979,10 +979,10 @@ function strictCard() {
     } else if (strict.armed) {
       liveText.textContent = 'Armed. The next session will hold the phone.';
     } else if (!device?.service && !owner) {
-      liveText.textContent = 'Accessibility is off — strict mode cannot cover apps. Turn it on in App blocking.';
+      liveText.textContent = 'Accessibility is off — the kiosk cannot cover apps. Turn it on in App blocking.';
     } else {
       liveText.textContent = owner
-        ? 'Ready. A strict session pins the phone to Lockin and the allowlist.'
+        ? 'Ready. A kiosk session pins the phone to Lockin and the allowlist.'
         : 'Ready. Without device owner, Android can still leave Lockin with Home.';
     }
 
@@ -1011,7 +1011,7 @@ function strictCard() {
             onclick: () => copy(REMOVE_CMD),
           }, svg('copy', 14), 'Copy remove command'),
           el('p', { class: 'tiny' },
-            'Removing device owner turns strict mode back into screen pinning. Your data stays.'),
+            'Removing device owner turns the kiosk back into screen pinning. Your data stays.'),
         ]
         : [
           el('p', { class: 'tiny' },
@@ -1022,7 +1022,7 @@ function strictCard() {
             onclick: () => copy(OWNER_CMD),
           }, svg('copy', 14), 'Copy setup command'),
           el('p', { class: 'tiny' },
-            'Without it, strict mode still covers apps and pins the screen, but Android always lets you leave with Home. Lockin says “Limited kiosk” instead of pretending.'),
+            'Without it, the kiosk still covers apps and pins the screen, but Android always lets you leave with Home. Lockin says “Limited kiosk” instead of pretending.'),
         ],
     );
   }
@@ -1039,13 +1039,13 @@ function strictCard() {
 
   const node = el('div', { class: 'card ctl-strict' },
     el('div', { class: 'ctl-card-head' },
-      el('h2', { class: 'blocking-head' }, svg('shield', 16), el('span', {}, 'Strict study mode')),
+      el('h2', { class: 'blocking-head' }, svg('shield', 16), el('span', {}, 'Kiosk')),
       pillEl),
     el('p', { class: 'muted ctl-lede' },
-      'No exits, no “just one reel”. While a strict session runs, Lockin holds the phone and only the apps you allow can open.'),
+      'No exits, no “just one reel”. While a kiosk session runs, Lockin holds the phone and only the apps you allow can open.'),
     liveRow,
     setrow('Pin the phone during sessions',
-      'Every new Study Mode session arms strict mode. Finish or end the session in Lockin to release it.',
+      'Every new Study Mode session arms the kiosk. Finish or end the session in Lockin to release it.',
       kioskSwitch),
     el('div', { class: 'ctl-allow-head' },
       el('b', {}, 'Allowed apps'), allowCount),
@@ -1053,7 +1053,7 @@ function strictCard() {
     chooseBtn,
     setup,
     el('p', { class: 'tiny ctl-note' },
-      'Strict releases itself if Lockin stops responding: the native deadline fails open. Launchers, Settings and the dialer are never covered by the accessibility overlay — only the kiosk can close them.'));
+      'The kiosk releases itself if Lockin stops responding: the native deadline fails open. Launchers, Settings and the dialer are never covered by the accessibility overlay — only the kiosk can close them.'));
 
   return { node, paint };
 }
@@ -1066,11 +1066,11 @@ function webCard() {
     el('div', { class: 'ctl-upgrade-badge' }, svg('phone', 26)),
     el('h2', {}, 'The phone side needs Android'),
     el('p', { class: 'ctl-upgrade-lede' },
-      'Blocking, daily limits and strict sessions use Android’s own accessibility and usage services. A browser cannot see or cover another app — and this trial will not pretend it can.'),
+      'Blocking, daily limits and kiosk sessions use Android’s own accessibility and usage services. A browser cannot see or cover another app — and this trial will not pretend it can.'),
     el('ul', { class: 'ctl-web-list' },
       item('clock', 'Your real screen time, read on the phone.'),
       item('lock', 'Chosen apps covered during focus blocks.'),
-      item('shield', 'Strict sessions that pin the phone to Lockin.'),
+      item('shield', 'Kiosk sessions that pin the phone to Lockin.'),
       item('film', 'Short-video and feed presets.')),
     el('div', { class: 'btn-stack ctl-upgrade-actions' },
       el('a', {

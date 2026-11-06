@@ -1,11 +1,13 @@
-/* Lockin — Progress: today, all time, the week, tasks, heat, honesty.
+/* Lockin — Progress: today, all time, the week, tasks, heat, sessions.
    Rendered inside Settings' Progress section, so these are cards to append,
-   not a screen with its own heading. */
+   not a screen with its own heading. A day counts when it reaches the target
+   that was in force on that day. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
 import { el, todayKey, addDays, prettyDate, fmtMin, parseKey } from '../util.js';
 import { svg } from '../icons.js';
+import { openWeekShare } from '../share.js';
 
 const DAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const sum = (list) => list.reduce((a, b) => a + b, 0);
@@ -16,7 +18,7 @@ function ring(pct, size = 104) {
   const p = Math.max(0, Math.min(1, pct));
   return el('svg', {
     width: size, height: size, viewBox: `0 0 ${size} ${size}`,
-    role: 'img', 'aria-label': `${Math.round(p * 100)}% of the daily focus goal`,
+    role: 'img', 'aria-label': `${Math.round(p * 100)}% of the daily focus target`,
   },
     el('circle', { cx: size / 2, cy: size / 2, r, fill: 'none', stroke: 'var(--line-2)', 'stroke-width': 8 }),
     el('circle', {
@@ -36,16 +38,11 @@ function focusSessions() {
 function allTime() {
   const sessions = focusSessions();
   const totalMins = Math.round(sum(sessions.map((s) => Store.sessionMins(s))));
-  const days = new Set([
-    ...sessions.map((s) => s.day),
-    ...Store.state.slips.map((s) => s.day),
-  ]);
-  let cleanDays = 0;
-  days.forEach((d) => { if (Store.dayClean(d)) cleanDays += 1; });
+  const days = [...new Set(sessions.map((s) => s.day))];
   const tasks = Store.state.tasks;
   return {
     totalMins,
-    cleanDays,
+    targetDays: Store.targetDaysBetween(days),
     sessions: sessions.length,
     avgMins: sessions.length ? Math.round(totalMins / sessions.length) : 0,
     tasksDone: tasks.filter((t) => t.doneAt).length,
@@ -60,7 +57,7 @@ function emptyHero() {
     el('div', { class: 'ec-kicker' }, 'Nothing measured yet'),
     el('div', { class: 'ec-title' }, 'The numbers start when ', el('em', {}, 'the clock does.')),
     el('p', { class: 'ec-copy' },
-      'Run one session in Study Mode. Minutes, clean days and the honesty log fill themselves — no demo data, no defaults.'),
+      'Run one session in Study Mode. Minutes, target days and the weekly card fill themselves — no demo data, no defaults.'),
     el('button', {
       class: 'btn btn-primary btn-block', style: 'margin-top:16px',
       onclick: () => Router.go('/focus'),
@@ -73,26 +70,22 @@ function emptyHero() {
 function todayCard() {
   const t = todayKey();
   const mins = Store.focusMinutesOn(t);
-  const goal = Store.state.settings.goalMin;
+  const goal = Store.goalToday();
   const pct = goal ? mins / goal : 0;
-  const left = Math.max(0, goal - mins);
+  const left = Store.goalLeft(t);
   const over = Math.max(0, mins - goal);
-  const streak = Store.streakUpTo(t);
-  const counts = Store.slipCountsOn(t);
-  const clean = Store.dayClean(t);
-  const slips = counts.slip + counts.abandon;
+  const streak = Store.goalStreak(t);
+  const met = Store.dayGoalMet(t);
 
   const note = !mins
     ? 'The clock hasn’t started. The ring fills when a session does.'
-    : over > 0
+    : met
       ? `Target cleared — ${fmtMin(over)} over.`
       : `${fmtMin(left)} left to hit the target.`;
 
-  const status = clean
-    ? el('span', { class: 'pill acc' }, 'Clean day')
-    : slips
-      ? el('span', { class: 'pill warn' }, `${slips} slip${slips === 1 ? '' : 's'} today`)
-      : el('span', { class: 'pill' }, 'Not clean yet');
+  const status = met
+    ? el('span', { class: 'pill acc' }, 'Target met')
+    : el('span', { class: 'pill' }, mins ? 'On the way' : 'Not started');
 
   return el('div', { class: 'card' },
     el('div', { class: 'row', style: 'gap:18px' },
@@ -100,7 +93,7 @@ function todayCard() {
         ring(pct),
         el('div', { class: 'center', style: 'font-size:15px' },
           `${Math.round(Math.min(1, pct) * 100)}%`,
-          el('small', {}, 'of goal')),
+          el('small', {}, 'of target')),
       ),
       el('div', { class: 'grow' },
         el('h2', { style: 'margin-bottom:7px' }, 'Today'),
@@ -133,7 +126,7 @@ function allTimeStrip(all) {
   const taskPct = all.tasksTotal ? all.tasksDone / all.tasksTotal : null;
   return el('div', { class: 'tilestrip' },
     tweakTile('All-time focus', fmtMin(all.totalMins), 'since you started'),
-    tweakTile('Clean days', String(all.cleanDays), 'focus and zero slips'),
+    tweakTile('Target days', String(all.targetDays), 'days that reached their goal'),
     tweakTile('Sessions', String(all.sessions), all.sessions ? `${fmtMin(all.avgMins)} average` : 'none yet'),
     tweakTile(
       'Tasks done',
@@ -148,28 +141,30 @@ function allTimeStrip(all) {
 
 function weekCard() {
   const t = todayKey();
-  const goal = Store.state.settings.goalMin;
   const days = [];
   for (let i = 6; i >= 0; i -= 1) days.push(addDays(t, -i));
   const vals = days.map((d) => Store.focusMinutesOn(d));
-  const max = Math.max(60, goal, ...vals) * 1.08;
+  const goals = days.map((d) => Store.goalFor(d));
+  const max = Math.max(60, ...goals, ...vals) * 1.08;
+  const metDays = days.filter((d) => Store.dayGoalMet(d)).length;
 
   const bars = el('div', { class: 'bars' },
     days.map((d, i) => {
       const isToday = d === t;
       const mins = vals[i];
-      const clean = Store.dayClean(d);
-      const fill = !mins ? 'dim' : clean ? '' : 'broke';
+      const goal = goals[i];
+      const met = Store.dayGoalMet(d);
+      const fill = !mins ? 'dim' : met ? '' : 'partial';
       return el('div', { class: `barcol${isToday ? ' today' : ''}` },
         el('div', { class: 'barwrap' },
           el('div', {
             class: `bar ${fill}`, style: `height:${mins ? Math.max(4, (mins / max) * 100) : 2}%`,
-            title: `${prettyDate(d)} · ${fmtMin(mins)}${clean ? ' · clean' : mins ? ' · not clean' : ''}`,
+            title: `${prettyDate(d)} · ${fmtMin(mins)} of ${fmtMin(goal)}${met ? ' · target met' : ''}`,
           }),
           el('div', {
             class: `goalmark${mins >= goal && goal ? ' hit' : ''}`,
             style: `bottom:${Math.min(100, (goal / max) * 100)}%`,
-            title: `Daily goal · ${fmtMin(goal)}`,
+            title: `Target · ${fmtMin(goal)}`,
           }),
         ),
         el('span', { class: 'lbl' }, isToday ? 'Today' : DAY_LETTERS[parseKey(d).getDay()]),
@@ -178,21 +173,24 @@ function weekCard() {
   );
 
   const total = sum(vals);
-  const goalsHit = vals.filter((v) => v >= goal).length;
 
   return el('div', { class: 'card' },
     el('h2', {}, 'Last 7 days'),
     bars,
     el('div', { class: 'weekstats' },
       el('div', {}, el('b', {}, fmtMin(total)), el('span', {}, 'focused')),
-      el('div', {}, el('b', {}, `${goalsHit}/7`), el('span', {}, 'goal days')),
+      el('div', {}, el('b', {}, `${metDays}/7`), el('span', {}, 'days on target')),
       el('div', {}, el('b', {}, fmtMin(total / 7)), el('span', {}, 'daily average')),
     ),
     el('div', { class: 'chartlegend' },
-      el('span', {}, el('i', { class: 'sw acc' }), 'clean'),
-      el('span', {}, el('i', { class: 'sw broke' }), 'focused, not clean'),
-      el('span', {}, el('i', { class: 'sw goal' }), 'goal'),
+      el('span', {}, el('i', { class: 'sw acc' }), 'target met'),
+      el('span', {}, el('i', { class: 'sw broke' }), 'some focus'),
+      el('span', {}, el('i', { class: 'sw goal' }), 'target'),
     ),
+    el('button', {
+      class: 'btn btn-subtle btn-block', style: 'margin-top:14px',
+      onclick: () => openWeekShare(),
+    }, svg('share', 15), 'Share the week'),
   );
 }
 
@@ -248,7 +246,7 @@ function heatCard() {
 
   const svgEl = el('svg', {
     viewBox: `0 0 ${W} ${H}`, role: 'img',
-    'aria-label': 'Clean-day heatmap for the last 13 weeks',
+    'aria-label': 'Target-day heatmap for the last 13 weeks',
   });
 
   /* weekday labels — odd rows only, so the grid stays quiet */
@@ -277,10 +275,12 @@ function heatCard() {
       const dayKey = addDays(weekStart, di);
       if (dayKey > t) continue; // the future is not a data point
       const mins = Store.focusMinutesOn(dayKey);
-      const clean = Store.dayClean(dayKey);
-      let fill = 'var(--panel-2)';
-      if (clean) fill = 'var(--acc)';
-      else if (mins > 0) fill = 'color-mix(in srgb, var(--warn) 55%, var(--panel-2))';
+      const met = Store.dayGoalMet(dayKey);
+      const fill = met
+        ? 'var(--acc)'
+        : mins > 0
+          ? 'color-mix(in srgb, var(--acc) 28%, var(--panel-2))'
+          : 'var(--panel-2)';
       svgEl.append(el('rect', {
         x: labelW + wi * (cell + gap), y: top + di * (cell + gap),
         width: cell, height: cell, rx: 3.5, fill,
@@ -288,18 +288,18 @@ function heatCard() {
         'stroke-opacity': 0.55,
         'data-day': dayKey,
         'data-mins': String(mins),
-        'data-clean': String(clean),
-      }, el('title', {}, `${prettyDate(dayKey)} · ${fmtMin(mins)}${clean ? ' · clean' : ''}`)));
+        'data-met': String(met),
+      }, el('title', {}, `${prettyDate(dayKey)} · ${fmtMin(mins)} of ${fmtMin(Store.goalFor(dayKey))}${met ? ' · target met' : ''}`)));
     }
   }
 
   return el('div', { class: 'card hm' },
-    el('h2', {}, 'Clean days · 13 weeks'),
+    el('h2', {}, 'Target days · 13 weeks'),
     svgEl,
     el('div', { class: 'chartlegend' },
-      el('span', {}, el('i', { class: 'sw acc' }), 'clean'),
-      el('span', {}, el('i', { class: 'sw broke' }), 'focused, broken'),
-      el('span', {}, el('i', { class: 'sw quiet' }), 'quiet'),
+      el('span', {}, el('i', { class: 'sw acc' }), 'target met'),
+      el('span', {}, el('i', { class: 'sw quiet' }), 'some focus'),
+      el('span', {}, el('i', { class: 'sw empty' }), 'quiet'),
     ),
   );
 }
@@ -320,39 +320,13 @@ function recentCard() {
           return el('div', { class: 'sesrow' },
             el('div', { class: 'grow' },
               el('div', { class: 'ses-name' }, 'Focus',
-                s.earned ? el('span', { class: 'ses-tag' }, 'ended on your terms')
-                  : s.aborted ? el('span', { class: 'ses-tag' }, 'ended early') : null),
+                s.aborted ? el('span', { class: 'ses-tag' }, 'ended early') : null),
               el('div', { class: 'ses-when' }, `${prettyDate(s.day)} · ${time}`),
             ),
             el('span', { class: 'ses-mins' }, fmtMin(Store.sessionMins(s))),
           );
         })
       : el('div', { class: 'empty' }, 'Nothing run yet. The log starts with your first session.'),
-  );
-}
-
-/* ---------- honesty log ---------- */
-
-function honestyCard() {
-  const rows = Store.state.slips.slice(-12).reverse();
-  return el('div', { class: 'card' },
-    el('h2', {}, 'Honesty log'),
-    rows.length
-      ? rows.map((sl) => {
-          let what;
-          if (sl.kind === 'abandon') what = 'Session quit';
-          else if (sl.awaySec > 0) {
-            const away = sl.awaySec >= 60 ? fmtMin(sl.awaySec / 60) : `${sl.awaySec}s`;
-            what = `Away ${away}`;
-          } else what = 'Session';
-          return el('div', { class: `logrow kind-${sl.kind}` },
-            el('span', { class: `kind kind-${sl.kind}` },
-              { slip: 'SLIP', abandon: 'QUIT', rescue: 'FORGIVEN' }[sl.kind] || sl.kind),
-            el('span', { class: 'grow logwhat' }, what),
-            el('span', { class: 'when' }, prettyDate(sl.day)),
-          );
-        })
-      : el('div', { class: 'empty' }, 'Nothing broken on record. Keep it that way — quietly.'),
   );
 }
 
@@ -368,6 +342,5 @@ export function progressCards() {
     taskCard(),
     heatCard(),
     recentCard(),
-    honestyCard(),
   ];
 }

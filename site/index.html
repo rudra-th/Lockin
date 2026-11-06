@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Lockin — a study clock that locks in</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Lockin is a study-first focus app: recurring schedule blocks, wake-locked Study Mode, strict app blocking on Android, and a seven-day screen-time chart. Try the live browser trial.">
+  <meta name="description" content="Lockin is a study-first focus app: recurring schedule blocks, wake-locked Study Mode, a daily target, optional app blocking on Android, and a seven-day screen-time chart. Try the live browser trial.">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#08090c">
   <meta property="og:title" content="Lockin — a study clock that locks in">
@@ -47,7 +47,7 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-top">
         <h1 id="hero-title">A study clock<br>that locks in.</h1>
-        <p class="hero-sub">Recurring blocks, a wake-locked Study Mode, and an honest log of every time you leave. On Android, it also covers the apps you choose.</p>
+        <p class="hero-sub">Recurring blocks, a wake-locked Study Mode, and a daily target built from minutes that actually happened. On Android, it also covers the apps you choose.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="/app/?trial=1">Open the live trial</a>
           <a class="btn btn-quiet" href="#download">Download the app</a>
@@ -134,7 +134,7 @@
 
                   <!-- LOCK -->
                   <section class="screen screen-lock" data-screen="lock">
-                    <p class="lock-kicker">Strict mode</p>
+                    <p class="lock-kicker">Kiosk session</p>
                     <h3 class="lock-title">Instagram<br>is blocked.</h3>
                     <p class="lock-until">Until 20:30</p>
                     <p class="lock-left"><b>41</b><span>min left in the hold</span></p>
@@ -161,8 +161,8 @@
                       <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i>
                     </div>
                     <div class="review-stats">
-                      <div><b>10</b><span>clean days</span></div>
-                      <div><b>3</b><span>honest slips</span></div>
+                      <div><b>10</b><span>target days</span></div>
+                      <div><b>4</b><span>day streak</span></div>
                       <div><b>12h</b><span>focused</span></div>
                     </div>
                   </section>
@@ -175,7 +175,7 @@
                   </span>
                   <span class="ph-tab" data-tab="plan">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16M8 14h3M8 17h6"/></svg>
-                    <span>Plan</span>
+                    <span>Schedule</span>
                   </span>
                   <span class="ph-tab" data-tab="start">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5l3 2"/></svg>
@@ -187,7 +187,7 @@
                   </span>
                   <span class="ph-tab" data-tab="review">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg>
-                    <span>Stats</span>
+                    <span>Settings</span>
                   </span>
                 </nav>
               </div>
@@ -206,11 +206,11 @@
             </article>
             <article class="step" data-step="lock">
               <h3>Lock the apps.</h3>
-              <p>Strict mode covers the apps you choose. On Android, leaving takes a hold; the kiosk releases at the deadline, every time.</p>
+              <p>App blocking covers the apps you choose. On Android, the optional kiosk can pin the phone to Lockin and an allowlist; it releases at the deadline, every time.</p>
             </article>
             <article class="step" data-step="review">
               <h3>Review the truth.</h3>
-              <p>Seven days against the goal, thirteen weeks of clean days, every honest slip. No seeded sessions. No streak for sale.</p>
+              <p>Seven days against their own targets, a thirteen-week target-day map, and one card you can share. No seeded sessions. No streak for sale.</p>
               <a class="btn btn-primary step-cta" href="/app/?trial=1">Open the live trial</a>
             </article>
           </div>
@@ -285,24 +285,24 @@
       </div>
       <div class="rule-list">
         <article class="rule">
-          <p class="rule-figure"><b data-count="10">0</b><span>s</span></p>
-          <h3>Ten seconds is an accident.</h3>
-          <p>Away for less and it is never logged as a slip. The clock keeps the difference.</p>
+          <p class="rule-figure"><b data-count="20">0</b><span>s</span></p>
+          <h3>Twenty seconds is a free stop.</h3>
+          <p>End a session before it really starts and nothing is banked, nothing is held against you.</p>
         </article>
         <article class="rule">
-          <p class="rule-figure"><b data-count="3">0</b></p>
-          <h3>Three rescues a day.</h3>
-          <p>After that, a slip is a slip. Nothing is quietly erased from the log.</p>
+          <p class="rule-figure"><b data-count="1">0</b><span>s</span></p>
+          <h3>Start and end on a hold.</h3>
+          <p>The ring has to close, so a pocket tap cannot start a session or kill one. No confirm sheet after it.</p>
         </article>
         <article class="rule">
-          <p class="rule-figure"><b data-count="15">0</b><span>m</span></p>
-          <h3>Fifteen minutes earns an exit.</h3>
-          <p>Real work buys a neutral way out of a session. Leaving early asks you to mean it.</p>
+          <p class="rule-figure"><b data-count="1">0</b><span>day</span></p>
+          <h3>Today’s target is the judge.</h3>
+          <p>A day counts when it reaches the target set that day. Change the goal and yesterday keeps the bar it was measured against.</p>
         </article>
         <article class="rule">
           <p class="rule-figure"><b data-count="7">0</b><span>day</span></p>
           <h3>Seven days, shown honestly.</h3>
-          <p>The chart and the log say what happened, not what would look good.</p>
+          <p>The weekly card says what happened, not what would look good.</p>
         </article>
       </div>
     </section>
@@ -312,7 +312,7 @@
         <h2 id="trial-title">Try it before<br>you trust it.</h2>
         <p>Test Account opens the real app with a believable week already on the clock. Schedule, Study Mode, alarms while the tab is open and every Progress view work.</p>
         <ul class="trial-list">
-          <li>App blocking, screen time and the strict kiosk say “Android only” — they never pretend.</li>
+          <li>App blocking, screen time and the optional kiosk say “Android only” — they never pretend.</li>
           <li>One tap resets the week. The trial keeps its own browser storage.</li>
         </ul>
         <a class="btn btn-primary" href="/app/?trial=1">Meet Test Account</a>
@@ -327,8 +327,8 @@
         <div class="tc-rows">
           <div><span>Seeded week</span><b>14 days</b></div>
           <div><span>Sessions</span><b>24</b></div>
-          <div><span>Honest slips</span><b>3</b></div>
-          <div><span>Clean days</span><b>10</b></div>
+          <div><span>Target days</span><b>10</b></div>
+          <div><span>Best day</span><b>3h 10m</b></div>
         </div>
         <p class="tc-fine">The seeded numbers are fixed demo data, not a claim about your study.</p>
       </div>
@@ -342,19 +342,19 @@
       <div class="faq-list">
         <article class="qa">
           <h3>What works in the browser trial?</h3>
-          <p>Schedule blocks, today and tomorrow tasks, Study Mode sessions, the wake lock, the daily target, the Honesty Log, Progress, export and import. Alarms ring while the tab is open. Everything is local to a separate trial store, so your real Lockin data is untouched.</p>
+          <p>Schedule blocks, today and tomorrow tasks, Study Mode sessions, the wake lock, the daily target, the weekly share card, Progress, export and import. Alarms ring while the tab is open. Everything is local to a separate trial store, so your real Lockin data is untouched.</p>
         </article>
         <article class="qa">
           <h3>What needs the Android app?</h3>
-          <p>App blocking, per-app daily limits, screen time, usage access, exact alarms that ring when the app is closed, full-screen alarms, and the strict kiosk. A browser cannot see or cover another app. Those cards say “Only available on the Android app” and link to the download.</p>
+          <p>App blocking, per-app daily limits, screen time, usage access, exact alarms that ring when the app is closed, full-screen alarms with Start/Skip, and the optional kiosk. A browser cannot see or cover another app. Those cards say “Only available on the Android app” and link to the download.</p>
         </article>
         <article class="qa">
           <h3>Do I need a Google account?</h3>
-          <p>No. Lockin works signed out and keeps everything in this browser. If you want a mirror on another device, sign in with Google and it copies tasks, schedules, sessions, slips and settings to your own private Firestore. The trial uses a local Test Account and never contacts Google.</p>
+          <p>No. Lockin works signed out and keeps everything in this browser. If you want a mirror on another device, sign in with Google and it copies tasks, schedules, sessions, target history and settings to your own private Firestore. The trial uses a local Test Account and never contacts Google.</p>
         </article>
         <article class="qa">
-          <h3>How strict is Strict Mode?</h3>
-          <p>Off means tracking only. On, leaving for more than ten seconds is an away episode; you get three free rescues a day, then it is logged. Fifteen minutes of real work earns a neutral exit. The Android kiosk can pin the phone to Lockin and an allowlist, with a deadline that always releases it. It is a focus aid, not a trap.</p>
+          <h3>What does the kiosk do?</h3>
+          <p>It is an optional Android extra, not part of Study Mode. Turned on, it pins the phone to Lockin and an allowlist for the session; with a one-time device-owner command it can close Home, Recents and Settings too. A deadline always releases it, so a dead battery cannot leave the phone stuck. Study Mode itself has no punishments: the hold starts it, the hold ends it, and early minutes stay yours.</p>
         </article>
         <article class="qa">
           <h3>Where does my data live?</h3>
@@ -370,7 +370,7 @@
     <section class="download" id="download" aria-labelledby="download-title">
       <div class="download-inner">
         <h2 id="download-title">Take the clock<br>with you.</h2>
-        <p class="download-lede" id="download-lede">The Android build is the full instrument: exact alarms, app blocking, screen time and the strict kiosk. The extension covers sites on a laptop.</p>
+        <p class="download-lede" id="download-lede">The Android build is the full instrument: exact alarms, app blocking, screen time and the optional kiosk. The extension covers sites on a laptop.</p>
         <div class="download-row">
           <div class="download-actions">
             <a class="btn btn-ink" id="download-primary" href="/downloads/lockin.apk" download>Download for Android</a>

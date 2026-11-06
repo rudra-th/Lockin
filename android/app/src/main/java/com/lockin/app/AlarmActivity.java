@@ -62,7 +62,8 @@ public class AlarmActivity extends AppCompatActivity {
         }
 
         findViewById(R.id.alarm_dismiss).setOnClickListener(v -> dismiss());
-        findViewById(R.id.alarm_open).setOnClickListener(v -> openApp());
+        findViewById(R.id.alarm_start).setOnClickListener(v -> startSession());
+        findViewById(R.id.alarm_skip).setOnClickListener(v -> skipToday());
     }
 
     /** Turn the screen on and draw above the keyguard without unlocking it. */
@@ -95,12 +96,20 @@ public class AlarmActivity extends AppCompatActivity {
         finish();
     }
 
-    private void openApp() {
+    /** Open Lockin and let the queued action start the block's session. */
+    private void startSession() {
         NotificationManagerCompat.from(this).cancel(alarmId.hashCode());
+        AlarmReceiver.pushAction(this, getIntent(), "start");
         Intent open = new Intent(this, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         open.putExtra("openSchedule", true);
         startActivity(open);
+        finish();
+    }
+
+    private void skipToday() {
+        NotificationManagerCompat.from(this).cancel(alarmId.hashCode());
+        AlarmReceiver.pushAction(this, getIntent(), "skip");
         finish();
     }
 

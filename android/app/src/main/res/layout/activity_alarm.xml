@@ -65,37 +65,58 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="44dp"
         android:gravity="center"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
         <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/alarm_dismiss"
-            android:layout_width="0dp"
-            android:layout_height="54dp"
-            android:layout_marginEnd="10dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_alarm_quiet"
-            android:fontFamily="sans-serif-medium"
-            android:stateListAnimator="@null"
-            android:text="@string/alarm_dismiss"
-            android:textAllCaps="false"
-            android:textColor="#A7AC9E"
-            android:textSize="15sp"
-            app:backgroundTint="@null" />
-
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/alarm_open"
-            android:layout_width="0dp"
-            android:layout_height="54dp"
-            android:layout_marginStart="10dp"
-            android:layout_weight="1"
+            android:id="@+id/alarm_start"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
             android:background="@drawable/bg_alarm_primary"
             android:fontFamily="sans-serif-medium"
             android:stateListAnimator="@null"
-            android:text="@string/alarm_open"
+            android:text="@string/alarm_start"
             android:textAllCaps="false"
             android:textColor="#0B0D12"
-            android:textSize="15sp"
+            android:textSize="16sp"
             app:backgroundTint="@null" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/alarm_skip"
+                android:layout_width="0dp"
+                android:layout_height="54dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_alarm_quiet"
+                android:fontFamily="sans-serif-medium"
+                android:stateListAnimator="@null"
+                android:text="@string/alarm_skip"
+                android:textAllCaps="false"
+                android:textColor="#A7AC9E"
+                android:textSize="15sp"
+                app:backgroundTint="@null" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/alarm_dismiss"
+                android:layout_width="0dp"
+                android:layout_height="54dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_alarm_quiet"
+                android:fontFamily="sans-serif-medium"
+                android:stateListAnimator="@null"
+                android:text="@string/alarm_dismiss"
+                android:textAllCaps="false"
+                android:textColor="#A7AC9E"
+                android:textSize="15sp"
+                app:backgroundTint="@null" />
+        </LinearLayout>
     </LinearLayout>
 
     <TextView

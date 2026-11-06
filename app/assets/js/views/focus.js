@@ -1,19 +1,21 @@
-/* Lockin — Study Mode: the session engine + strict enforcement.
-   The engine is module-level and survives navigation and reloads. */
+/* Lockin — Study Mode: the session engine.
+   The engine is module-level and survives navigation and reloads. Strict
+   Mode is gone: the room holds the screen, the clock tells the truth, and
+   stopping is always allowed. */
 
 import { Store, uid } from '../store.js';
 import { Router } from '../router.js';
-import { el, fmtClock, fmtWatch, fmtMin, todayKey, decideAway, earnedExit, FREE_EXIT_SEC } from '../util.js';
+import {
+  el, fmtClock, fmtWatch, fmtMin, todayKey, FREE_EXIT_SEC, END_HOLD_MS,
+  blockSessionMin, spanMin, occurrenceOn, parseKey,
+} from '../util.js';
 import { svg } from '../icons.js';
-import { openSheet, closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
+import { closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
 import { openShareSheet } from '../share.js';
 import {
   isNative, pushBlockingWindows, strictStatus, startStrictMode, stopStrictMode,
   refreshStrict, launchApp,
 } from '../native.js';
-
-export const GRACE_SEC = 10;    // accident window — an away this short is forgiven
-export const RESCUE_CAP = 3;    // free rescues per day; beyond that it is a slip
 
 let timer = null;
 let wakeSentinel = null;
@@ -85,11 +87,7 @@ export function resumeFromSnapshot() {
   if (['running', 'paused', 'break'].includes(Session.phase) && kioskOn()) armKiosk();
 }
 
-/* ---------- strict enforcement ---------- */
-
-const strictOn = () => !!Store.state.settings.strict;
-
-/* ---------- strict kiosk ---------- */
+/* ---------- kiosk (Android opt-in) ---------- */
 
 const kioskOn = () => isNative && !!Store.state.settings.kiosk;
 
@@ -138,12 +136,12 @@ async function openAllowed(app) {
   if (!ok) hint(`${app.label} could not open.`);
 }
 
-/** The allowlist dock inside a live strict session. */
+/** The allowlist dock inside a live kiosk session. */
 function kioskDock() {
   if (!kioskArmed) return null;
   return el('div', { class: 'kiosk-dock' },
     el('div', { class: 'kiosk-dock-head' },
-      el('span', {}, 'Strict session'),
+      el('span', {}, 'Kiosk session'),
       el('b', {}, kioskOwner ? 'Kiosk locked' : 'Screen pinned')),
     kioskApps.length
       ? el('div', { class: 'chips' },
@@ -155,12 +153,7 @@ function kioskDock() {
         'Only Lockin is open right now. End the session below to release the phone.'));
 }
 
-/* ---------- earned exit ----------
-   Real work buys the right to stop. At `exitGraceMin` the quit control stops
-   being a punishment: no slip, no broken day. 0 turns the rule off. */
-
-const exitGraceMin = () => Number(Store.state.settings.exitGraceMin) || 0;
-const graceOn = () => exitGraceMin() > 0;
+/* ---------- session timing ---------- */
 
 function sessionElapsedSec() {
   if (Session.cfg?.mode === 'stop') return stopSeconds();
@@ -168,70 +161,15 @@ function sessionElapsedSec() {
   return banked + Math.max(0, (Date.now() - Session.startedAt) / 1000);
 }
 
-const earnedNow = () => earnedExit(sessionElapsedSec(), exitGraceMin());
-
 /* The first seconds are an accident window, not a decision. */
 const freeNow = () => sessionElapsedSec() < FREE_EXIT_SEC;
 
-function exitHintText() {
-  if (freeNow()) return `Free to stop — under ${FREE_EXIT_SEC}s`;
-  if (!graceOn()) return '';
-  if (earnedNow()) return 'Earned exit — stopping now breaks nothing';
-  const left = Math.max(1, Math.ceil((exitGraceMin() * 60 - sessionElapsedSec()) / 60));
-  return `Earned exit in ${left}m`;
-}
-
-function exitHint() {
-  /* With Strict off nothing is enforced, so there is nothing to earn. */
-  if (!strictOn()) return null;
-  if (!graceOn() && !freeNow()) return null;
-  const cls = `sess-exit${freeNow() ? ' is-free' : ''}${earnedNow() ? ' is-earned' : ''}`;
-  return el('div', { class: cls }, exitHintText());
-}
-
-function updateExitUi() {
-  const note = document.querySelector('.sess-exit');
-  if (note) {
-    note.textContent = exitHintText();
-    note.classList.toggle('is-free', freeNow());
-    note.classList.toggle('is-earned', earnedNow());
-  }
-  const btn = document.querySelector('.btn-quit');
-  if (btn) paintQuit(btn);
-}
-
 function onVisibility() {
-  if (document.visibilityState === 'hidden') {
-    /* A kiosk session is enforced natively: opening an allowed app is not
-       "leaving". The web tab heuristic would punish exactly what the dock
-       invites, so it steps aside while the kiosk is armed. */
-    if (Session.phase === 'running' && strictOn() && !kioskArmed) {
-      Store.set((s) => { if (s.session) s.session.goneAt = Date.now(); });
-    }
-  } else {
-    /* background tabs get their timers throttled — redraw the truth the
-       instant the page is visible again (elapsed comes from the wall clock) */
-    if (['running', 'paused', 'break'].includes(Session.phase)) {
-      drawClock();
-      if (Session.cfg?.mode === 'stop') snapshot();
-    }
-    if (Session.phase === 'running' && strictOn() && !kioskArmed) processBack();
-  }
-}
-
-function processBack() {
-  const goneAt = Store.state.session?.goneAt || 0;
-  Store.set((s) => { if (s.session) s.session.goneAt = null; });
-  if (!goneAt) return;
-  const awaySec = (Date.now() - goneAt) / 1000;
-  const usedRescues = Store.slipCountsOn(todayKey()).rescue;
-  const verdict = decideAway({ awaySec, usedRescues, graceSec: GRACE_SEC, cap: RESCUE_CAP });
-  if (verdict === 'rescue') {
-    Store.logSlip('rescue', currentSessId, awaySec);
-    hint(`Accident forgiven — away ${awaySec.toFixed(0)}s (${Math.min(usedRescues + 1, RESCUE_CAP)}/${RESCUE_CAP}).`);
-  } else {
-    Store.logSlip('slip', currentSessId, awaySec);
-    showLeftVeil(awaySec);
+  /* Background tabs get their timers throttled — redraw the truth the
+     instant the page is visible again. Leaving is not an event. */
+  if (document.visibilityState === 'visible' && ['running', 'paused', 'break'].includes(Session.phase)) {
+    drawClock();
+    if (Session.cfg?.mode === 'stop') snapshot();
   }
 }
 
@@ -330,7 +268,6 @@ function tick() {
     else finishBreak();
   }
   drawClock();
-  updateExitUi();
 }
 
 function remaining() {
@@ -365,8 +302,8 @@ function completeRound() {
   }
 }
 
-function recordAborted(taskIds, start) {
-  if (Session.cfg?.mode === 'stop') return null; // stopwatch writes its record in finish()
+/* An early end is not a punishment: the minutes before it stay banked. */
+function recordEarlyEnd(taskIds, start) {
   const id = currentSessId;
   Store.set((s) => s.sessions.push({
     id,
@@ -377,22 +314,6 @@ function recordAborted(taskIds, start) {
     kind: 'focus',
     completed: false,
     aborted: true,
-  }));
-  return id;
-}
-
-/* An earned end is not an abort: the minutes count, the day can stay clean. */
-function recordEarned(taskIds, start) {
-  const id = currentSessId;
-  Store.set((s) => s.sessions.push({
-    id,
-    day: todayKey(),
-    taskIds: taskIds || [],
-    start,
-    end: Date.now(),
-    kind: 'focus',
-    completed: false,
-    earned: true,
   }));
   return id;
 }
@@ -423,7 +344,6 @@ function finishBreak() {
 }
 
 function finish(finished, opts = {}) {
-  const earned = !!opts.earned;
   const discard = !!opts.discard;
   releaseKiosk();
   clearInterval(timer);
@@ -432,7 +352,7 @@ function finish(finished, opts = {}) {
   const stopMode = Session.cfg?.mode === 'stop';
   const secs = stopMode ? stopSeconds() : null;
   /* stopwatch sessions write their record here — engine never hits completeRound
-     (timer rounds record there); earned ends count, discards do not */
+     (timer rounds record there); an early end keeps its minutes, a discard does not */
   if (stopMode && !discard) {
     Store.set((s) => s.sessions.push({
       id: currentSessId,
@@ -442,9 +362,8 @@ function finish(finished, opts = {}) {
       end: Date.now(),
       secs,
       kind: 'focus',
-      completed: !!(finished || earned),
-      aborted: !finished && !earned,
-      ...(earned ? { earned: true } : {}),
+      completed: !!finished,
+      aborted: !finished,
     }));
   }
   const minsStudied = discard
@@ -454,45 +373,29 @@ function finish(finished, opts = {}) {
       : (stopMode ? Math.round(secs / 60) : Math.max(0, Math.round((Date.now() - Session.startedAt) / 60000)));
   Session.lastDone = {
     done: !!finished,
-    earned,
     discarded: discard,
     mins: minsStudied,
     secs, // stopwatch precision for the done screen
     today: Store.focusMinutesOn(todayKey()),
+    goal: Store.goalToday(),
   };
-  Session.phase = (finished || earned) ? 'done' : 'aborted';
+  Session.phase = finished ? 'done' : 'aborted';
   clearSnapshot();
-  if (finished) notify('Session done. Clean slate kept.');
-  else if (earned) notify('Session banked. Nothing broken.');
+  if (finished) notify('Session done. Minutes banked.');
   renderHost();
 }
 
 function abandon() {
-  /* The first seconds are an accident window: nothing is written, nothing breaks. */
+  /* The first seconds are an accident window: nothing is written, nothing
+     counts. After that, stopping keeps every minute already studied. */
+  closeSheet();
   if (freeNow()) {
-    closeSheet();
     finish(false, { discard: true });
     return;
   }
-  /* Earned exit: enough real work means stopping is a decision, not a slip. */
-  if (earnedNow()) {
-    if (Session.cfg?.mode === 'stop') {
-      finish(true, { earned: true });
-    } else {
-      recordEarned(Session.cfg.taskIds, Session.startedAt);
-      finish(false, { earned: true });
-    }
-    closeSheet();
-    return;
-  }
-  recordAborted(Session.cfg.taskIds, Session.startedAt);
-  if (strictOn()) Store.logSlip('abandon', currentSessId, 0);
-  closeSheet();
+  if (Session.cfg?.mode !== 'stop') recordEarlyEnd(Session.cfg.taskIds, Session.startedAt);
   finish(false);
 }
-
-/* Aborting keeps the minutes studied before the abort (real work) but the
-   day stops being clean — the slip goes into the honesty log either way. */
 
 function notify(body) {
   if (!body) return;
@@ -506,6 +409,41 @@ function notify(body) {
 
 export function initFocus(Router) {
   Router.register('/focus', { mount, unmount });
+}
+
+/**
+ * Start a timed session for a schedule block, using the rest of the
+ * occurrence. Called by the alarm's Start action, which is already the
+ * user's decision, so it goes straight into the room.
+ */
+export function startSessionForBlock(schedule, day = todayKey()) {
+  if (!schedule) return false;
+  if (['running', 'paused', 'break'].includes(Session.phase)) {
+    Router.go('/focus');
+    return true;
+  }
+  const occ = occurrenceOn(schedule, parseKey(day));
+  const min = occ
+    ? blockSessionMin(Date.now(), occ.start.getTime(), occ.end.getTime())
+    : Math.max(5, Math.min(180, spanMin(schedule) || 25));
+  Store.set((s) => { s.settings.lastMode = 'timer'; s.settings.lastMin = min; });
+  Session.cfg = {
+    min,
+    taskIds: [],
+    rounds: 1,
+    mode: 'timer',
+    label: schedule.name,
+    scheduleId: schedule.id,
+  };
+  begin();
+  Router.go('/focus');
+  return true;
+}
+
+/** Dismiss one occurrence; the next-block hero and the alarm respect it. */
+export function skipBlockOccurrence(schedule, day = todayKey()) {
+  if (!schedule?.id) return;
+  Store.skipBlock(schedule.id, day);
 }
 
 function renderHost() {
@@ -569,7 +507,7 @@ function setupScreen() {
   const doneToday = Store.state.sessions.filter((x) =>
     x.day === todayKey() && x.kind === 'focus').length;
   const todayMins = Store.focusMinutesOn(todayKey());
-  const goal = Store.state.settings.goalMin || 120;
+  const goal = Store.goalToday();
   const pct = Math.min(100, Math.round((todayMins / Math.max(1, goal)) * 100));
 
   /* one quiet line, not another card */
@@ -628,14 +566,13 @@ function setupScreen() {
     paintLen();
   }
 
-  /* A length chip is a start, not a selection. The 20-second accident
-     window is the undo: ending inside it logs nothing and keeps the day
-     clean. The armed hold remains for the stopwatch — an open-ended run
-     deserves the ritual. */
+  /* Every start — a length chip or the stopwatch — opens the intention
+     screen first. The hold is the commitment, not a punishment. */
   function startWith(m) {
     Store.set((s) => { s.settings.lastMode = 'timer'; s.settings.lastMin = m; });
     Session.cfg = { min: m, taskIds: [...pickedTasks], rounds, mode: 'timer' };
-    begin();
+    Session.phase = 'armed';
+    renderHost();
   }
 
   function projectedEnd() {
@@ -678,7 +615,7 @@ function setupScreen() {
   paintLen();
 
   function startLabel() {
-    return 'Arm the stopwatch';
+    return mode === 'stop' ? 'Arm the stopwatch' : `Arm ${min} min`;
   }
 
   const startBtnLabel = el('span', {}, startLabel());
@@ -692,8 +629,8 @@ function setupScreen() {
         Store.set((s) => { s.settings.lastMode = 'timer'; });
         Session.cfg = { min, taskIds: [...pickedTasks], rounds, mode: 'timer' };
       }
-      if (strictOn()) { Session.phase = 'armed'; renderHost(); }
-      else begin();
+      Session.phase = 'armed';
+      renderHost();
     },
   }, svg('lock', 18), startBtnLabel);
 
@@ -744,9 +681,7 @@ function setupScreen() {
       el('div', { class: 'grow' },
         el('h1', {}, 'Study Mode'),
         el('div', { class: 'sub' },
-          strictOn()
-            ? `Strict · leaving for over ${GRACE_SEC}s is a slip.`
-            : 'Strict off · tracked, not enforced.'),
+          'The room holds the screen. The clock tells the truth.'),
       ),
     ),
     goalLine,
@@ -790,7 +725,6 @@ function armedScreen() {
   let raf = 0;
   let t0 = 0;
   const HOLD_MS = 1500;
-
   function progress(p) {
     btn.querySelector('.fill').style.setProperty('--p', `${Math.min(1, p) * 100}%`);
     btn.classList.toggle('holding', p > 0.02);
@@ -830,6 +764,9 @@ function armedScreen() {
     el('h2', {}, 'One breath before you go in'),
     el('div', { class: 'armed-what' },
       Session.cfg.mode === 'stop' ? 'Stopwatch' : `${Session.cfg.min} min`),
+    Session.cfg.label
+      ? el('div', { class: 'armed-label' }, Session.cfg.label)
+      : null,
     Session.cfg.taskIds.length
       ? el('div', { class: 'muted', style: 'margin-top:6px' },
           `${Session.cfg.taskIds.length} task${Session.cfg.taskIds.length === 1 ? '' : 's'} attached`)
@@ -858,7 +795,7 @@ function dailyTarget() {
     live = elapsedMs() / 60000;
   }
   live = Math.max(0, live);
-  return { banked, live, total: banked + live, goal: Store.state.settings.goalMin || 120 };
+  return { banked, live, total: banked + live, goal: Store.goalToday() };
 }
 
 /* the session keeps the app's identity and today's target on screen */
@@ -921,45 +858,18 @@ function sessionCore({ label, note, clockClass = '', breathe = false, tasks = tr
 }
 
 function quitButton() {
-  const b = el('button', { class: 'btn btn-danger btn-block btn-quit' });
-  paintQuit(b);
-  return b;
-}
-
-/* The control changes shape when stopping is neutral: inside the 20-second
-   accident window, after the earned bar, or with Strict off. Same button,
-   different promise. */
-function paintQuit(b) {
-  const state = freeNow() ? 'free' : earnedNow() ? 'earned' : strictOn() ? 'strict' : 'off';
-  if (b.dataset.state === state) return;
-  b.dataset.state = state;
-  const soft = state !== 'strict';
-  b.dataset.soft = String(soft);
-  if (soft) {
-    b.className = `btn btn-subtle btn-block btn-quit${state === 'earned' ? ' is-earned' : ''}${state === 'free' ? ' is-free' : ''}`;
-    b.innerHTML = `${svg('check', 15)}<span>End session</span>`;
-    b.onpointerdown = null;
-    b.onclick = confirmQuit;
-    b.onkeydown = null;
-    const why = state === 'free'
-      ? 'End session — under 20 seconds, nothing logged'
-      : state === 'earned'
-        ? 'End session — nothing breaks'
-        : 'End session — strict is off';
-    b.setAttribute('aria-label', why);
-  } else {
-    b.className = 'btn btn-danger btn-block btn-quit';
-    b.innerHTML = `${svg('x', 15)}<span>Quit — hold</span>`;
-    b.onclick = null;
-    b.onpointerdown = startQuitHold;
-    b.onkeydown = (ev) => {
+  const b = el('button', {
+    class: 'btn btn-subtle btn-block btn-quit',
+    'aria-label': 'End session — hold to confirm',
+    onpointerdown: startQuitHold,
+    onkeydown: (ev) => {
       if (ev.key !== ' ' && ev.key !== 'Enter') return;
       if (ev.repeat) return;
       ev.preventDefault();
       startQuitHold(ev);
-    };
-    b.setAttribute('aria-label', 'Quit — hold to confirm');
-  }
+    },
+  }, svg('check', 15), el('span', {}, 'End — hold'));
+  return b;
 }
 
 /* The first seconds of a chip-start are the accident window made visible:
@@ -970,7 +880,7 @@ function armUndoPill() {
   const pill = el('div', { class: 'alarm-toast undo-toast', role: 'status' },
     el('div', { class: 'alarm-toast-txt' },
       el('b', {}, 'Started by accident?'),
-      el('span', {}, 'Undo leaves nothing — no minutes, no slip.')),
+      el('span', {}, 'Undo leaves nothing — no minutes, no session.')),
     el('button', {
       class: 'btn btn-subtle btn-sm',
       onclick: () => { pill.remove(); abandon(); },
@@ -992,15 +902,15 @@ function runningScreen() {
   const endsAt = new Date(Session.plannedEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   if (Date.now() - Session.startedAt < 8000) armUndoPill();
   return el('div', { class: 'session' },
-    sessionChrome('Focus'),
+    sessionChrome(Session.cfg.label ? 'Block' : 'Focus'),
     sessionCore({
       label,
-      note: strictOn()
-        ? `Ends at ${endsAt} · leaving for over ${GRACE_SEC}s is a slip`
-        : `Ends at ${endsAt}`,
+      note: Session.cfg.label
+        ? `${Session.cfg.label} · ends at ${endsAt}`
+        : `Ends at ${endsAt} · the minutes stay yours whenever you stop`,
     }),
     kioskDock(),
-    el('footer', { class: 'sess-foot' }, exitHint(), quitButton())
+    el('footer', { class: 'sess-foot' }, quitButton())
   );
 }
 
@@ -1017,7 +927,6 @@ function stopRunningScreen() {
     }),
     kioskDock(),
     el('footer', { class: 'sess-foot' },
-      exitHint(),
       el('div', { class: 'sess-foot-split' },
         el('button', { class: 'btn btn-primary', onclick: pauseStop }, svg('pause', 15), 'Pause'),
         quitButton()
@@ -1038,24 +947,9 @@ function pausedScreen() {
     kioskDock(),
     el('footer', { class: 'sess-foot sess-foot-split' },
       el('button', { class: 'btn btn-primary', onclick: resumeStop }, svg('play', 15), 'Resume'),
-      el('button', { class: 'btn btn-subtle', onclick: stopEndSheet }, svg('flame', 15), 'End')
+      el('button', { class: 'btn btn-subtle', onclick: () => finish(true) }, svg('check', 15), 'Finish')
     )
   );
-}
-
-function stopEndSheet() {
-  const earned = earnedNow();
-  openSheet('End the stopwatch?', () => [
-    el('p', { class: 'muted' },
-      `Time banked: ${fmtWatch(stopSeconds())}. ${earned ? 'Ending now breaks nothing.' : 'Logging it keeps the minutes.'}`),
-    el('div', { class: 'actions' },
-      el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); finish(true); } }, svg('check', 15), 'Log the session'),
-      el('button', { class: 'btn btn-subtle', onclick: () => {
-        closeSheet();
-        finish(false, { discard: true }); // a real discard: nothing is written
-      } }, svg('x', 15), 'End and discard'),
-    ),
-  ]);
 }
 
 function rerenderRunningChips() {
@@ -1068,7 +962,7 @@ function startQuitHold(ev) {
   if (btn.dataset.holding === '1') return;
   btn.dataset.holding = '1';
   const t0 = performance.now();
-  const HOLD_MS = 2400;
+  const HOLD_MS = END_HOLD_MS;
   let raf = 0;
 
   const cancel = () => {
@@ -1080,8 +974,8 @@ function startQuitHold(ev) {
   const step = (now) => {
     if (!document.contains(btn)) { cancel(); return; }
     const p = (now - t0) / HOLD_MS;
-    btn.style.filter = `brightness(${1 + p * 0.6}) saturate(${1 + p * 1.5})`;
-    if (p >= 1) { cancel(); confirmQuit(); return; }
+    btn.style.filter = `brightness(${1 + p * 0.35}) saturate(${1 + p * 0.8})`;
+    if (p >= 1) { cancel(); abandon(); return; }
     raf = requestAnimationFrame(step);
   };
   raf = requestAnimationFrame(step);
@@ -1091,54 +985,6 @@ function startQuitHold(ev) {
   btn.addEventListener('pointercancel', cancel, { once: true });
   btn.addEventListener('keyup', cancel, { once: true });
   btn.addEventListener('blur', cancel, { once: true });
-}
-
-function confirmQuit() {
-  const mins = Math.max(0, Math.round(sessionElapsedSec() / 60));
-  if (freeNow()) {
-    openSheet('End the session?', () => [
-      el('p', { class: 'muted', style: 'margin:0 0 4px' },
-        `Under ${FREE_EXIT_SEC} seconds in. Ending now logs nothing — no slip, no session.`),
-      el('div', { class: 'actions' },
-        el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); abandon(); } }, svg('check', 15), 'End session'),
-        el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Keep going'),
-      ),
-    ]);
-    return;
-  }
-  if (earnedNow()) {
-    openSheet('End the session?', () => [
-      el('p', { class: 'muted', style: 'margin:0 0 4px' },
-        `${fmtMin(mins)} banked. Ending now breaks nothing — no slip, no broken streak.`),
-      el('div', { class: 'actions' },
-        el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); abandon(); } }, svg('check', 15), 'End session'),
-        el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Keep going'),
-      ),
-    ]);
-    return;
-  }
-  if (!strictOn()) {
-    openSheet('End the session?', () => [
-      el('p', { class: 'muted', style: 'margin:0 0 4px' },
-        `${fmtMin(mins)} banked. Strict is off — ending is tracked, not punished.`),
-      el('div', { class: 'actions' },
-        el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); abandon(); } }, svg('check', 15), 'End session'),
-        el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Keep going'),
-      ),
-    ]);
-    return;
-  }
-  const bar = exitGraceMin();
-  const copy = bar > 0
-    ? `${fmtMin(mins)} banked. Under your ${fmtMin(bar)} bar, leaving now is a slip — the minutes stay yours.`
-    : 'Quitting mid-focus is a slip in the honesty log. Minutes you studied stay yours.';
-  openSheet('Leaving already?', () => [
-    el('p', { class: 'muted', style: 'margin:0 0 4px' }, copy),
-    el('div', { class: 'actions' },
-      el('button', { class: 'btn btn-danger', onclick: () => abandon() }, svg('x', 15), 'Log the slip'),
-      el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, svg('flame', 15), 'Stay in it'),
-    ),
-  ]);
 }
 
 /* ---------- break screen ---------- */
@@ -1157,19 +1003,9 @@ function breakScreen() {
     kioskDock(),
     el('footer', { class: 'sess-foot sess-foot-split' },
       el('button', { class: 'btn btn-primary', onclick: () => { Session.plannedEnd = Date.now(); finishBreak(); } }, 'Back to focus'),
-      el('button', { class: 'btn btn-ghost', onclick: confirmEndChain }, 'End here')
+      el('button', { class: 'btn btn-ghost', onclick: () => finish(true) }, 'End here')
     )
   );
-}
-
-function confirmEndChain() {
-  openSheet('Finish the session?', () => [
-    el('p', { class: 'muted' }, 'Rounds already completed stay banked. This just stops the chain — no slip.'),
-    el('div', { class: 'actions' },
-      el('button', { class: 'btn btn-primary', onclick: () => { closeSheet(); finish(true); } }, 'End session'),
-      el('button', { class: 'btn btn-subtle', onclick: () => closeSheet() }, 'Keep going'),
-    ),
-  ]);
 }
 
 /* ---------- done screen ---------- */
@@ -1196,27 +1032,23 @@ function confettiBurst() {
 
 function doneScreen() {
   const d = Session.lastDone || { done: false, mins: 0 };
-  const c = Store.slipCountsOn(todayKey());
-  const clean = c.slip === 0 && c.abandon === 0 && (d.done || d.earned);
   const bankedText = d.secs != null ? fmtWatch(d.secs) : fmtMin(d.mins);
   const meter = goalMeter({ label: 'Daily target' });
   updateGoalMeter(meter, dailyTarget());
-  const good = d.done || d.earned;
-  const celebrate = d.done && clean;
+  const good = !!d.done;
   const today = d.today ?? Store.focusMinutesOn(todayKey());
-  const goal = Store.state.settings.goalMin || 0;
-  const canShare = good && goal > 0 && today >= goal;
+  const goal = d.goal ?? Store.goalToday();
+  const canShare = goal > 0 && today >= goal;
   let line;
-  if (d.earned) line = 'Ended on your terms. Nothing broken.';
-  else if (d.discarded) line = 'Nothing banked. The clock reset clean.';
-  else if (d.done) line = clean ? 'Nothing broken. The streak stands.' : 'Rounds banked — but the honesty log still holds the slip.';
-  else line = strictOn() ? 'Cut short and logged. Tomorrow can still be clean.' : 'Cut short — tracked, not enforced.';
+  if (d.discarded) line = 'Nothing banked. The clock reset clean.';
+  else if (good) line = 'Minutes banked. The day got what you gave it.';
+  else line = 'Stopped early — the minutes stay yours.';
   return el('div', { class: 'done-wrap' },
     el('div', { class: 'done-card view-anim' },
-      celebrate ? confettiBurst() : null,
+      good ? confettiBurst() : null,
       el('h1', { class: `done-kicker ${good ? 'is-good' : 'is-warn'}`, tabindex: '-1' },
         good ? 'Session banked' : d.discarded ? 'Session discarded' : 'Session ended',
-        celebrate ? ' 🎉' : ''),
+        good ? ' 🎉' : ''),
       el('div', { class: `done-amount${good ? '' : ' is-warn'}` },
         d.discarded ? '—' : `+${bankedText}`),
       el('div', { class: 'done-today' }, `${fmtMin(today)} focused today`),
@@ -1240,33 +1072,6 @@ function doneScreen() {
     )
   );
 }
-
-/* ---------- left veil ---------- */
-
-function showLeftVeil(awaySec) {
-  document.getElementById('leftveil')?.remove();
-  const veil = el('div', { class: 'leftveil show', id: 'leftveil' },
-    el('div', { class: 'veil' },
-      el('h3', {}, 'You left.'),
-      el('p', {}, `Away ${fmtMin(awaySec / 60)} during focus. Logged — it doesn't erase the round, but the day stops being clean.`),
-      el('div', { class: 'count warn' }, '—'),
-      el('button', {
-        class: 'btn btn-primary btn-block', style: 'margin-top:14px',
-        onclick: () => { veil.remove(); },
-      }, svg('lock', 17), 'Back in — keep going'),
-    )
-  );
-  document.body.append(veil);
-  const counter = veil.querySelector('.count');
-  const iv = setInterval(() => {
-    if (!document.body.contains(veil)) { clearInterval(iv); return; }
-    counter.textContent = Session.cfg?.mode === 'stop'
-      ? fmtWatch(stopSeconds())
-      : fmtClock(remaining());
-  }, 500);
-}
-
-/* draw the stopwatch on the paused screen too (clock is static, but keep it truthful) */
 
 /* ---------- clock ---------- */
 

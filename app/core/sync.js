@@ -53,7 +53,7 @@ export function diffScalar(current, shadow) {
 
 /**
  * Merge remote docs into a local array.
- * 'append' (sessions, slips): union by id — history is immutable, a local
+ * 'append' (sessions): union by id — history is immutable, a local
  * copy is never overwritten.
  * 'lww' (tasks, schedules): the newest updatedAt wins; a tie with differing
  * content goes to the remote copy. A tombstone (`deleted: true`) removes the

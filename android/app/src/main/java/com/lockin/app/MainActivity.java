@@ -29,13 +29,42 @@ public class MainActivity extends BridgeActivity {
 
     /** A notification tap asks for Schedule. Warm starts get an event too. */
     private void captureRoute(Intent intent) {
-        if (intent == null || !intent.getBooleanExtra("openSchedule", false)) return;
+        if (intent == null) return;
+
+        String alarmAction = intent.getStringExtra("alarmAction");
+        if (alarmAction != null && !alarmAction.isEmpty()) {
+            queueAlarmAction(intent, alarmAction);
+            intent.removeExtra("alarmAction");
+        }
+
+        if (!intent.getBooleanExtra("openSchedule", false)) return;
         intent.removeExtra("openSchedule");
         pendingRoute = "/schedule";
 
         if (bridge == null || bridge.getWebView() == null) return;
         bridge.getWebView().post(() -> bridge.getWebView().evaluateJavascript(
                 "window.dispatchEvent(new CustomEvent('lockin:native-route',{detail:'/schedule'}))",
+                null));
+    }
+
+    /** Hand an alarm action to the queue the web bridge drains. */
+    private void queueAlarmAction(Intent intent, String action) {
+        try {
+            org.json.JSONObject row = new org.json.JSONObject();
+            row.put("action", action);
+            row.put("scheduleId", intent.getStringExtra("scheduleId"));
+            row.put("day", intent.getStringExtra("day"));
+            row.put("name", intent.getStringExtra("name"));
+            row.put("startAt", intent.getLongExtra("startAt", 0L));
+            row.put("endAt", intent.getLongExtra("endAt", 0L));
+            AlarmActions.push(this, row);
+        } catch (org.json.JSONException ignored) {
+            return;
+        }
+
+        if (bridge == null || bridge.getWebView() == null) return;
+        bridge.getWebView().post(() -> bridge.getWebView().evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('lockin:alarm-action'))",
                 null));
     }
 

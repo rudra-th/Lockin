@@ -60,6 +60,13 @@ function domainOf(url) {
   }
 }
 
+/* Lockin's own web app is never part of the measured day. */
+const SELF_DOMAINS = new Set(['lockin.surge.sh']);
+
+function isSelfDomain(domain) {
+  return !!domain && SELF_DOMAINS.has(domain);
+}
+
 /* ---------- daily limits ---------- */
 
 function isSpentNow(domain, now = Date.now()) {
@@ -110,6 +117,7 @@ function commit(now = Date.now()) {
   const secs = creditedSeconds(now - state.active.since);
   state.active.since = now;
   if (secs <= 0) return;
+  if (isSelfDomain(state.active.domain)) return;
   const day = dateKey(new Date(now));
   const bucket = state.usage[day] || (state.usage[day] = {});
   bucket[state.active.domain] = (bucket[state.active.domain] || 0) + secs;
@@ -118,7 +126,7 @@ function commit(now = Date.now()) {
 async function setActive(domain) {
   await load();
   commit();
-  state.active = domain ? { domain, since: Date.now() } : null;
+  state.active = domain && !isSelfDomain(domain) ? { domain, since: Date.now() } : null;
   await save();
 }
 

@@ -7,7 +7,7 @@ The browser half of Lockin. It does five jobs and refuses the sixth:
 - **Cuts short videos** — YouTube Shorts, Instagram Reels, Facebook Reels and Snapchat Spotlight — on a toggle that is on by default.
 - **Tracks** the time the active Chrome tab spends on each site, per day.
 - **Links to your phone** — paste the pairing code from Lockin's Settings → Account and the popup shows today's phone screen time, focus minutes and most-used apps.
-- **Does not** run the study clock. Timers, tasks, streaks and the Honesty Log live in the app.
+- **Does not** run the study clock. Timers, tasks, daily targets and streaks live in the app.
 
 ## Build and load
 
@@ -86,6 +86,7 @@ infinite feeds people lose evenings to:
 ## Honest limits
 
 - It counts the **active tab in Chrome only** — not other browsers, not apps on your phone, not a second Chrome profile.
+- Lockin's own web app (`lockin.surge.sh`) is never counted as time on a blocked site.
 - Usage is sampled on tab and window changes plus a one-minute alarm, so a count can be off by up to a minute.
 - Blocking is `declarativeNetRequest` on whole domains, top-level navigations. Subdomains are covered by the domain rule; embedded players inside an allowed page are not.
 - Shorts rules match URL paths. YouTube's in-page player, an embedded Reel, or a feed rendered without changing the URL can slip past; Chrome gives the extension the tab URL, not the page content.

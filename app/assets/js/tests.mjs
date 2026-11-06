@@ -1,6 +1,6 @@
 /* Lockin — the shared self-check suite.
-   Pure-logic asserts for tasks, sessions, clean-day streaks, Strict Mode's
-   accident window and schedule alarms, written once and run twice:
+   Pure-logic asserts for tasks, sessions, daily-target streaks, target maths,
+   the session rules and schedule alarms, written once and run twice:
 
    - `tools/run-tests.mjs` executes the logic groups under Node (CI, `npm test`)
      against stubbed browser globals;
@@ -14,9 +14,11 @@
 import { Store } from './store.js';
 import {
   slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, daysUntil,
-  decideAway, earnedExit, freeExit, neutralExit, parseHM, toHM, spanMin,
+  freeExit, blockSessionMin, parseHM, toHM, spanMin,
   occursOn, occurrenceOn, occurrencesBetween, nextOccurrence, eventsBetween, daysLabel,
   normalizeSchedule, el,
+  normalizeGoalHistory, goalFor, setGoalOn, dayGoalMet, minutesLeft, goalStreak, targetDays,
+  parseNudgeAt, nudgeAtHM, nudgeDue, nudgeBody, reminderBody, weekSummary,
 } from './util.js';
 import { examById, examDateFor, expectedYear } from './exams.js';
 import { svg } from './icons.js';
@@ -44,7 +46,7 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     if (sa !== sb) throw new Error(`${msg}: expected ${sb}, got ${sa}`);
   };
 
-  /* The clean-day tests rewrite sessions and slips directly, so they run
+  /* The target-day tests rewrite sessions and settings directly, so they run
      against an in-memory copy of the visitor's lockin.* keys. Nothing here
      ever writes real localStorage: no test fixture can leak into the real
      planner, and an open app tab in another tab never hears a storage
@@ -169,48 +171,75 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(Store.erode([{ id: 'x', actId: 'b', s: 2, e: 6 }], 0, 12), []);
   });
 
-  group('Clean days & streaks');
+  group('Daily target & streak');
   const T = todayKey();
   const Y = addDays(T, -1), Y2 = addDays(T, -2);
   const mkSession = (day, mins, { completed = true } = {}) => ({
     id: `t_${day}_${mins}`, day, start: Date.now() - mins * 60000, end: Date.now(),
     kind: 'focus', completed, taskIds: [],
   });
-  test('no focus → not clean', () => {
-    Store.set((s) => { s.sessions = []; s.slips = []; s.settings.minClean = 15; });
-    eq(Store.dayClean(T), false);
+  const seedGoal = (min = 120) => Store.set((s) => {
+    s.settings.goalMin = min;
+    s.settings.goalHistory = [{ day: '1970-01-01', min }];
   });
-  test('focus ≥ minimum, no slips → clean', () => {
-    Store.set((s) => { s.sessions = [mkSession(T, 30)]; s.slips = []; });
-    eq(Store.dayClean(T), true);
-    eq(Store.focusMinutesOn(T), 30);
+
+  test('no focus → target not met', () => {
+    seedGoal(120);
+    Store.set((s) => { s.sessions = []; });
+    eq(Store.dayGoalMet(T), false);
+    eq(Store.goalLeft(T), 120);
   });
-  test('a slip breaks the clean day', () => {
-    Store.set((s) => { s.slips = [{ id: 'sl1', day: T, kind: 'slip', awaySec: 40, sessId: null, ts: Date.now() }]; });
-    eq(Store.dayClean(T), false);
+  test('reaching the target marks the day', () => {
+    seedGoal(120);
+    Store.set((s) => { s.sessions = [mkSession(T, 120)]; });
+    eq(Store.dayGoalMet(T), true);
+    eq(Store.goalLeft(T), 0);
   });
-  test('streak counts yesterday + day before', () => {
+  test('partial focus leaves the real minutes left', () => {
+    seedGoal(120);
+    Store.set((s) => { s.sessions = [mkSession(T, 30)]; });
+    eq(Store.goalLeft(T), 90);
+    eq(Store.dayGoalMet(T), false);
+  });
+  test('streak counts yesterday and the day before', () => {
+    seedGoal(120);
+    Store.set((s) => { s.sessions = [mkSession(Y, 130), mkSession(Y2, 125)]; });
+    eq(Store.dayGoalMet(Y), true);
+    eq(Store.goalStreak(T), 2); // today is still in progress
+  });
+  test('streak stops at the first short day', () => {
+    seedGoal(120);
+    Store.set((s) => { s.sessions = [mkSession(Y, 130), mkSession(Y2, 40)]; });
+    eq(Store.goalStreak(T), 1);
+  });
+  test('a day is measured against the target in force that day', () => {
     Store.set((s) => {
-      s.sessions = [mkSession(Y, 30), mkSession(Y2, 30)];
-      s.slips = [];
+      s.settings.goalMin = 120;
+      s.settings.goalHistory = [{ day: '1970-01-01', min: 60 }, { day: Y, min: 120 }];
+      s.sessions = [mkSession(Y2, 90)];
     });
-    eq(Store.dayClean(Y), true);
-    eq(Store.streakUpTo(T), 2); // today is in progress, not yet counted
+    eq(Store.goalFor(Y2), 60);
+    eq(Store.dayGoalMet(Y2), true); // 90 ≥ 60
+    eq(Store.goalFor(Y), 120);
   });
-  test('streak stops at the first broken day', () => {
+  test('changing today’s target leaves past days alone', () => {
     Store.set((s) => {
-      s.sessions = [mkSession(Y, 30), mkSession(Y2, 30)];
-      s.slips = [{ id: 'sl2', day: Y, kind: 'abandon', awaySec: 0, sessId: null, ts: Date.now() }];
+      s.settings.goalMin = 60;
+      s.settings.goalHistory = [{ day: '1970-01-01', min: 60 }];
+      s.sessions = [];
     });
-    eq(Store.streakUpTo(T), 0);
+    Store.setGoal(150);
+    eq(Store.goalFor(Y), 60);
+    eq(Store.goalToday(), 150);
+    eq(Store.state.settings.goalHistory.at(-1).day, T);
   });
-  test('abort keeps minutes but breaks cleanliness', () => {
+  test('zero focus never counts, even with the smallest target', () => {
     Store.set((s) => {
-      s.sessions = [{ ...mkSession(T, 20), completed: false }];
-      s.slips = [{ id: 'sl3', day: T, kind: 'abandon', awaySec: 0, sessId: null, ts: Date.now() }];
+      s.settings.goalMin = 15;
+      s.settings.goalHistory = [{ day: '1970-01-01', min: 15 }];
+      s.sessions = [];
     });
-    eq(Store.focusMinutesOn(T), 20);
-    eq(Store.dayClean(T), false);
+    eq(Store.dayGoalMet(T), false);
   });
   test('sessionMins prefers exact stopwatch seconds', () => {
     eq(Store.sessionMins({ secs: 1500, start: 0, end: 0 }), 25);
@@ -220,6 +249,127 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
   test('sessionMins never goes negative', () => {
     eq(Store.sessionMins({ secs: -30, start: 0, end: 0 }), 0);
     eq(Store.sessionMins({ start: 1000, end: 0 }), 0); // end before start
+  });
+
+  group('Goal history');
+  test('normalizeGoalHistory sorts, dedupes and seeds an empty history', () => {
+    const clean = normalizeGoalHistory(
+      [{ day: '2026-11-02', min: 90 }, { day: '2026-11-01', min: 60 }, { day: '2026-11-02', min: 120 }],
+      '2026-11-01',
+    );
+    eq(clean, [{ day: '2026-11-01', min: 60 }, { day: '2026-11-02', min: 120 }]);
+    eq(normalizeGoalHistory([], '2026-11-01', 45), [{ day: '2026-11-01', min: 45 }]);
+  });
+  test('goalFor picks the latest entry on or before the day', () => {
+    const history = [
+      { day: '2026-01-01', min: 60 },
+      { day: '2026-06-01', min: 120 },
+    ];
+    eq(goalFor(history, '2026-05-31'), 60);
+    eq(goalFor(history, '2026-06-01'), 120);
+    eq(goalFor(history, '2027-01-01'), 120);
+  });
+  test('setGoalOn appends without rewriting history', () => {
+    const history = [{ day: '2026-01-01', min: 60 }];
+    const next = setGoalOn(history, '2026-11-03', 150);
+    eq(next, [{ day: '2026-01-01', min: 60 }, { day: '2026-11-03', min: 150 }]);
+    eq(history.length, 1); // pure
+  });
+  test('minutesLeft and dayGoalMet handle zero and overshoot', () => {
+    eq(minutesLeft(0, 120), 120);
+    eq(minutesLeft(30, 120), 90);
+    eq(minutesLeft(150, 120), 0);
+    eq(dayGoalMet(0, 120), false);
+    eq(dayGoalMet(120, 0), false);
+    eq(dayGoalMet(120, 120), true);
+    eq(dayGoalMet(121, 120), true);
+  });
+  test('goalStreak looks back from yesterday when today is short', () => {
+    const history = [{ day: '1970-01-01', min: 60 }];
+    const mins = { '2026-11-02': 60, '2026-11-03': 60, '2026-11-04': 0 };
+    eq(goalStreak('2026-11-04', (d) => mins[d] || 0, history), 2);
+  });
+  test('targetDays counts only days that reached their own bar', () => {
+    const history = [
+      { day: '2026-01-01', min: 60 },
+      { day: '2026-06-01', min: 120 },
+    ];
+    const mins = { '2026-05-31': 90, '2026-06-01': 90, '2026-06-02': 120 };
+    eq(targetDays(Object.keys(mins), (d) => mins[d], history), 2);
+  });
+
+  group('Session rules');
+  test('under 20 seconds is a free stop', () => {
+    eq(freeExit(0, 20), true);
+    eq(freeExit(19.9, 20), true);
+    eq(freeExit(20, 20), false);
+  });
+  test('a block session uses the rest of its occurrence', () => {
+    const start = new Date(2026, 10, 3, 6, 30).getTime();
+    const end = start + 90 * 60000;
+    eq(blockSessionMin(start, start, end), 90);
+    eq(blockSessionMin(start + 30 * 60000, start, end), 60);
+  });
+  test('blockSessionMin clamps to a finishable range', () => {
+    const start = new Date(2026, 10, 3, 6, 30).getTime();
+    eq(blockSessionMin(start + 2 * 3600000, start, start + 90 * 60000), 5);
+    eq(blockSessionMin(start - 5 * 3600000, start, start + 90 * 60000), 90);
+    eq(blockSessionMin(start, start, start + 10 * 3600000), 180);
+  });
+
+  group('Daily target notifications');
+  test('nudge times parse and format as HH:MM', () => {
+    eq(parseNudgeAt('20:00'), 20 * 60);
+    eq(parseNudgeAt('7:05'), 20 * 60); // bad input falls back to 20:00
+    eq(parseNudgeAt('09:30'), 9 * 60 + 30);
+    eq(nudgeAtHM(20 * 60), '20:00');
+    eq(nudgeAtHM(9 * 60 + 30), '09:30');
+  });
+  test('nudge is due only after its time while the target remains', () => {
+    eq(nudgeDue({ nowMin: 19 * 60, atMin: 20 * 60, focusMin: 0, goalMin: 120, today: '2026-11-03' }), false);
+    eq(nudgeDue({ nowMin: 20 * 60, atMin: 20 * 60, focusMin: 30, goalMin: 120, today: '2026-11-03' }), true);
+    eq(nudgeDue({ nowMin: 21 * 60, atMin: 20 * 60, focusMin: 120, goalMin: 120, today: '2026-11-03' }), false);
+  });
+  test('nudge fires once a day and never without a target', () => {
+    eq(nudgeDue({ nowMin: 21 * 60, atMin: 20 * 60, focusMin: 0, goalMin: 120, lastNudgedDay: '2026-11-03', today: '2026-11-03' }), false);
+    eq(nudgeDue({ nowMin: 21 * 60, atMin: 20 * 60, focusMin: 0, goalMin: 0, today: '2026-11-03' }), false);
+  });
+  test('nudge body reports the gap, then the win', () => {
+    eq(nudgeBody(0, 120), '2h left of your 2h target. One session is enough to start.');
+    eq(nudgeBody(30, 120), '30m banked · 1h 30m left of your 2h target.');
+    eq(nudgeBody(120, 120), 'Target met — 2h banked today.');
+  });
+  test('reminder body carries the target left', () => {
+    eq(reminderBody({ focusMin: 30, goalMin: 120, mins: 5 }), 'Starts in 5 min · 1h 30m left to hit today’s target.');
+    eq(reminderBody({ focusMin: 120, goalMin: 120, mins: 5 }), 'Starts in 5 min · today’s target is already met.');
+    eq(reminderBody({ mins: 0 }), 'Starts now.');
+  });
+
+  group('Weekly summary');
+  test('weekSummary totals seven days and flags target days', () => {
+    const mins = { '2026-10-28': 60, '2026-10-29': 120, '2026-10-30': 30, '2026-10-31': 0, '2026-11-01': 90, '2026-11-02': 120, '2026-11-03': 140 };
+    const summary = weekSummary('2026-11-03', {
+      minutesOn: (d) => mins[d] || 0,
+      goalOn: () => 120,
+      streak: 3,
+      topTask: 'Read one chapter',
+    });
+    eq(summary.days.length, 7);
+    eq(summary.total, 560);
+    eq(summary.targetDays, 3);
+    eq(summary.best.day, '2026-11-03');
+    eq(summary.best.mins, 140);
+    eq(summary.average, 80);
+    eq(summary.streak, 3);
+    eq(summary.topTask, 'Read one chapter');
+  });
+  test('weekSummary uses each day’s own target', () => {
+    const summary = weekSummary('2026-11-03', {
+      minutesOn: (d) => (d === '2026-11-02' ? 90 : 0),
+      goalOn: (d) => (d === '2026-11-02' ? 60 : 120),
+    });
+    eq(summary.targetDays, 1);
+    eq(summary.days.find((row) => row.day === '2026-11-02').met, true);
   });
 
   group('Screen time');
@@ -251,75 +401,17 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(wrote, false);
     eq(Store.state.screenTime, before); // identity: no Store.set, no sync trigger
   });
-
-  group('Strict Mode accident window');
-  test('≤10s away is a rescue when rescues remain', () => {
-    eq(decideAway({ awaySec: 3, usedRescues: 0 }), 'rescue');
-    eq(decideAway({ awaySec: 10, usedRescues: 2, graceSec: 10, cap: 3 }), 'rescue'); // boundary
-  });
-  test('>10s away is a slip', () => {
-    eq(decideAway({ awaySec: 10.5, usedRescues: 0 }), 'slip');
-    eq(decideAway({ awaySec: 600, usedRescues: 0 }), 'slip');
-  });
-  test('rescue cap exhausted → even 1s away is a slip', () => {
-    eq(decideAway({ awaySec: 2, usedRescues: 3 }), 'slip');
-    eq(decideAway({ awaySec: 2, usedRescues: 4 }), 'slip');
-  });
-  test('grace/cap are configurable', () => {
-    eq(decideAway({ awaySec: 20, usedRescues: 9, graceSec: 25, cap: 10 }), 'rescue');
-  });
-
-  group('Earned exit');
-  test('under the 15m bar is not earned', () => {
-    eq(earnedExit(899, 15), false);
-  });
-  test('exactly 15m is earned', () => {
-    eq(earnedExit(900, 15), true);
-  });
-  test('hours of work are earned', () => {
-    eq(earnedExit(3600, 15), true);
-  });
-  test('off (0) never earns an exit', () => {
-    eq(earnedExit(3600, 0), false);
-    eq(earnedExit(3600, null), false);
-  });
-  test('a custom bar moves both edges', () => {
-    eq(earnedExit(1799, 30), false);
-    eq(earnedExit(1800, 30), true);
-  });
-  test('under 20 seconds is a free stop', () => {
-    eq(freeExit(0, 20), true);
-    eq(freeExit(19.9, 20), true);
-    eq(freeExit(20, 20), false);
-  });
-  test('the 20-second window works even with earned exit off', () => {
-    eq(neutralExit(5, 0), true);
-    eq(neutralExit(20, 0), false);
-  });
-  test('between 20 seconds and the bar is still a slip', () => {
-    eq(neutralExit(20, 15), false);
-    eq(neutralExit(899, 15), false);
-    eq(neutralExit(900, 15), true);
-  });
-  test('exitGraceMin defaults to 15', () => {
-    eq(Store.state.settings.exitGraceMin, 15);
-  });
-  test('an earned end keeps the day clean', () => {
-    Store.set((s) => {
-      s.sessions = [{ ...mkSession(T, 21), completed: false, earned: true }];
-      s.slips = [];
-      s.settings.minClean = 15;
-    });
-    eq(Store.focusMinutesOn(T), 21);
-    eq(Store.dayClean(T), true);
-  });
-  test('earned exit does not fake a clean day below the minimum', () => {
-    Store.set((s) => {
-      s.sessions = [{ ...mkSession(T, 5), completed: false, earned: true }];
-      s.slips = [];
-      s.settings.minClean = 15;
-    });
-    eq(Store.dayClean(T), false);
+  test('Lockin never counts its own screen time', () => {
+    Store.set((s) => { s.screenTime = []; });
+    const day = todayKey();
+    Store.recordScreenTime(
+      [{ day, ms: 20 * 60000 }],
+      [
+        { package: 'com.lockin.app', label: 'Lockin', ms: 20 * 60000 },
+        { package: 'com.android.chrome', label: 'Chrome', ms: 15 * 60000 },
+      ],
+    );
+    eq(Store.screenDay(day).apps.map((a) => a.package), ['com.android.chrome']);
   });
 
   group('Schedule math');
@@ -357,6 +449,11 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     const after = nextOccurrence([DEEP], new Date(2026, 10, 3, 9, 0));
     eq(after.start > new Date(2026, 10, 3, 9, 0), true);
     eq(after.start.getDay(), 2); // next Tuesday
+  });
+  test('nextOccurrence can hide a skipped occurrence', () => {
+    const skipped = nextOccurrence([DEEP], TUE, (occ) => occ.start.getDate() === 3);
+    eq(skipped.ongoing, false);
+    eq(skipped.start.getDate(), 10); // next Tuesday, not today's skipped one
   });
   test('eventsBetween emits the reminder and the start', () => {
     const evs = eventsBetween([DEEP], new Date(2026, 10, 3, 6, 24), new Date(2026, 10, 3, 6, 31));

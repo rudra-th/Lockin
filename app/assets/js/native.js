@@ -7,7 +7,7 @@
 
 import { Store } from './store.js';
 import { Router } from './router.js';
-import { eventsBetween, occurrencesBetween, spanLabel, daysLabel } from './util.js';
+import { eventsBetween, occurrencesBetween, spanLabel, daysLabel, dateKey } from './util.js';
 
 const cap = globalThis.Capacitor;
 const plugin = cap?.Plugins?.LockinNative || null;
@@ -39,6 +39,13 @@ function alarmWindow() {
         kind: ev.kind,
         title: ev.kind === 'remind' ? `${schedule.name} soon` : `${schedule.name} starts now`,
         body: `${spanLabel(schedule)} · ${daysLabel(schedule.days)}`,
+        /* Enough for the notification's Start/Skip actions to act without
+           re-deriving the block on the native side. */
+        scheduleId: schedule.id,
+        day: dateKey(ev.occ.start),
+        name: schedule.name,
+        start: ev.occ.start.getTime(),
+        end: ev.occ.end.getTime(),
       };
     });
 }
@@ -74,6 +81,32 @@ async function consumeRoute() {
   } catch (_) { /* a stale intent is not fatal */ }
 }
 
+/**
+ * Actions taken from an alarm notification or the full-screen alarm. They are
+ * queued natively, so a skip tapped while the app was closed still applies
+ * once the app next wakes.
+ */
+async function consumeAlarmActions() {
+  if (!isNative) return;
+  let actions;
+  try {
+    const res = await plugin.consumeAlarmActions();
+    actions = Array.isArray(res?.actions) ? res.actions : [];
+  } catch (_) {
+    return;
+  }
+  if (!actions.length) return;
+  /* Loaded lazily: focus.js already imports this bridge, so a static import
+     would close the cycle. */
+  const { startSessionForBlock, skipBlockOccurrence } = await import('./views/focus.js');
+  for (const action of actions) {
+    const schedule = Store.schedule(action.scheduleId);
+    if (!schedule) continue;
+    if (action.action === 'start') startSessionForBlock(schedule, action.day);
+    else if (action.action === 'skip') skipBlockOccurrence(schedule, action.day);
+  }
+}
+
 function bindAppState() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -81,6 +114,7 @@ function bindAppState() {
       pushBlockingWindows(true);
     } else {
       cancelNativeAlarms();
+      consumeAlarmActions();
     }
   });
 
@@ -88,6 +122,7 @@ function bindAppState() {
     appPlugin.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
         cancelNativeAlarms();
+        consumeAlarmActions();
       } else {
         pushAlarms(true);
         pushBlockingWindows(true);
@@ -104,6 +139,12 @@ function bindAppState() {
   addEventListener('lockin:native-route', (ev) => {
     if (ev.detail) Router.go(ev.detail);
   });
+
+  /* A warm alarm action arrives straight from MainActivity; the queue holds
+     the details, so the event is only a nudge to drain it. */
+  addEventListener('lockin:alarm-action', () => {
+    consumeAlarmActions();
+  });
 }
 
 /**
@@ -117,6 +158,7 @@ export async function startNative() {
 
   await consumeRoute();
   bindAppState();
+  consumeAlarmActions();
 
   /* A background transition re-reads the store, so schedule edits made while
      the app was open are already in the window. */
@@ -369,7 +411,7 @@ export async function strictStatus() {
   }
 }
 
-/** Change the allowlist without arming or disarming strict mode. */
+/** Change the kiosk allowlist without arming or disarming it. */
 export async function saveStrictPackages(packages) {
   if (!isNative) return null;
   try {
@@ -380,7 +422,7 @@ export async function saveStrictPackages(packages) {
 }
 
 /**
- * Arm strict mode for a live session. `until` is the fail-open deadline:
+ * Arm the kiosk for a live session. `until` is the fail-open deadline:
  * if the web app dies, the device releases itself when it passes.
  */
 export async function startStrictMode({ packages = [], until = 0 } = {}) {

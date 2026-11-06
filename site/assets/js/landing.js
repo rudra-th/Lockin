@@ -1,7 +1,7 @@
 /* Lockin — landing page behaviour.
    The page reads without this file. With it, the hero wordmark gives way and
-   the phone rises into a pinned stage: Plan, Start, Lock and Review run on the
-   scroll, and the session clock is driven by the same gesture. */
+   the phone rises into a pinned stage: Schedule, Start, Lock and Review run on
+   the scroll, and the session clock is driven by the same gesture. */
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 

@@ -214,6 +214,27 @@ const stale = textFiles.filter((path) => /views\/plan\.js|#\/plan\b/.test(readFi
 if (stale.length) fail(`stale Plan references in: ${stale.map(rel).join(', ')}`);
 else pass('no stale Plan view or #/plan links');
 
+/* ---------- no stale honesty-log product terms in code or UI ---------- */
+
+const productFiles = [
+  ...walk(join(ROOT, 'app')),
+  ...walk(join(ROOT, 'extension')),
+  ...walk(join(ROOT, 'site')),
+].filter((path) => ['.js', '.html', '.css', '.json', '.webmanifest'].includes(extname(path)));
+
+/* The migration still deletes `slips`, so bare "slip" is allowed there. These
+   are the product words that must never come back into the UI or logic. */
+const banned = /Honesty Log|clean[- ]day|earned exit|rescue|\bStrict Mode\b|minClean|exitGraceMin|dayClean|streakUpTo|settings\.strict\b/;
+const migration = /^\s*delete\s+raw\.(slips|settings\.(strict|minClean|exitGraceMin));/;
+function hasStaleTerm(path) {
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .some((line) => banned.test(line) && !migration.test(line));
+}
+const staleTerms = productFiles.filter(hasStaleTerm);
+if (staleTerms.length) fail(`stale honesty-log terms in: ${staleTerms.map(rel).join(', ')}`);
+else pass('no stale honesty-log terms in app, extension or site');
+
 /* ---------- extension manifest ---------- */
 
 try {

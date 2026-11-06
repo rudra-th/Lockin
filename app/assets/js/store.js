@@ -1,5 +1,10 @@
 import { todayKey, addDays, normalizeSchedule } from './util.js';
 import { isTrial, TRIAL_KEY, trialSeed } from './trial.js';
+import {
+  DEFAULT_GOAL_MIN, normalizeGoalHistory, goalFor as goalAt, dayGoalMet,
+  goalStreak, targetDays, setGoalOn, minutesLeft,
+} from '../../core/goal.js';
+import { DEFAULT_NUDGE_AT } from '../../core/notify.js';
 
 const KEY = isTrial ? TRIAL_KEY : 'lockin.store.v1';
 const VERSION = 1;
@@ -19,6 +24,10 @@ function screenAppsKey(apps) {
   return (apps || []).map((a) => `${a.package}:${a.label}:${a.mins}`).join('|');
 }
 
+/* Lockin is the study surface, not part of the phone the student is
+   measuring. Its own package never appears in usage rows. */
+const SELF_PACKAGES = new Set(['com.lockin.app']);
+
 function blankState() {
   return {
     v: VERSION,
@@ -33,17 +42,17 @@ function blankState() {
     plans: {},
     schedules: [],
     sessions: [],
-    slips: [],
+    blockSkips: [], // { id, scheduleId, day, ts } — a dismissed occurrence
     screenTime: [], // daily phone usage: { id, day, mins, apps: [{package,label,mins}] }
     profile: { name: '', email: '', exam: '', examId: '', examDate: '' }, // filled by the opening film
     settings: {
       theme: 'system',
-      strict: true,
       wakelock: true,
       notifs: false,
-      goalMin: 120,
-      minClean: 15,
-      exitGraceMin: 15,
+      goalMin: DEFAULT_GOAL_MIN,
+      goalHistory: [{ day: todayKey(), min: DEFAULT_GOAL_MIN }],
+      nudge: true,
+      nudgeAt: DEFAULT_NUDGE_AT,
       scheduleAlarms: true,
       alarmSound: true,
       alarmVibrate: true,
@@ -56,6 +65,24 @@ function blankState() {
       onboarded: false,
     },
   };
+}
+
+function cleanBlockSkips(raw) {
+  const cutoff = addDays(todayKey(), -14);
+  const map = new Map();
+  for (const row of Array.isArray(raw) ? raw : []) {
+    if (!row || typeof row !== 'object') continue;
+    const scheduleId = String(row.scheduleId || '').trim();
+    const day = String(row.day || '');
+    if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day < cutoff) continue;
+    map.set(`${scheduleId}_${day}`, {
+      id: `${scheduleId}_${day}`,
+      scheduleId,
+      day,
+      ts: Number(row.ts) || Date.now(),
+    });
+  }
+  return [...map.values()].sort((a, b) => a.day.localeCompare(b.day));
 }
 
 function migrate(raw) {
@@ -71,7 +98,17 @@ function migrate(raw) {
      excluded from every statistic, so drop them instead of letting the
      removed flag make them count as real focus. */
   raw.sessions = (raw.sessions || []).filter((s) => !s.demo);
-  raw.sessions.forEach((s) => { delete s.demo; });
+  raw.sessions.forEach((s) => {
+    delete s.demo;
+    delete s.earned; // the old exit marker no longer means anything
+    if (s.aborted) s.completed = false;
+  });
+
+  /* v1.14: the old honesty mechanic is gone. Remove the old slice
+     outright — there is no archive and nothing reads it. */
+  delete raw.slips;
+
+  raw.settings = raw.settings || {};
 
   /* v1.13: daily phone screen time travels with the store so the browser
      extension can show the same week the phone measured. */
@@ -97,9 +134,18 @@ function migrate(raw) {
   raw.flags = raw.flags || {};
   delete raw.flags.seeded;
 
-  /* v1.3: real work buys an honest exit. Default 15 min; 0 keeps the old rule. */
-  raw.settings = raw.settings || {};
-  if (typeof raw.settings.exitGraceMin !== 'number') raw.settings.exitGraceMin = 15;
+  /* v1.14: the target replaces the old minimum. The target is
+     versioned, so a change today cannot rewrite yesterday's bar. */
+  delete raw.settings.strict;
+  delete raw.settings.minClean;
+  delete raw.settings.exitGraceMin;
+  const goalMin = Math.max(1, Math.min(1440, Math.round(Number(raw.settings.goalMin) || DEFAULT_GOAL_MIN)));
+  raw.settings.goalMin = goalMin;
+  const createdDay = (() => {
+    const d = new Date(Number(raw.createdAt) || Date.now());
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  raw.settings.goalHistory = normalizeGoalHistory(raw.settings.goalHistory, createdDay, goalMin);
 
   /* v1.4: recurring schedule blocks with per-block alarms. */
   raw.schedules = (Array.isArray(raw.schedules) ? raw.schedules : [])
@@ -111,14 +157,19 @@ function migrate(raw) {
   if (typeof raw.settings.alarmVibrate !== 'boolean') raw.settings.alarmVibrate = true;
   if (typeof raw.settings.remindDefault !== 'number') raw.settings.remindDefault = 5;
 
+  /* v1.14: a daily target nudge and skip-today alarms. */
+  if (typeof raw.settings.nudge !== 'boolean') raw.settings.nudge = true;
+  if (typeof raw.settings.nudgeAt !== 'number') raw.settings.nudgeAt = DEFAULT_NUDGE_AT;
+  raw.blockSkips = cleanBlockSkips(raw.blockSkips);
+
   /* v1.11: strict sessions can pin the phone into a kiosk (Android). */
   if (typeof raw.settings.kiosk !== 'boolean') raw.settings.kiosk = false;
   return raw;
 }
 
 /* The trial uses the same shape as a real store, but starts with a believable
-   week so Progress, Home and the honesty log have something honest to show.
-   It still goes through migrate() so schedule ids and defaults match the app. */
+   week so Progress, Home and the weekly card have something to show. It still
+   goes through migrate() so schedule ids and defaults match the app. */
 function seededState() {
   if (!isTrial) return blankState();
   const seed = trialSeed();
@@ -204,13 +255,37 @@ const Store = {
   },
 
   deleteSchedule(id) {
-    this.set((st) => { st.schedules = st.schedules.filter((s) => s.id !== id); });
+    this.set((st) => {
+      st.schedules = st.schedules.filter((s) => s.id !== id);
+      st.blockSkips = (st.blockSkips || []).filter((row) => row.scheduleId !== id);
+    });
   },
 
   toggleSchedule(id) {
     this.set((st) => {
       const s = st.schedules.find((x) => x.id === id);
       if (s) s.enabled = !s.enabled;
+    });
+  },
+
+  /* ---------- skipped occurrences ---------- */
+
+  isBlockSkipped(scheduleId, day) {
+    return (this.state.blockSkips || []).some((row) => row.scheduleId === scheduleId && row.day === day);
+  },
+
+  skipBlock(scheduleId, day) {
+    if (!scheduleId || !day) return;
+    this.set((st) => {
+      if (!Array.isArray(st.blockSkips)) st.blockSkips = [];
+      if (st.blockSkips.some((row) => row.scheduleId === scheduleId && row.day === day)) return;
+      st.blockSkips.push({ id: `${scheduleId}_${day}`, scheduleId, day, ts: Date.now() });
+    });
+  },
+
+  unskipBlock(scheduleId, day) {
+    this.set((st) => {
+      st.blockSkips = (st.blockSkips || []).filter((row) => !(row.scheduleId === scheduleId && row.day === day));
     });
   },
 
@@ -301,20 +376,10 @@ const Store = {
     let mins = 0;
     for (const sess of this.state.sessions) {
       if (sess.kind !== 'focus') continue;
-      // aborted sessions keep their minutes — time actually spent is honest —
-      // they just never make the day clean (dayClean also demands zero slips)
       if (sess.day !== dateKey) continue;
       mins += this.sessionMins(sess);
     }
     return Math.round(mins);
-  },
-
-  slipCountsOn(dateKey) {
-    const counts = { slip: 0, rescue: 0, abandon: 0 };
-    for (const sl of this.state.slips) {
-      if (sl.day === dateKey) counts[sl.kind] += 1;
-    }
-    return counts;
   },
 
   setProfile(name, exam, examDate = '', examId = '') {
@@ -327,30 +392,45 @@ const Store = {
     });
   },
 
-  /** A day is "clean" when real focus happened and nothing was broken. */
-  dayClean(dateKey) {
-    const c = this.slipCountsOn(dateKey);
-    return this.focusMinutesOn(dateKey) >= this.state.settings.minClean &&
-      c.slip === 0 && c.abandon === 0;
+  /* ---------- daily target ---------- */
+
+  goalHistory() {
+    return this.state.settings.goalHistory || [];
   },
 
-  /** Consecutive clean days, ending today if today already qualifies. */
-  streakUpTo(dateKey) {
-    let streak = 0;
-    let cursor = dateKey;
-    if (!this.dayClean(cursor)) cursor = addDays(cursor, -1); // today still in progress
-    while (this.dayClean(cursor)) {
-      streak += 1;
-      cursor = addDays(cursor, -1);
-    }
-    return streak;
+  /** Target in force on a day (defaults to today). */
+  goalFor(day = todayKey()) {
+    return goalAt(this.goalHistory(), day, this.state.settings.goalMin || DEFAULT_GOAL_MIN);
   },
 
-  logSlip(kind, sessId, awaySec, dayKey) {
-    const entry = { id: uid('sl'), ts: Date.now(), day: dayKey || todayKey(),
-      kind, sessId: sessId || null, awaySec: Math.round(awaySec || 0) };
-    this.set((s) => s.slips.push(entry));
-    return entry;
+  /** Today's target — the number the ring and the nudge use. */
+  goalToday() {
+    return this.goalFor(todayKey());
+  },
+
+  goalLeft(day = todayKey()) {
+    return minutesLeft(this.focusMinutesOn(day), this.goalFor(day));
+  },
+
+  dayGoalMet(day) {
+    return dayGoalMet(this.focusMinutesOn(day), this.goalFor(day));
+  },
+
+  goalStreak(day = todayKey()) {
+    return goalStreak(day, (d) => this.focusMinutesOn(d), this.goalHistory(), this.state.settings.goalMin || DEFAULT_GOAL_MIN);
+  },
+
+  targetDaysBetween(days) {
+    return targetDays(days, (d) => this.focusMinutesOn(d), this.goalHistory(), this.state.settings.goalMin || DEFAULT_GOAL_MIN);
+  },
+
+  /** Change the target from today onward; past days keep their own bar. */
+  setGoal(min) {
+    const day = todayKey();
+    this.set((s) => {
+      s.settings.goalMin = Math.max(1, Math.min(1440, Math.round(Number(min) || DEFAULT_GOAL_MIN)));
+      s.settings.goalHistory = setGoalOn(s.settings.goalHistory, day, s.settings.goalMin);
+    });
   },
 
   /* ---------- screen time ---------- */
@@ -375,7 +455,7 @@ const Store = {
         label: String(a.label || a.package || '').slice(0, 48),
         mins: Math.max(0, Math.round((Number(a.ms) || 0) / 60000)),
       }))
-      .filter((a) => a.label && a.mins > 0)
+      .filter((a) => a.label && a.mins > 0 && !SELF_PACKAGES.has(a.package))
       .sort((a, b) => b.mins - a.mins)
       .slice(0, 6);
 

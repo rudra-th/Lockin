@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Device owner exists only to allow lock task packages during a strict
+<!-- Device owner exists only to allow lock task packages during a kiosk
      session. No wipe, password, camera or encryption policies are requested. -->
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-policies />

@@ -1,12 +1,12 @@
-/* Lockin — Home: three honest facts about today.
+/* Lockin — Home: three facts about today.
    Days left, today's focus, and the next block.
-   Tasks live in Schedule; streaks, history and screen time live in Settings.
+   Tasks live in Schedule; target days, history and screen time live in Settings.
    Nothing else. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
 import {
-  el, todayKey, prettyDate, fmtMin, daysUntil,
+  el, todayKey, prettyDate, fmtMin, daysUntil, dateKey,
   nextOccurrence, occurrencesOn, spanLabel, DAYS,
 } from '../util.js';
 import { svg } from '../icons.js';
@@ -131,7 +131,7 @@ function examCard() {
 /* ---------- today's focus ---------- */
 
 function focusCaption(focusMin, live) {
-  const goal = Store.state.settings.goalMin || 0;
+  const goal = Store.goalToday();
   const met = goal > 0 && focusMin >= goal;
   const left = Math.max(0, goal - focusMin);
   if (live) return met ? '🎉 Target met. The room is still open.' : `${fmtMin(left)} to go — the clock is running.`;
@@ -141,7 +141,7 @@ function focusCaption(focusMin, live) {
 }
 
 function focusCard({ focusMin, live, suggestedMin }) {
-  const goal = Store.state.settings.goalMin || 0;
+  const goal = Store.goalToday();
 
   const num = el('b', {}, fmtMin(focusMin));
   const meterFill = goal
@@ -219,7 +219,8 @@ function scheduleCard() {
   function update() {
     const now = new Date();
     const schedules = Store.schedules();
-    const next = nextOccurrence(schedules, now);
+    const next = nextOccurrence(schedules, now,
+      (occ) => Store.isBlockSkipped(occ.schedule.id, dateKey(occ.start)));
     const todayCount = occurrencesOn(schedules, now).length;
 
     count.textContent = todayCount ? `${todayCount} today` : '';

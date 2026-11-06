@@ -72,7 +72,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- Optional device owner, used only to make strict mode a real kiosk.
+        <!-- Optional device owner, used only to make the kiosk a real one.
              Inert until the user runs the one-time dpm command in docs/android.md. -->
         <receiver
             android:name=".LockinDeviceAdminReceiver"

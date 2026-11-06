@@ -1,6 +1,6 @@
 /* Lockin — the opening film.
    First run is one continuous piece: the name, the exam, the rough date, the
-   daily target, then the honest rules. Full-bleed scenes, one idea at a time.
+   daily target, then the room. Full-bleed scenes, one idea at a time.
    Rerunnable from Settings (personalization is skipped when the profile is
    already known). */
 
@@ -15,7 +15,6 @@ import {
   openAccessibilitySettings,
 } from '../native.js';
 import { accountState, signIn } from '../account.js';
-import { GRACE_SEC, RESCUE_CAP } from './focus.js';
 import {
   PRIMARY_EXAMS, MORE_EXAMS, MONTHS, examById, examByName, examDateFor,
   expectedYear, formatExamMonth,
@@ -471,23 +470,23 @@ function hoursScene() {
     read,
     el('div', { class: 'film-spacer' }),
     primary('Continue', () => {
-      Store.set((s) => { s.settings.goalMin = state.hours * 60; });
+      Store.setGoal(state.hours * 60);
       syncProfile();
       go(idx + 1);
     }),
   ];
 }
 
-function strictScene() {
+function roomScene() {
   return [
-    kicker('The honest part'),
-    title('Strict, but ', el('em', {}, 'not a trap.')),
+    kicker('The room'),
+    title('A room, ', el('em', {}, 'not a trap.')),
     el('div', { class: 'film-facts' },
-      el('div', { class: 'fact' }, el('b', {}, `${GRACE_SEC}s`), el('span', {}, 'away is forgiven')),
-      el('div', { class: 'fact' }, el('b', {}, `${RESCUE_CAP}×`), el('span', {}, 'rescues a day')),
-      el('div', { class: 'fact' }, el('b', {}, '∞'), el('span', {}, 'slips in the log')),
+      el('div', { class: 'fact' }, el('b', {}, '20s'), el('span', {}, 'to undo a mis-start')),
+      el('div', { class: 'fact' }, el('b', {}, '1.4s'), el('span', {}, 'hold to leave')),
+      el('div', { class: 'fact' }, el('b', {}, '100%'), el('span', {}, 'minutes that stay yours')),
     ),
-    lede(`Leave a running session for longer than ${GRACE_SEC} seconds and it is a slip — recorded, not hidden. The screen stays awake while the clock runs. Strict is a switch in Settings, never a lock-in.`),
+    lede('Every session opens full-screen with the screen awake. Hold the ring to begin, hold the end control to leave. Stop inside the first 20 seconds and nothing is written; after that every minute stays yours. No punishments, no logs.'),
   ];
 }
 
@@ -646,7 +645,7 @@ function permissionsScene() {
 const RENDERERS = {
   intro: introScene, name: nameScene, exam: examScene,
   date: dateScene, hours: hoursScene, account: accountScene,
-  strict: strictScene, permissions: permissionsScene,
+  strict: roomScene, permissions: permissionsScene,
 };
 
 function buildScenes(replay) {

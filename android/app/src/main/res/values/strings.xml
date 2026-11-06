@@ -14,6 +14,8 @@
     <string name="alarm_default_title">Time to focus</string>
     <string name="alarm_dismiss">Dismiss</string>
     <string name="alarm_open">Open Lockin</string>
+    <string name="alarm_start">Start session</string>
+    <string name="alarm_skip">Skip today</string>
     <string name="alarm_foot">The block is yours. It starts now.</string>
 
     <string name="accessibility_label">Lockin app blocking</string>
@@ -30,7 +32,7 @@
     <string name="block_limit_until">Resets at midnight · change it in Control</string>
     <string name="block_limit_used">%1$s of %2$dm used today</string>
 
-    <string name="block_strict_kicker">Strict study mode</string>
+    <string name="block_strict_kicker">Kiosk session</string>
     <string name="block_strict_title">Only the allowlist.</string>
     <string name="block_strict_left">nothing else opens</string>
     <string name="block_strict_until">This session is still running</string>

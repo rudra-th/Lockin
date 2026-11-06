@@ -18,10 +18,10 @@ The extension makes **no network requests**. Its only data is the `lockin.ext` k
 
 | Capability | Why | Notes |
 |---|---|---|
-| `localStorage` | The whole store: tasks, recurring schedules, sessions, slips, settings. | One key, `lockin.store.v1`. Export/import is manual. |
+| `localStorage` | The whole store: tasks, recurring schedules, sessions, target history, settings. | One key, `lockin.store.v1`. Export/import is manual. |
 | Service worker | Offline shell, cache, and the notification click target. | Same-origin only. |
 | Screen Wake Lock | Keep the phone awake during a session. | Released when the session ends or the tab hides. |
-| Notifications | Round notices, schedule alarms and the five-minute reminder. | Opt-in, requested from a real click. A web app can only ring while a Lockin page is alive; Android adds exact alarms. |
+| Notifications | Schedule alarms, the five-minute reminder and the once-a-day target check-in. | Opt-in, requested from a real click. A web app can only ring while a Lockin page is alive; Android adds exact alarms. |
 | Web Audio | The alarm chime. | Generated in the page; no audio file and no microphone. |
 
 No account, no analytics, no third-party requests. Fonts are self-hosted.
@@ -32,18 +32,18 @@ What the shipped APK declares — nothing more:
 
 | Capability | Why |
 |---|---|
-| `PACKAGE_USAGE_STATS` | Per-app screen time, pickups, unlocks. Granted in system settings. |
+| `PACKAGE_USAGE_STATS` | Per-app screen time and the daily total. Granted in system settings. Lockin filters its own package out of every total and app row. |
 | `SCHEDULE_EXACT_ALARM` | Ring at the scheduled minute. |
 | `POST_NOTIFICATIONS` | Reminder five minutes before a block. Runtime prompt. |
 | `USE_FULL_SCREEN_INTENT` | A start alarm may take over the lock screen. Android 14+ can deny it; the alarm still arrives as a heads-up. |
 | `RECEIVE_BOOT_COMPLETED` | Re-seed alarms after a reboot. |
 | `VIBRATE`, `WAKE_LOCK` | Deliver the alarm on time. |
 | `INTERNET` | Capacitor local server and future opt-in sync. |
-| Accessibility service (off by default, user-enabled) | See which app comes to the front, so apps you chose can be covered, foreground minutes counted against daily limits, and strict mode enforced. `canRetrieveWindowContent=false`: package names only — no screen text, page content or keystrokes. |
-| Device admin receiver (optional, inert) | Becomes active only after the user runs the one-time `dpm set-device-owner` command. Then strict mode can use Android lock task; without it Lockin falls back to screen pinning and says **Limited kiosk**. |
+| Accessibility service (off by default, user-enabled) | See which app comes to the front, so apps you chose can be covered, foreground minutes counted against daily limits, and the kiosk's app allowlist enforced. `canRetrieveWindowContent=false`: package names only — no screen text, page content or keystrokes. |
+| Device admin receiver (optional, inert) | Becomes active only after the user runs the one-time `dpm set-device-owner` command. Then the kiosk can use Android lock task; without it Lockin falls back to screen pinning and says **Limited kiosk**. |
 
-The accessibility service is optional. Without it Lockin still measures, rings
-and logs; Settings says "Service off — nothing is blocked yet" instead of
+The accessibility service is optional. Without it Lockin still measures and
+rings; Settings says "Service off — nothing is blocked yet" instead of
 pretending. It only covers apps you pick, only inside a schedule block or a
 running/paused Study Mode session. Lockin, launchers, Settings and the default
 dialer are never covered, even if an older saved list still contains them, so
@@ -51,10 +51,10 @@ the service can always be turned off and help can always be reached. It is a
 focus aid, not a lock: Android lets you turn it off at any time.
 
 Per-app limits count foreground time only while that service is on, and the
-counters stay in device-local `SharedPreferences`. Strict kiosk is a separate
-opt-in: device owner is the only mode that can truly hold the phone, and the UI
-labels the pinning fallback honestly. A deadline releases lock task even if the
-app dies. See [`android.md`](android.md).
+counters stay in device-local `SharedPreferences`. The kiosk is a separate
+opt-in from Study Mode: device owner is the only mode that can truly hold the
+phone, and the UI labels the pinning fallback honestly. A deadline releases
+lock task even if the app dies. See [`android.md`](android.md).
 
 ## What we will never ask for
 

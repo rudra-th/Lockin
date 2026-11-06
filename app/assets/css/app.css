@@ -1346,47 +1346,6 @@ body[data-mode='onboard'] #view {
 .sess-foot-split { display: flex; flex-direction: row; gap: 10px; }
 .sess-foot-split .btn { flex: 1; }
 
-/* earned exit â€” a hairline that turns from countdown into permission */
-.sess-exit {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 18px;
-  padding: 0 2px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--tx-3);
-  transition: color 200ms var(--ease);
-}
-.sess-exit::before {
-  content: '';
-  width: 22px;
-  height: 1px;
-  background: currentColor;
-  opacity: 0.6;
-  transition: width 320ms var(--ease);
-}
-.sess-exit.is-earned { color: var(--acc); }
-.sess-exit.is-earned::before { width: 38px; }
-.sess-exit.is-free { color: var(--tx-2); }
-.sess-exit.is-free::before { width: 30px; }
-
-.btn-quit.is-earned {
-  background: var(--panel-2);
-  color: var(--tx);
-  border-color: var(--line-2);
-  font-weight: 600;
-}
-.btn-quit.is-earned svg { opacity: 1; color: var(--acc); }
-.btn-quit.is-free {
-  background: var(--panel-2);
-  color: var(--tx-2);
-  border-color: var(--line-2);
-}
-.btn-quit.is-free svg { opacity: 1; color: var(--tx-2); }
-
 .pips { display: flex; gap: 6px; margin: 2px 0; }
 .pip { width: 7px; height: 7px; border-radius: 99px; background: var(--line-2); }
 .pip.done { background: var(--acc); }
@@ -1621,15 +1580,6 @@ body[data-mode='onboard'] #view {
 }
 .ses-when { font: 400 11px/1.3 var(--font-mono); color: var(--tx-3); margin-top: 2px; }
 .ses-mins { font: 500 13px/1 var(--font-mono); color: var(--tx-2); white-space: nowrap; }
-
-.logrow { display: flex; gap: 10px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
-.logrow:last-child { border: 0; }
-.logrow .kind { font: 600 11.5px var(--font-sans); letter-spacing: 0.04em; flex: 0 0 auto; width: 84px; }
-.logrow.kind-slip { color: var(--warn); }
-.logrow.kind-abandon { color: var(--warn); }
-.logrow.kind-rescue { color: var(--good); }
-.logrow .logwhat { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.logrow .when { color: var(--tx-3); font: 400 11.5px var(--font-mono); }
 
 /* ============================================================
    Home

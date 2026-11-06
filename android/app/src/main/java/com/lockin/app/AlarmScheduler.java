@@ -121,7 +121,17 @@ public final class AlarmScheduler {
         intent.putExtra("title", alarm.optString("title", "Lockin"));
         intent.putExtra("body", alarm.optString("body", ""));
         intent.putExtra("kind", alarm.optString("kind", "start"));
+        putActionExtras(intent, alarm);
         return PendingIntent.getBroadcast(context, id.hashCode(), intent, flags);
+    }
+
+    /** The schedule identity travels with the alarm so Start/Skip can act. */
+    static void putActionExtras(Intent intent, JSONObject alarm) {
+        intent.putExtra("scheduleId", alarm.optString("scheduleId", ""));
+        intent.putExtra("day", alarm.optString("day", ""));
+        intent.putExtra("name", alarm.optString("name", alarm.optString("title", "Lockin")));
+        intent.putExtra("startAt", alarm.optLong("start", 0L));
+        intent.putExtra("endAt", alarm.optLong("end", 0L));
     }
 
     private static Intent baseIntent(Context context, String id) {

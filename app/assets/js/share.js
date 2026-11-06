@@ -7,7 +7,7 @@
  */
 
 import { Store } from './store.js';
-import { el, fmtMin, todayKey } from './util.js';
+import { el, fmtMin, todayKey, addDays, parseKey, weekSummary } from './util.js';
 import { svg } from './icons.js';
 import { openSheet, hint } from './ui.js';
 
@@ -207,6 +207,179 @@ async function drawCard({ mins, goal, name, credit, logo }) {
   return canvas;
 }
 
+function topTaskTitle(days) {
+  const done = Store.state.tasks
+    .filter((t) => t.doneAt && days.includes(t.date))
+    .sort((a, b) => b.doneAt - a.doneAt);
+  return done[0]?.title || null;
+}
+
+export function currentWeekSummary() {
+  const end = todayKey();
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) days.push(addDays(end, -i));
+  return weekSummary(end, {
+    minutesOn: (day) => Store.focusMinutesOn(day),
+    goalOn: (day) => Store.goalFor(day),
+    streak: Store.goalStreak(end),
+    topTask: topTaskTitle(days),
+  });
+}
+
+function shortDay(day) {
+  return DAYS[parseKey(day).getDay()].slice(0, 2);
+}
+
+async function drawWeekCard({ summary, name, credit, logo }) {
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const first = summary.days[0].day;
+  const last = summary.days[summary.days.length - 1].day;
+  const range = `${parseKey(first).getDate()} ${MONTHS[parseKey(first).getMonth()]} – `
+    + `${parseKey(last).getDate()} ${MONTHS[parseKey(last).getMonth()]} ${parseKey(last).getFullYear()}`;
+
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W - 80, 30, 0, W - 80, 30, 760);
+  glow.addColorStop(0, 'rgba(198,242,78,0.16)');
+  glow.addColorStop(0.55, 'rgba(198,242,78,0.04)');
+  glow.addColorStop(1, 'rgba(198,242,78,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, 36, 36, W - 72, H - 72, 34);
+  ctx.stroke();
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = MUTED;
+  ctx.font = '500 24px "IBM Plex Mono", monospace';
+  ctx.fillText(range, PAD, 150);
+
+  ctx.fillStyle = LIME;
+  ctx.font = '600 22px "IBM Plex Mono", monospace';
+  ctx.fillText('THIS WEEK', PAD, 262);
+
+  ctx.fillStyle = TX;
+  ctx.font = '400 132px Fraunces, Georgia, serif';
+  ctx.fillText(fmtMin(summary.total), PAD, 408);
+
+  ctx.fillStyle = MUTED;
+  ctx.font = '500 24px "IBM Plex Mono", monospace';
+  const streakText = summary.streak > 0 ? ` · ${summary.streak}-day streak` : '';
+  ctx.fillText(`${summary.targetDays} of 7 days on target${streakText}`, PAD, 458);
+
+  /* bars */
+  const chartTop = 540;
+  const chartBottom = 1000;
+  const chartW = W - PAD * 2;
+  const step = chartW / 7;
+  const max = Math.max(60, ...summary.days.map((d) => Math.max(d.mins, d.goal))) * 1.08;
+  summary.days.forEach((row, i) => {
+    const x = PAD + i * step + step / 2;
+    const h = row.mins ? Math.max(8, (row.mins / max) * (chartBottom - chartTop)) : 4;
+    const goalY = chartBottom - (row.goal / max) * (chartBottom - chartTop);
+    const barW = Math.min(64, step * 0.52);
+
+    ctx.fillStyle = row.met ? LIME : row.mins ? 'rgba(167,172,158,0.42)' : 'rgba(255,255,255,0.08)';
+    roundRect(ctx, x - barW / 2, chartBottom - h, barW, h, 8);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(238,240,230,0.28)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - step * 0.36, goalY);
+    ctx.lineTo(x + step * 0.36, goalY);
+    ctx.stroke();
+
+    ctx.fillStyle = i === 6 ? TX : DIM;
+    ctx.font = '500 20px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(shortDay(row.day), x, chartBottom + 42);
+    ctx.fillStyle = DIM;
+    ctx.font = '400 18px "IBM Plex Mono", monospace';
+    ctx.fillText(row.mins ? fmtMin(row.mins) : '—', x, chartBottom + 74);
+  });
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = LIME;
+  ctx.font = '600 20px "IBM Plex Mono", monospace';
+  ctx.fillText('BEST DAY', PAD, 1108);
+  ctx.fillStyle = TX;
+  ctx.font = '400 34px Fraunces, Georgia, serif';
+  ctx.fillText(`${shortDay(summary.best.day)} · ${fmtMin(summary.best.mins)}`, PAD, 1150);
+
+  if (summary.topTask) {
+    ctx.fillStyle = LIME;
+    ctx.font = '600 20px "IBM Plex Mono", monospace';
+    ctx.fillText('FINISHED', PAD + 330, 1108);
+    ctx.fillStyle = TX;
+    ctx.font = '400 30px Hanken Grotesk, system-ui, sans-serif';
+    ctx.fillText(summary.topTask.slice(0, 30), PAD + 330, 1148);
+  }
+
+  /* footer: app mark left, student right */
+  const baseY = 1248;
+  if (logo) {
+    ctx.save();
+    roundRect(ctx, PAD, baseY - 56, 72, 72, 20);
+    ctx.clip();
+    ctx.drawImage(logo, PAD, baseY - 56, 72, 72);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = LIME;
+    roundRect(ctx, PAD, baseY - 56, 72, 72, 20);
+    ctx.fill();
+    ctx.fillStyle = BG;
+    ctx.font = '700 42px Fraunces, Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('L', PAD + 36, baseY - 2);
+  }
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = TX;
+  ctx.font = '400 44px Fraunces, Georgia, serif';
+  ctx.fillText('Lockin.', PAD + 92, baseY - 8);
+  ctx.fillStyle = DIM;
+  ctx.font = '500 19px "IBM Plex Mono", monospace';
+  ctx.fillText('lockin.surge.sh', PAD + 94, baseY + 22);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = MUTED;
+  ctx.font = '500 18px "IBM Plex Mono", monospace';
+  ctx.fillText('FOCUSED BY', W - PAD, baseY - 40);
+  ctx.fillStyle = TX;
+  ctx.font = '400 44px Fraunces, Georgia, serif';
+  ctx.fillText((name || 'A Lockin student').slice(0, 22), W - PAD, baseY + 4);
+
+  if (credit) drawCredit(ctx, PAD, H - 78);
+
+  return canvas;
+}
+
+export function weekCaption(summary) {
+  return `${fmtMin(summary.total)} focused this week, ${summary.targetDays}/7 days on target with Lockin! https://lockin.surge.sh`;
+}
+
+async function makeWeekFile(options) {
+  if (document.fonts?.ready) {
+    try { await document.fonts.ready; } catch (_) { /* system fallback */ }
+  }
+  const logo = await loadLogo();
+  const canvas = await drawWeekCard({ ...options, logo });
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  const day = todayKey();
+  return {
+    canvas,
+    blob,
+    file: blob ? new File([blob], `lockin-week-${day}.png`, { type: 'image/png' }) : null,
+  };
+}
+
 async function makeFile(options) {
   if (document.fonts?.ready) {
     try { await document.fonts.ready; } catch (_) { /* system fallback */ }
@@ -234,7 +407,7 @@ function download(blob, day) {
 /** Open the preview sheet; the image is built only when this is called. */
 export function openShareSheet({ mins, goal } = {}) {
   const focusMin = Math.max(0, Math.round(mins ?? Store.focusMinutesOn(todayKey())));
-  const target = Math.max(1, Math.round(goal ?? Store.state.settings.goalMin ?? focusMin));
+  const target = Math.max(1, Math.round(goal ?? Store.goalToday() ?? focusMin));
   let credit = true;
   let building = null;
 
@@ -335,3 +508,107 @@ export function openShareSheet({ mins, goal } = {}) {
 
   build().catch(() => { status.textContent = 'Could not build the preview.'; });
 }
+
+/** Open the seven-day card. Same renderer, same local-only promise. */
+export function openWeekShare() {
+  const summary = currentWeekSummary();
+  let credit = true;
+  let building = null;
+
+  const preview = el('img', { class: 'share-preview', alt: 'Your weekly focus card preview' });
+  const status = el('p', { class: 'share-status', role: 'status' }, '');
+  const caption = weekCaption(summary);
+
+  const build = () => {
+    building = makeWeekFile({
+      summary,
+      name: Store.state.profile.name || '',
+      credit,
+    }).then((made) => {
+      preview.src = made.canvas.toDataURL('image/png');
+      return made;
+    });
+    return building;
+  };
+
+  const copyCaption = async () => {
+    try {
+      await navigator.clipboard.writeText(caption);
+      hint('Caption copied');
+    } catch (_) {
+      status.textContent = caption;
+    }
+  };
+
+  const shareBtn = el('button', {
+    class: 'btn btn-primary btn-block', type: 'button',
+    onclick: async () => {
+      shareBtn.disabled = true;
+      status.textContent = 'Building your card…';
+      try {
+        const made = await build();
+        if (navigator.share && made.file && navigator.canShare?.({ files: [made.file] })) {
+          await navigator.share({ files: [made.file], text: caption, title: 'My week in focus' });
+          status.textContent = '';
+        } else if (made.blob) {
+          download(made.blob, `week-${todayKey()}`);
+          try { await navigator.clipboard.writeText(caption); } catch (_) { /* caption is above */ }
+          status.textContent = 'Image saved. Caption copied — attach it in WhatsApp or any app.';
+        } else {
+          status.textContent = 'Could not build the image on this device.';
+        }
+      } catch (err) {
+        if (err?.name !== 'AbortError') status.textContent = 'Sharing did not open. Try Save image.';
+      } finally {
+        shareBtn.disabled = false;
+      }
+    },
+  }, svg('share', 16), 'Share image');
+
+  const saveBtn = el('button', {
+    class: 'btn btn-subtle btn-block', type: 'button',
+    onclick: async () => {
+      saveBtn.disabled = true;
+      status.textContent = 'Building your card…';
+      try {
+        const made = await build();
+        if (!made.blob) { status.textContent = 'Could not build the image on this device.'; return; }
+        download(made.blob, `week-${todayKey()}`);
+        status.textContent = 'Saved to your downloads.';
+      } finally {
+        saveBtn.disabled = false;
+      }
+    },
+  }, 'Save image');
+
+  const creditBtn = el('button', {
+    class: 'switch', role: 'switch', 'aria-checked': 'true',
+    'aria-label': 'Show made by Rudra on the image',
+    onclick: () => {
+      credit = !credit;
+      creditBtn.setAttribute('aria-checked', String(credit));
+      creditBtn.classList.toggle('is-on', credit);
+      build();
+    },
+  });
+  creditBtn.classList.add('is-on');
+
+  openSheet('Share the week', () => [
+    el('p', { class: 'muted', style: 'margin:0 0 10px' },
+      `Seven days, ${fmtMin(summary.total)} focused, ${summary.targetDays} on target. Saved on this device, not uploaded.`),
+    preview,
+    el('div', { class: 'share-credit' },
+      el('div', { class: 'grow' },
+        el('b', {}, 'Made by Rudra'),
+        el('span', {}, 'Hide this from the image')),
+      creditBtn),
+    el('div', { class: 'btn-stack' }, shareBtn, saveBtn),
+    el('button', { class: 'btn btn-subtle btn-block', type: 'button', onclick: copyCaption },
+      svg('copy', 15), 'Copy the caption'),
+    status,
+    el('p', { class: 'share-caption' }, caption),
+  ]);
+
+  build().catch(() => { status.textContent = 'Could not build the preview.'; });
+}
+

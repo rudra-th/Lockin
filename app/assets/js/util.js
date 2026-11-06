@@ -2,8 +2,11 @@
    existing import keeps working. The core itself lives in /app/core. */
 
 export * from '../../core/time.js';
-export * from '../../core/honesty.js';
+export * from '../../core/goal.js';
+export * from '../../core/session.js';
 export * from '../../core/schedule.js';
+export * from '../../core/week.js';
+export * from '../../core/notify.js';
 
 /* ---------- dom ---------- */
 

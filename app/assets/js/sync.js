@@ -26,9 +26,12 @@ const COLLECTIONS = [
   { name: 'schedules', mode: 'lww' },
   { name: 'tasks', mode: 'lww' },
   { name: 'sessions', mode: 'append' },
-  { name: 'slips', mode: 'append' },
   { name: 'screenTime', mode: 'lww' },
 ];
+
+/* v1.14 removed the honesty log. Slips are not archived: the old cloud
+   collection is burned once per account, then never mentioned again. */
+const PURGE_KEY = 'lockin.purged.v1';
 const SCALARS = ['profile', 'settings'];
 
 let mods = null;        // { auth, db, A, F } once the SDK is loaded
@@ -237,6 +240,40 @@ function absorbPushed(writes) {
   }
 }
 
+/* ---------- one-time removal of retired slices ---------- */
+
+function purgeDone(ownerUid) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PURGE_KEY) || '{}');
+    return Boolean(raw && raw[ownerUid]?.slips);
+  } catch (_) {
+    return false;
+  }
+}
+
+function markPurged(ownerUid) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PURGE_KEY) || '{}') || {};
+    raw[ownerUid] = { ...(raw[ownerUid] || {}), slips: true };
+    localStorage.setItem(PURGE_KEY, JSON.stringify(raw));
+  } catch (_) { /* private mode: retry next cycle */ }
+}
+
+/** Delete `users/{uid}/slips` forever. Best-effort: a failure retries later. */
+async function purgeSlips(F, db, ownerUid) {
+  if (purgeDone(ownerUid)) return;
+  try {
+    const snap = await F.getDocs(F.collection(db, 'users', ownerUid, 'slips'));
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += PAGE) {
+      const batch = F.writeBatch(db);
+      for (const doc of docs.slice(i, PAGE)) batch.delete(doc.ref);
+      await batch.commit();
+    }
+    markPurged(ownerUid);
+  } catch (_) { /* offline or denied: try again on the next sync */ }
+}
+
 /* ---------- the cycle ---------- */
 
 export async function syncNow(reason = 'manual') {
@@ -250,6 +287,8 @@ export async function syncNow(reason = 'manual') {
     if (!started || user?.uid !== owner.uid) return; // signed out mid-load
     const { db, F } = mods;
     const ownerId = owner.uid;
+
+    await purgeSlips(F, db, ownerId);
 
     /* Pull first: the cloud wins nothing by surprise, the merge is fair. */
     const pulled = {};

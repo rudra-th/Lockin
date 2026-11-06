@@ -2,7 +2,7 @@
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, fmtMin } from '../util.js';
+import { el, fmtMin, nudgeAtHM } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint, accountAvatar } from '../ui.js';
 import { tryInstall } from '../install.js';
@@ -32,32 +32,23 @@ export function initSettings(Router) {
 /* Settings is grouped the way it is used: what a session does, what the phone
    does, what the record shows, and who owns the data. */
 const SECTIONS = [
-  { id: 'study', label: 'Study', icon: 'book', blurb: 'Focus rules, rounds and alarms', short: 'Rules & rounds' },
+  { id: 'study', label: 'Study', icon: 'book', blurb: 'Target, rounds and alarms', short: 'Target & alarms' },
   { id: 'device', label: 'Device', icon: 'phone', blurb: 'Screen, alerts and Android access', short: 'Screen & alerts' },
-  { id: 'progress', label: 'Progress', icon: 'chart', blurb: 'Today, the week and the honest record', short: 'The record' },
+  { id: 'progress', label: 'Progress', icon: 'chart', blurb: 'Today, the week and the record', short: 'The record' },
   { id: 'you', label: 'You', icon: 'user', blurb: 'Profile, account, data and credits', short: 'Profile & data' },
 ];
 
-function enforcementCard() {
-  const s = Store.state.settings;
+function targetCard() {
   return el('div', { class: 'card' },
-    el('h2', {}, 'Enforcement'),
-    setrow('Strict Mode',
-      `Leaving a focus session for more than ${10}s is a slip in the honesty log. Under ${10}s is forgiven — 3 free rescues a day.`,
-      toggle(() => s.strict, () => Store.set((st) => { st.settings.strict = !st.settings.strict; }))),
-    setrow('Earned exit',
-      'After this much real focus, ending the session is neutral — no slip, no broken streak. Off means every early end counts.',
-      stepper(() => Store.state.settings.exitGraceMin,
-        (v) => Store.set((st) => { st.settings.exitGraceMin = v; }),
-        { lo: 0, hi: 60, step: 5, fmt: (v) => (v === 0 ? 'Off' : fmtMin(v)) })),
-    setrow('Daily focus goal', 'The ring you fill each day. Set it in hours and minutes.', stepper(
-      () => Store.state.settings.goalMin,
-      (v) => Store.set((st) => { st.settings.goalMin = v; }),
-      { lo: 15, hi: 600, step: 15, fmt: fmtMin })),
-    setrow('Minimum for a clean day', 'Days with less real focus than this never count as clean, even without slips.',
-      stepper(() => Store.state.settings.minClean,
-        (v) => Store.set((st) => { st.settings.minClean = v; }),
-        { lo: 5, hi: 120, step: 5, fmt: fmtMin })),
+    el('h2', {}, 'Daily target'),
+    setrow('Focus target',
+      'The ring you fill each day. A day counts when it reaches the target that was set on that day.',
+      stepper(
+        () => Store.goalToday(),
+        (v) => Store.setGoal(v),
+        { lo: 15, hi: 600, step: 15, fmt: fmtMin })),
+    el('p', { class: 'tiny', style: 'margin:10px 0 0' },
+      'Changing the target applies from today onward — past days keep the bar they were measured against.'),
   );
 }
 
@@ -86,7 +77,7 @@ function deviceBasicsCard() {
     setrow('Keep screen awake',
       'Screen Wake Lock during focus sessions — the phone stays awake while you study.',
       toggle(() => s.wakelock, () => Store.set((st) => { st.settings.wakelock = !st.settings.wakelock; }))),
-    setrow('Notifications',
+    setrow('Session notifications',
       'A system notification and a buzz when a round completes (asks your browser for permission first time).',
       toggle(() => s.notifs, () => {
         Store.set((st) => { st.settings.notifs = !st.settings.notifs; });
@@ -94,6 +85,18 @@ function deviceBasicsCard() {
           Notification.requestPermission();
         }
       })),
+    setrow('Daily target check-in',
+      'One quiet nudge a day telling you how much is left to hit today’s target. It never counts a miss — it just shows the gap.',
+      toggle(() => s.nudge, () => {
+        Store.set((st) => { st.settings.nudge = !st.settings.nudge; });
+        if (Store.state.settings.nudge) ensureAlarmPermission();
+      })),
+    setrow('Check-in time',
+      'When the daily nudge arrives. Only fires while there is still a target left to reach.',
+      stepper(
+        () => Store.state.settings.nudgeAt,
+        (v) => Store.set((st) => { st.settings.nudgeAt = v; }),
+        { lo: 0, hi: 23 * 60 + 30, step: 30, fmt: (v) => nudgeAtHM(v) })),
   );
 }
 
@@ -108,7 +111,7 @@ function alarmsCard() {
         if (Store.state.settings.scheduleAlarms) ensureAlarmPermission();
       })),
     setrow('Default reminder',
-      'New blocks remind you this many minutes before they start. Each block can override it.',
+      'New blocks remind you this many minutes before they start — with how much is left to today’s target. Each block can override it.',
       stepper(() => Store.state.settings.remindDefault,
         (v) => Store.set((st) => { st.settings.remindDefault = v; }),
         { lo: 0, hi: 30, step: 5, fmt: (v) => (v === 0 ? 'Off' : `${v} min before`) })),
@@ -216,9 +219,9 @@ function nativeCard() {
 function deviceCard() {
   if (!isNative) return null;
   return el('div', { class: 'card ctl-pointer' },
-    el('h2', { class: 'blocking-head' }, svg('shield', 14), el('span', {}, 'App blocking & strict mode')),
+    el('h2', { class: 'blocking-head' }, svg('shield', 14), el('span', {}, 'App blocking & kiosk')),
     el('p', { class: 'muted ctl-lede' },
-      'Choose which apps are covered during focus, set a daily allowance per app, add short-video and feed presets, and arm the strict kiosk. All of it stays on this phone.'),
+      'Choose which apps are covered during focus, set a daily allowance per app, add short-video and feed presets, and arm the optional kiosk. All of it stays on this phone.'),
     el('button', {
       class: 'btn btn-subtle btn-block',
       onclick: () => Router.go('/control'),
@@ -579,7 +582,7 @@ function sectionNav(active, onPick) {
 function render(host, params = {}) {
   const initial = SECTIONS.some((s) => s.id === params.section) ? params.section : 'study';
   const cards = {
-    study: [enforcementCard(), pomoCard(), alarmsCard()],
+    study: [targetCard(), pomoCard(), alarmsCard()],
     device: [
       deviceBasicsCard(),
       ...(isNative ? [screenTimeCard(), nativeCard(), deviceCard()] : [webDeviceCard()]),

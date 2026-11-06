@@ -7,12 +7,17 @@
 
 import { Store } from './store.js';
 import { Router } from './router.js';
-import { el, eventsBetween, spanLabel, daysLabel } from './util.js';
+import {
+  el, eventsBetween, spanLabel, daysLabel, todayKey, dateKey,
+  reminderBody, nudgeDue, nudgeBody,
+} from './util.js';
 import { svg } from './icons.js';
-import { closeSheet } from './ui.js';
+import { closeSheet, hint } from './ui.js';
 import { isNative, requestNotifications } from './native.js';
+import { startSessionForBlock, skipBlockOccurrence } from './views/focus.js';
 
 const FIRED_KEY = 'lockin.alarms.fired.v1';
+const NUDGE_KEY = 'lockin.nudge.v1';
 const LOOKBACK_MS = 4 * 60000;
 const TICK_MS = 15000;
 
@@ -111,13 +116,13 @@ function closeAlarm() {
 }
 
 function ringStart(ev) {
-  const { schedule, start, end } = ev.occ;
-  const duration = Math.max(5, Math.round((end - start) / 60000));
+  const { schedule, start } = ev.occ;
   const live = ['running', 'break', 'paused'].includes(Store.state.session?.phase);
+  const day = dateKey(start);
 
   chime(true);
   buzz(true);
-  notify(`${schedule.name} starts now`, `${spanLabel(schedule)} · ${daysLabel(schedule.days)}`, `lockin-start-${start.getTime()}`);
+  notify(`${schedule.name} starts now`, spanLabel(schedule), `lockin-start-${start.getTime()}`);
 
   closeAlarm();
   lastFocus = document.activeElement;
@@ -128,9 +133,18 @@ function ringStart(ev) {
       closeAlarm();
       closeSheet(true); // never leave an editor sheet over the session screen
       if (live) Router.go('/focus');
-      else Router.go(`/focus?min=${Math.min(180, duration)}`);
+      else startSessionForBlock(schedule, day);
     },
-  }, svg('play', 17), live ? 'Back to session' : 'Start a session');
+  }, svg('play', 17), live ? 'Back to session' : 'Start session');
+
+  const skip = el('button', {
+    class: 'btn btn-subtle',
+    onclick: () => {
+      closeAlarm();
+      skipBlockOccurrence(schedule, day);
+      hint(`Skipped ${schedule.name} for today`);
+    },
+  }, 'Skip today');
 
   const card = el('div', {
     class: 'alarm', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'alarm-title',
@@ -143,8 +157,8 @@ function ringStart(ev) {
     el('h2', { id: 'alarm-title' }, schedule.name),
     el('p', { class: 'alarm-time' }, spanLabel(schedule)),
     el('p', { class: 'alarm-days' }, daysLabel(schedule.days)),
-    el('div', { class: 'alarm-actions' }, primary,
-      el('button', { class: 'btn btn-subtle', onclick: closeAlarm }, 'Not now')),
+    el('div', { class: 'alarm-actions' }, primary, skip,
+      el('button', { class: 'btn btn-ghost', onclick: closeAlarm }, 'Dismiss')),
     el('p', { class: 'alarm-foot' }, isNative
       ? 'Android exact alarms ring even when Lockin is closed.'
       : 'Rings while Lockin is open. The Android build rings when it is not.'),
@@ -167,10 +181,15 @@ function ringStart(ev) {
 function reminderToast(ev) {
   const { schedule, start } = ev.occ;
   const mins = Math.max(1, Math.ceil((start - Date.now()) / 60000));
+  const body = reminderBody({
+    focusMin: Store.focusMinutesOn(todayKey()),
+    goalMin: Store.goalToday(),
+    mins,
+  });
 
   chime(false);
   buzz(false);
-  notify(`${schedule.name} in ${mins} min`, `${spanLabel(schedule)} · ${daysLabel(schedule.days)}`, `lockin-remind-${start.getTime()}`);
+  notify(`${schedule.name} in ${mins} min`, body, `lockin-remind-${start.getTime()}`);
 
   const toast = el('div', { class: 'alarm-toast', role: 'status' },
     el('span', { class: 'alarm-toast-icon', innerHTML: svg('bell', 16) }),
@@ -184,6 +203,51 @@ function reminderToast(ev) {
   document.body.append(toast);
   requestAnimationFrame(() => toast.classList.add('show'));
   setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 260); }, 9000);
+}
+
+/* ---------- daily target check-in ---------- */
+
+function lastNudgeDay() {
+  try { return localStorage.getItem(NUDGE_KEY) || ''; } catch (_) { return ''; }
+}
+
+function rememberNudge(day) {
+  try { localStorage.setItem(NUDGE_KEY, day); } catch (_) { /* private mode */ }
+}
+
+function nudgeToast(body) {
+  const today = todayKey();
+  const toast = el('div', { class: 'alarm-toast nudge-toast', role: 'status' },
+    el('span', { class: 'alarm-toast-icon', innerHTML: svg('target', 16) }),
+    el('div', { class: 'alarm-toast-txt' },
+      el('b', {}, 'Daily target'),
+      el('span', {}, body)),
+    el('button', {
+      class: 'btn btn-subtle btn-sm',
+      onclick: () => { toast.remove(); Router.go('/focus'); },
+    }, 'Focus'),
+    el('button', {
+      class: 'alarm-toast-x', 'aria-label': 'Dismiss check-in',
+      innerHTML: svg('x', 14), onclick: () => toast.remove(),
+    }));
+  document.body.append(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 260); }, 12000);
+  rememberNudge(today);
+}
+
+function dailyNudge() {
+  const s = Store.state?.settings;
+  if (!s?.nudge) return;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const today = todayKey();
+  const focusMin = Store.focusMinutesOn(today);
+  const goalMin = Store.goalToday();
+  if (!nudgeDue({ nowMin, atMin: s.nudgeAt, focusMin, goalMin, lastNudgedDay: lastNudgeDay(), today })) return;
+  const body = nudgeBody(focusMin, goalMin);
+  notify('Daily target', body, `lockin-nudge-${today}`);
+  nudgeToast(body);
 }
 
 /* ---------- the loop ---------- */
@@ -200,6 +264,7 @@ function remember(key) {
 }
 
 function check() {
+  dailyNudge();
   if (!Store.state?.settings?.scheduleAlarms) return;
   const now = new Date();
   const events = eventsBetween(Store.schedules(), new Date(now.getTime() - LOOKBACK_MS), new Date(now.getTime() + 1000))

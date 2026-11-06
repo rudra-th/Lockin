@@ -6,7 +6,7 @@
 import { Store } from '../store.js';
 import { Router } from '../router.js';
 import {
-  el, todayKey, addDays, prettyDate, parseKey, fmtMin,
+  el, todayKey, addDays, prettyDate, parseKey, fmtMin, dateKey,
   spanMin, spanLabel, daysLabel, occurrencesOn, nextOccurrence, parseHM,
   DAYS, WEEKDAYS,
 } from '../util.js';
@@ -28,6 +28,12 @@ const hhmm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/* A dismissed occurrence stays on the calendar but stops being "next". */
+function nextBlock(schedules, now) {
+  return nextOccurrence(schedules, now,
+    (occ) => Store.isBlockSkipped(occ.schedule.id, dateKey(occ.start)));
 }
 
 function untilText(next, now) {
@@ -121,7 +127,7 @@ function dayRing(occs, now, next) {
 function heroCard(now) {
   const schedules = Store.schedules();
   const occs = occurrencesOn(schedules, now);
-  const next = nextOccurrence(schedules, now);
+  const next = nextBlock(schedules, now);
   const text = el('div', { class: 'sched-hero-txt' });
 
   if (!next) {
@@ -194,12 +200,13 @@ function todaySection(now) {
         el('span', {}, 'A repeating block takes the decision out of the moment — the + in the top corner adds one.')));
   } else {
     body = el('div', { class: 'sched-daylist' }, occs.map((occ) => {
-      const state = now >= occ.end ? 'past' : now >= occ.start ? 'now' : 'next';
-      const stateText = state === 'now' ? 'Now' : state === 'past' ? 'Done' : shortUntil(occ.start - now);
+      const skipped = Store.isBlockSkipped(occ.schedule.id, dateKey(occ.start));
+      const state = skipped ? 'skipped' : now >= occ.end ? 'past' : now >= occ.start ? 'now' : 'next';
+      const stateText = skipped ? 'Skipped' : state === 'now' ? 'Now' : state === 'past' ? 'Done' : shortUntil(occ.start - now);
       return el('button', {
         class: `sched-slot is-${state}`,
         onclick: () => openEditor(occ.schedule),
-        'aria-label': `Edit ${occ.schedule.name}, ${spanLabel(occ.schedule)}`,
+        'aria-label': `Edit ${occ.schedule.name}, ${spanLabel(occ.schedule)}${skipped ? ', skipped today' : ''}`,
       },
         el('span', { class: 'slot-time' }, occ.schedule.start),
         el('span', { class: 'slot-rail' }, el('i', {})),
@@ -432,7 +439,7 @@ let ticker = 0;
 let liveKey = null;
 
 function nextKey(now) {
-  const next = nextOccurrence(Store.schedules(), now);
+  const next = nextBlock(Store.schedules(), now);
   return next ? `${next.schedule.id}:${next.start.getTime()}:${next.ongoing ? 1 : 0}` : 'none';
 }
 
@@ -470,7 +477,7 @@ function paintLive() {
   const key = nextKey(now);
   if (key !== liveKey) { rerender(); return; }
 
-  const next = nextOccurrence(Store.schedules(), now);
+  const next = nextBlock(Store.schedules(), now);
   const inEl = hostEl.querySelector('[data-next-in]');
   const subEl = hostEl.querySelector('[data-next-sub]');
   if (next && inEl) inEl.textContent = untilText(next, now);

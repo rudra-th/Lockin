@@ -5,11 +5,11 @@ The web app remains the source of truth for tasks, schedules and sessions; the
 shell adds the capabilities a browser cannot have.
 
 > Status: the Capacitor shell builds a debug APK, and the `LockinNative` bridge
-> covers exact alarms, full-screen alarm screens, notification permission, usage
-> access, per-app screen time, optional app blocking through a user-enabled
-> accessibility service, per-app daily limits, an optional device-owner strict
-> kiosk, and optional Google sign-in for cloud sync. Device testing is the
-> remaining gate before sharing a release APK.
+> covers exact alarms, full-screen alarm screens with Start/Skip, notification
+> permission, usage access, per-app screen time, optional app blocking through a
+> user-enabled accessibility service, per-app daily limits, an optional
+> device-owner kiosk, and optional Google sign-in for cloud sync. Device testing
+> is the remaining gate before sharing a release APK.
 > Lockin distributes directly — no Play Store. The UI still states the web limit
 > plainly: the browser build rings only while Lockin is open.
 
@@ -52,11 +52,12 @@ android/
     java/com/lockin/app/
       MainActivity.java          registers LockinNative
       LockinNativePlugin.java    bridge: alarms, usage, permissions, blocking
-      AlarmReceiver.java         notification + full-screen intent
+      AlarmReceiver.java         notification + full-screen intent + Start/Skip
       AlarmActivity.java         lock-screen alarm screen
-      BlockingStore.java         device-local blocking, limits and strict config
+      AlarmActions.java          queue for Start/Skip taken while closed
+      BlockingStore.java         device-local blocking, limits and kiosk config
       LockinAccessibilityService.java  foreground time, block overlay
-      LockinDeviceAdminReceiver.java   optional device owner for strict kiosk
+      LockinDeviceAdminReceiver.java   optional device owner for the kiosk
       BootReceiver.java          re-seeds alarms after reboot
       AlarmScheduler.java        shared scheduling/cancel helpers
     res/xml/accessibility_service_config.xml
@@ -78,6 +79,9 @@ web and in the extension pack.
 
 - On boot it consumes a notification route (cold start lands on Schedule) and
   clears stale alarms — the foreground engine owns the app while it is open.
+- On boot and every resume it drains the `AlarmActions` queue: **Start session**
+  or **Skip today** tapped on a notification or the lock-screen alarm applies
+  once, even if the app was closed when it was tapped.
 - On every background transition it seeds the next **14 days** of `remind` and
   `start` events from `eventsBetween`. A `start` event is skipped when the
   block's **Alarm at start** switch is off; the reminder still fires.
@@ -90,8 +94,8 @@ web and in the extension pack.
 - Settings → Android shows live pills for exact alarms, notifications,
   full-screen alarms, usage access and the accessibility service, plus a 7-day
   screen-time card from `UsageStatsManager`. App blocking, per-app limits and
-  the strict kiosk live in the separate **Control** tab; Settings keeps the
-  permissions and a pointer to it.
+  the kiosk live in the separate **Control** tab; Settings keeps the permissions
+  and a pointer to it.
 
 ## Native capabilities
 
@@ -105,20 +109,29 @@ web and in the extension pack.
   `exact: false` to the web UI. Never claim an exact ring that is not exact.
 - A boot receiver re-seeds the next window of alarms from the stored schedule.
 - Start alarms ask for a **full-screen intent** on Android 8+ (`AlarmActivity`):
-  the screen turns on, the alarm draws over the keyguard, and Dismiss / Open
-  Lockin are one tap. Android 14+ can withhold the permission, so the receiver
-  checks `NotificationManager.canUseFullScreenIntent()` at runtime. When it is
-  denied, the same alarm posts as a loud heads-up notification — never silently.
-  Settings → Android shows the current state and opens the system toggle.
+  the screen turns on, the alarm draws over the keyguard, and **Start session** /
+  **Skip today** are one tap. Android 14+ can withhold the permission, so the
+  receiver checks `NotificationManager.canUseFullScreenIntent()` at runtime. When
+  it is denied, the same alarm posts as a loud heads-up notification — never
+  silently. Settings → Android shows the current state and opens the system
+  toggle.
+- Each alarm payload carries `scheduleId`, `day`, `name`, `start` and `end`. Both
+  the notification and `AlarmActivity` write the chosen action to the
+  `AlarmActions` mailbox, which `native.js` drains; **Skip today** persists the
+  occurrence in `settings.blockSkips`, so the hero and the next alarm agree.
 - `AlarmActivity` is not exported, does not appear in recents, and owns no
-  schedule state: title, body and notification id arrive in the intent.
+  schedule state: title, body, notification id and the schedule identity arrive
+  in the intent.
 
 ### Usage access
 
 - `PACKAGE_USAGE_STATS` is a special access permission. The app opens
   `Settings.ACTION_USAGE_ACCESS_SETTINGS`; the user grants it.
 - `UsageStatsManager.queryUsageStats` aggregates foreground time per package.
-- No history database, no page content, no keylogging.
+- Lockin's own package (`com.lockin.app`) is filtered out of every row and every
+  daily total, so studying in Lockin never counts as phone screen time. The same
+  exclusion is applied in `Store.recordScreenTime` before a snapshot is stored.
+- No history database, no page content, no pickups, no unlocks, no keylogging.
 
 ### Google sign-in (optional sync)
 
@@ -151,7 +164,7 @@ web and in the extension pack.
 
 This is a direct-APK feature, not a Play Store one. It is off until the user
 turns on the accessibility service in system settings and flips the master
-switch in Settings → Android.
+switch in Control → App blocking.
 
 - **What the service sees.** `LockinAccessibilityService` subscribes to exactly
   one event, `TYPE_WINDOW_STATE_CHANGED` — "a window came to the front". The
@@ -181,7 +194,7 @@ switch in Settings → Android.
   toggles. Lockin, launchers, Settings and the dialer are excluded.
 - **Where the config lives.** `BlockingStore` uses device-local
   `SharedPreferences` (`lockin_blocking`): `enabled`, `packages`, `windows`,
-  `limits` and the day-bucketed `usage` counters, plus the strict flags. It is
+  `limits` and the day-bucketed `usage` counters, plus the kiosk flags. It is
   deliberately not synced — which apps are blocked is a property of this phone,
   not of the account.
 - **Honest limitation.** The overlay appears when a window change is delivered.
@@ -205,11 +218,11 @@ shows a live bar and a stepper; the same overlay used for blocking draws a
 - A spent limit is not a lock: raising the allowance in Control frees the app
   immediately, and the overlay leaves the usual system escape routes alone.
 
-### Strict study mode (kiosk)
+### Kiosk (optional)
 
-Strict mode is the one place Lockin can actually hold the phone, and it is
-opt-in twice: the **Strict Mode** switch (tracking rules) and the **Strict
-kiosk** switch in Control. A start asks Android for lock task with
+The kiosk is the one place Lockin can actually hold the phone, and it is a
+separate opt-in in Control — not part of Study Mode. A normal session is a
+full-screen room; the kiosk asks Android for lock task with
 `LOCK_TASK_FEATURE_NONE` and an allowlist of the user's chosen apps.
 
 - **Device owner is the real kiosk.** Run the one-time command from Control (or
@@ -220,11 +233,11 @@ kiosk** switch in Control. A start asks Android for lock task with
 - **Without device owner** Lockin falls back to screen pinning where Android
   offers it, labels the state **Limited kiosk**, and never claims the system
   hatch is closed. The accessibility service still covers every non-allowed app
-  with a **Strict study mode** overlay whose one action is **Back to Lockin**.
-- **Fail open on a deadline.** The JS engine refreshes `strictUntil` while a
+  with a **Kiosk session** overlay whose one action is **Back to Lockin**.
+- **Fail open on a deadline.** The JS engine refreshes the kiosk deadline while a
   session is live; native also schedules a `Handler` release at that deadline.
   A killed app, a dead battery or a cancelled session cannot leave the phone
-  stuck. On boot, a stale strict flag with no live session is cleared.
+  stuck. On boot, a stale kiosk flag with no live session is cleared.
 - **Never covered:** launchers, Settings, the dialer and Lockin itself. The
   allowlist is a convenience for study material, not a way to lock the user out
   of their phone.
@@ -249,9 +262,9 @@ Declared in `AndroidManifest.xml` as the features land:
 | `RECEIVE_BOOT_COMPLETED` | Re-seed alarms after a reboot |
 | `VIBRATE` | Alarm pattern |
 | `WAKE_LOCK` | Deliver the alarm receiver on time |
-| `PACKAGE_USAGE_STATS` | Per-app screen time (special access) |
+| `PACKAGE_USAGE_STATS` | Per-app screen time (special access); Lockin's own package is excluded |
 | Accessibility service (user-enabled) | Read the foreground package so chosen apps can be covered, foreground time counted and limits enforced during a focus window. `canRetrieveWindowContent=false`; no text, content or keystrokes. |
-| Device admin receiver (optional) | Inert until the one-time `dpm set-device-owner` command; then strict mode can use lock task. Protected by `BIND_DEVICE_ADMIN`. |
+| Device admin receiver (optional) | Inert until the one-time `dpm set-device-owner` command; then the kiosk can use lock task. Protected by `BIND_DEVICE_ADMIN`. |
 
 ## Release signing
 

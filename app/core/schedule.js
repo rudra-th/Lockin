@@ -84,11 +84,13 @@ export function occurrencesBetween(schedules, from, to) {
 
 /**
  * The next block to care about: an ongoing one wins, otherwise the nearest
- * future start within the next eight days.
+ * future start within the next eight days. `isSkipped(occ)` can hide a
+ * dismissed occurrence without disabling the block itself.
  */
-export function nextOccurrence(schedules, now = new Date()) {
+export function nextOccurrence(schedules, now = new Date(), isSkipped = null) {
   let ongoing = null;
   let upcoming = null;
+  const skip = (occ) => Boolean(isSkipped && isSkipped(occ));
 
   for (const schedule of schedules || []) {
     if (!schedule || schedule.enabled === false) continue;
@@ -96,7 +98,7 @@ export function nextOccurrence(schedules, now = new Date()) {
     for (const offset of [-1, 0]) {
       const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
       const occ = occurrenceOn(schedule, day);
-      if (!occ) continue;
+      if (!occ || skip(occ)) continue;
       if (occ.start <= now && now < occ.end) {
         if (!ongoing || occ.start > ongoing.start) ongoing = { ...occ, ongoing: true };
       }
@@ -105,7 +107,7 @@ export function nextOccurrence(schedules, now = new Date()) {
     for (let offset = 0; offset <= 8; offset += 1) {
       const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
       const occ = occurrenceOn(schedule, day);
-      if (!occ || occ.start <= now) continue;
+      if (!occ || occ.start <= now || skip(occ)) continue;
       if (!upcoming || occ.start < upcoming.start) upcoming = { ...occ, ongoing: false };
     }
   }

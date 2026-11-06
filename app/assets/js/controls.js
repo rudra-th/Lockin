@@ -8,7 +8,7 @@ let rowSeq = 0;
 
 /* A control inside a setrow is almost always icon-only or a bare switch. Give
    it the row's title as its accessible name, so a screen reader hears
-   "Strict Mode, switch, off" instead of "button, switch, off". */
+   "Daily target, stepper, 2 hours" instead of "button, stepper, 2 hours". */
 function nameControl(control, id, title) {
   if (!control || control.nodeType !== 1) return;
 

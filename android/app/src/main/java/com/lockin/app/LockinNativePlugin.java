@@ -74,6 +74,14 @@ public class LockinNativePlugin extends Plugin {
         call.resolve(result);
     }
 
+    /** Start/Skip taps taken while the app was closed, drained once. */
+    @PluginMethod
+    public void consumeAlarmActions(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("actions", AlarmActions.consume(getContext()));
+        call.resolve(result);
+    }
+
     /* ---------- alarms ---------- */
 
     @PluginMethod
@@ -259,6 +267,7 @@ public class LockinNativePlugin extends Plugin {
                         manager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end);
                 if (stats != null) {
                     for (UsageStats stat : stats) {
+                        if (isSelf(stat.getPackageName())) continue;
                         total += Math.max(0, stat.getTotalTimeInForeground());
                     }
                 }
@@ -275,6 +284,13 @@ public class LockinNativePlugin extends Plugin {
         call.resolve(result);
     }
 
+    /** Lockin's own package — never part of the phone's measured screen time. */
+    private boolean isSelf(String pkg) {
+        if (pkg == null) return false;
+        String self = getContext().getPackageName();
+        return pkg.equals(self) || pkg.equals("com.lockin.app");
+    }
+
     private JSArray usageRows(long start, long end, int limit) {
         Map<String, Long> totals = new HashMap<>();
         UsageStatsManager manager =
@@ -284,6 +300,9 @@ public class LockinNativePlugin extends Plugin {
                     manager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end);
             if (stats != null) {
                 for (UsageStats stat : stats) {
+                    /* Lockin is where the studying happens; its own screen time
+                       is not something the student should see counted. */
+                    if (isSelf(stat.getPackageName())) continue;
                     long ms = stat.getTotalTimeInForeground();
                     if (ms > 0) totals.merge(stat.getPackageName(), ms, Long::sum);
                 }

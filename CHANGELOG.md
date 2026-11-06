@@ -3,6 +3,44 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.14.0 — 2026-11-06
+
+### Clean slate — daily targets replace the honesty log
+
+- **The slip system is gone.** No slips, rescues, away detection, Honesty Log,
+  earned exits or clean-day rules. Local `slips` and the old
+  `settings.strict` / `minClean` / `exitGraceMin` keys are deleted by the store
+  migration. The cloud `users/{uid}/slips` collection is deleted once per
+  account on the first v1.14 sync; nothing is archived.
+- **Daily target is the only judge.** A day counts when its focused minutes
+  reach the target that was set on that day. `settings.goalHistory` records
+  every target change, so a new goal never rewrites yesterday. Streaks, the
+  Progress heatmap and the weekly card now count target days.
+- **Study Mode without punishments.** Every session opens the intention screen;
+  a ~1.5 s hold starts it. Ending is a ~1.4 s hold with no confirm sheet and no
+  second gate. Minutes before an early end stay banked; under 20 seconds the
+  session is discarded. Strict Mode is now just the full-screen room, wake lock
+  and hold.
+- **Start or skip the block.** Schedule alarms carry the occurrence identity,
+  so the notification and the full-screen alarm offer **Start session** and
+  **Skip today**. A skip is stored in `settings.blockSkips` and hides the
+  occurrence from the next-block hero. Actions tapped while Lockin is closed
+  are queued natively and applied on the next boot or resume.
+- **Daily check-in.** One quiet notification a day (20:00 by default,
+  adjustable, on/off) that says how much of today's target is left. It fires
+  once and only while the target is still unmet. The pre-block reminder carries
+  the same target line.
+- **Share the week.** The share card now sums the last seven days: total
+  minutes, target days, best day, top completed task and the current streak.
+- **Lockin does not count itself.** Its Android package is filtered from every
+  usage row and daily total, and `lockin.surge.sh` is ignored by the extension.
+- **Kiosk stays opt-in.** The Android kiosk is a separate `settings.kiosk`
+  switch, relabelled from "Strict mode" to **Kiosk** throughout, with the same
+  fail-open deadline.
+- **Old clean-day streaks will recompute.** Past days are re-measured against
+  the target that applied on each day, so a streak may be shorter or longer
+  than the one you remember.
+
 ## 1.13.1 — 2026-11-06
 
 ### Share the day — and take it to the browser
