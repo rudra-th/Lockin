@@ -220,6 +220,65 @@ button { font: inherit; }
   scroll-behavior: smooth;
 }
 
+/* ---------- trial shell ----------
+   The strip sits in normal flow above #view, so it never covers a route. The
+   view gives back exactly its height; the fixed tab bar is untouched. */
+
+:root { --trialbar-h: 40px; }
+
+.trialbar {
+  height: calc(var(--trialbar-h) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: color-mix(in srgb, var(--acc) 11%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--acc) 24%, var(--line));
+  font-size: 12.5px;
+  color: var(--tx-2);
+}
+
+.trial-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 0 3px var(--acc-dim);
+  flex: none;
+}
+
+.trialbar b { color: var(--tx); font-weight: 700; letter-spacing: 0.01em; }
+.trialbar .trial-who { color: var(--tx-2); }
+.trialbar .trial-note { color: var(--tx-3); }
+.trialbar .trial-grow { flex: 1; }
+
+.trial-btn {
+  min-height: 28px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--tx);
+  font: 600 12px/1 var(--font-sans);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.trial-btn:active { transform: scale(0.96); }
+.trial-get { border-color: transparent; background: var(--acc); color: var(--acc-ink); }
+
+body.is-trial #view {
+  height: calc(100dvh - var(--tabbar-h) - var(--trialbar-h) - env(safe-area-inset-top, 0px));
+  padding-top: 22px;
+}
+
+body.is-trial[data-mode='onboard'] .trialbar { display: none; }
+body.is-trial[data-mode='onboard'] #view { height: 100dvh; padding-top: 0; }
+
+@media (max-width: 420px) {
+  .trialbar .trial-note, .trialbar .trial-sep { display: none; }
+  .trial-btn { padding: 3px 8px; }
+}
+
 /* A running session is an overlay, not a hidden page. Hiding #view here
    used to take the whole app (and the session itself) off screen â€” the
    tab bar hides, the session stays. */

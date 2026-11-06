@@ -894,15 +894,25 @@ function strictCard() {
 function webCard() {
   const item = (icon, text) => el('li', {}, svg(icon, 15), el('span', {}, text));
   return el('div', { class: 'card' },
-    el('h2', { class: 'blocking-head' }, svg('phone', 14), el('span', {}, 'This phone only')),
+    el('h2', { class: 'blocking-head' }, svg('phone', 14), el('span', {}, 'Only available on the Android app')),
     el('p', { class: 'muted ctl-lede' },
-      'App blocking, daily limits, distraction presets and strict study mode live in the Android build. This browser build still runs the focus engine, the schedule and every stat — screen time is in Settings.'),
+      'App blocking, per-app limits, distraction presets and the strict kiosk need Android’s own accessibility and usage services. A browser cannot see or cover another app, and this trial will not pretend it can. Everything else — schedule, tasks, Study Mode and Progress — works here.'),
     el('ul', { class: 'ctl-web-list' },
-      item('clock', 'Today’s screen time and per-app foreground minutes — now in Settings.'),
+      item('clock', 'Screen time and per-app foreground minutes.'),
       item('lock', 'A block list that covers chosen apps during focus windows.'),
       item('shield', 'Strict sessions that pin the phone to Lockin and an allowlist.'),
-      item('film', 'A one-tap short-video and feed preset. Android blocks the whole app; the extension blocks the URL.')),
+      item('film', 'Short-video and feed presets. The browser extension covers the URLs instead.')),
+    el('div', { class: 'btn-stack', style: 'margin-top:12px' },
+      el('a', {
+        class: 'btn btn-primary btn-block',
+        href: '/downloads/lockin.apk', download: '',
+      }, svg('phone', 16), 'Download for Android'),
+      el('a', {
+        class: 'btn btn-subtle btn-block',
+        href: '/downloads/lockin-extension.zip', download: '',
+      }, svg('copy', 16), 'Get the Chrome extension'),
+    ),
     el('p', { class: 'tiny', style: 'margin:0' },
-      'On a laptop, install the Lockin extension to block sites, daily site limits and Shorts/Reels URLs.'),
+      'The extension blocks sites, sets daily site limits and cuts Shorts/Reels URLs. Chrome and Edge only.'),
   );
 }

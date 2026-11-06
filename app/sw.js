@@ -1,9 +1,11 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.11.1';
+const VERSION = 'lockin.v1.12.0';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
+const BASE = new URL('./', self.location).pathname;
+const INDEX = `${BASE}index.html`;
 
 const PRECACHE = [
   './',
@@ -16,6 +18,7 @@ const PRECACHE = [
   './core/schedule.js',
   './core/sync.js',
   './assets/js/store.js',
+  './assets/js/trial.js',
   './assets/js/exams.js',
   './assets/js/util.js',
   './assets/js/router.js',
@@ -97,7 +100,7 @@ self.addEventListener('fetch', (event) => {
   // get remembered in the runtime cache, and fall back to the shell offline.
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
-      if (url.pathname === '/' || url.pathname === '/index.html') {
+      if (url.pathname === BASE || url.pathname === INDEX) {
         return (await caches.match('./index.html')) || fetch(req);
       }
       try {

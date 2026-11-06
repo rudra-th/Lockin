@@ -47,6 +47,7 @@ function rel(path) {
 const jsFiles = [
   ...walk(join(ROOT, 'app')),
   ...walk(join(ROOT, 'extension')),
+  ...walk(join(ROOT, 'site')),
   ...walk(join(ROOT, 'tools')),
 ].filter((path) => ['.js', '.mjs'].includes(extname(path)));
 
@@ -110,7 +111,9 @@ if (!jsonBad) pass(`${jsonFiles.filter(existsSync).length} JSON files parse`);
 
 /* ---------- CSS braces balance ---------- */
 
-const cssFiles = walk(join(ROOT, 'app/assets/css')).concat(walk(join(ROOT, 'extension')))
+const cssFiles = walk(join(ROOT, 'app/assets/css'))
+  .concat(walk(join(ROOT, 'site/assets/css')))
+  .concat(walk(join(ROOT, 'extension')))
   .filter((path) => extname(path) === '.css');
 let cssBad = 0;
 for (const path of cssFiles) {
@@ -135,6 +138,33 @@ try {
   else pass(`service worker precache lists ${entries.length} real files`);
 } catch (err) {
   fail(`could not read app/sw.js: ${err.message}`);
+}
+
+/* ---------- landing page references real assets ---------- */
+
+try {
+  const landing = readFileSync(join(ROOT, 'site/index.html'), 'utf8');
+  const refs = [...landing.matchAll(/(?:src|href)="\/([^"#?]+)"/g)].map((m) => m[1]);
+  /* /downloads/ is produced by tools/pack-site.mjs, so it is not in the tree. */
+  const local = [...new Set(refs)].filter((ref) => !ref.startsWith('downloads/'));
+  const missing = local.filter((ref) => {
+    if (ref.startsWith('screenshots/')) return !existsSync(join(ROOT, 'docs', ref));
+    if (ref.startsWith('app/')) return !existsSync(join(ROOT, ref));
+    if (ref.startsWith('assets/')) return !existsSync(join(ROOT, 'site', ref));
+    return false;
+  });
+  if (missing.length) fail(`landing page references missing files: ${missing.join(', ')}`);
+  else pass(`landing page references ${local.length} real files`);
+} catch (err) {
+  fail(`could not read site/index.html: ${err.message}`);
+}
+
+/* ---------- the root kill switch exists ---------- */
+
+if (!existsSync(join(ROOT, 'site/sw.js'))) {
+  fail('site/sw.js is missing — the 1.11.x root worker would keep serving the old app');
+} else {
+  pass('root service-worker kill switch is present');
 }
 
 /* ---------- versions agree ---------- */

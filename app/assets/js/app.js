@@ -2,8 +2,9 @@
 
 import { Store } from './store.js';
 import { Router } from './router.js';
-import { $$ } from './util.js';
+import { el, $$ } from './util.js';
 import { hint } from './ui.js';
+import { isTrial, resetTrial } from './trial.js';
 import { initHome } from './views/home.js';
 import { initSchedule } from './views/schedule.js';
 import { initFocus } from './views/focus.js';
@@ -15,6 +16,31 @@ import { startNative, isNative } from './native.js';
 import { initAccount } from './account.js';
 
 Store.load();
+
+/* ---------- trial shell ----------
+   A slim strip above the app, never inside a view: it survives every route and
+   says plainly that this is a demo with its own storage. */
+
+function mountTrialBar() {
+  document.body.classList.add('is-trial');
+  const bar = el('div', { class: 'trialbar', role: 'region', 'aria-label': 'Trial mode' },
+    el('span', { class: 'trial-dot', 'aria-hidden': 'true' }),
+    el('b', { class: 'trial-word' }, 'Trial'),
+    el('span', { class: 'trial-who' }, 'Test Account'),
+    el('span', { class: 'trial-sep', 'aria-hidden': 'true' }, '·'),
+    el('span', { class: 'trial-note' }, 'demo data'),
+    el('span', { class: 'trial-grow' }),
+    el('button', {
+      class: 'trial-btn', type: 'button',
+      onclick: () => resetTrial(),
+      title: 'Restore the seeded demo week',
+    }, 'Reset'),
+    el('a', { class: 'trial-btn trial-get', href: '/#download' }, 'Get the app'),
+  );
+  document.body.prepend(bar);
+}
+
+if (isTrial) mountTrialBar();
 
 /* ---------- theme ---------- */
 

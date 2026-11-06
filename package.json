@@ -1,6 +1,6 @@
 {
   "name": "lockin",
-  "version": "1.11.1",
+  "version": "1.12.0",
   "private": true,
   "type": "module",
   "description": "A study-first focus app: recurring schedule blocks, alarms, wake-locked Study Mode and an honest slip log.",
@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "bump": "node tools/version.mjs",
     "pack:extension": "node tools/pack-extension.mjs",
+    "pack:site": "node tools/pack-site.mjs",
     "android:sync": "cap sync android",
     "android:open": "cap open android",
     "android:build": "node tools/android-build.mjs",

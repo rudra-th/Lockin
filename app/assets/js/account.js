@@ -8,10 +8,11 @@ import { isNative } from './native.js';
 import { loadFirebase } from './firebase.js';
 import { startSync, stopSync, syncStatus, resetSyncMeta } from './sync.js';
 import { authErrorMessage, errorCodeOf, isCancel } from '../../core/auth-errors.js';
+import { isTrial, TRIAL_ACCOUNT } from './trial.js';
 
 const FLAG = 'lockin.sync.on'; // "the user wants the cloud" — set on sign-in
 
-let user = null;          // { uid, name, email, photo }
+let user = isTrial ? { ...TRIAL_ACCOUNT } : null; // { uid, name, email, photo }
 let signingIn = false;
 let listening = false;
 let lastError = '';
@@ -27,7 +28,7 @@ function emit() {
 /** Everything the Settings card needs, in one read. */
 export function accountState() {
   const sync = syncStatus();
-  return { user, signingIn, ...sync, error: lastError || sync.error };
+  return { user, signingIn, trial: isTrial, ...sync, error: lastError || sync.error };
 }
 
 function adopt(fbUser) {
@@ -60,6 +61,7 @@ function listen(auth, A) {
 
 /** Boot: only touches the network when the user has asked for the cloud. */
 export async function initAccount() {
+  if (isTrial) { emit(); return; } // the Test Account is local; Firebase never loads
   let wants = false;
   try { wants = localStorage.getItem(FLAG) === '1'; } catch (_) { /* fresh start */ }
   if (!wants) return;
@@ -107,6 +109,7 @@ async function nativeGoogleTokens(plugin) {
 }
 
 export async function signIn() {
+  if (isTrial) { emit(); return; } // already the Test Account
   if (signingIn || user) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     lastError = authErrorMessage({ code: 'auth/network-request-failed' });
@@ -152,6 +155,7 @@ export async function signIn() {
 }
 
 export async function signOut() {
+  if (isTrial) { emit(); return; } // the trial cannot sign out of its demo account
   try {
     const { auth, A } = await loadFirebase();
     await A.signOut(auth);
@@ -163,7 +167,7 @@ export async function signOut() {
 /** Removes the cloud copy, then signs out so nothing re-uploads it.
     This device keeps its data. */
 export async function deleteCloudData() {
-  if (!user) return;
+  if (isTrial || !user) return;
   try {
     const { db, F } = await loadFirebase();
     const uid = user.uid;

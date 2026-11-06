@@ -26,6 +26,20 @@ export default [
     },
   },
   {
+    files: ['site/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: 'module',
+      globals: { ...globals.browser },
+    },
+  },
+  {
+    files: ['site/sw.js'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.serviceworker },
+    },
+  },
+  {
     files: ['extension/**/*.js'],
     languageOptions: {
       ecmaVersion: 2024,

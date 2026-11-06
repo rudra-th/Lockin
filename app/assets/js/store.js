@@ -1,6 +1,7 @@
 import { todayKey, addDays, normalizeSchedule } from './util.js';
+import { isTrial, TRIAL_KEY, trialSeed } from './trial.js';
 
-const KEY = 'lockin.store.v1';
+const KEY = isTrial ? TRIAL_KEY : 'lockin.store.v1';
 const VERSION = 1;
 
 export const GENERIC_HUES = {
@@ -87,6 +88,23 @@ function migrate(raw) {
   return raw;
 }
 
+/* The trial uses the same shape as a real store, but starts with a believable
+   week so Progress, Home and the honesty log have something honest to show.
+   It still goes through migrate() so schedule ids and defaults match the app. */
+function seededState() {
+  if (!isTrial) return blankState();
+  const seed = trialSeed();
+  const base = blankState();
+  return migrate({
+    ...base,
+    ...seed,
+    activities: [...base.activities, ...(seed.activities || [])],
+    profile: { ...base.profile, ...(seed.profile || {}) },
+    settings: { ...base.settings, ...(seed.settings || {}) },
+    flags: { ...base.flags, ...(seed.flags || {}) },
+  }) || base;
+}
+
 let storageWasFull = false;
 
 const Store = {
@@ -99,7 +117,7 @@ const Store = {
     } catch (_) {
       parsed = null;
     }
-    this.state = parsed || blankState();
+    this.state = parsed || seededState();
     return this.state;
   },
 
@@ -321,7 +339,7 @@ const Store = {
   },
 
   reset() {
-    this.state = blankState();
+    this.state = seededState();
     this.persist();
     document.dispatchEvent(new CustomEvent('lockin:changed'));
   },

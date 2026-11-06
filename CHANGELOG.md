@@ -3,6 +3,32 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.12.0 — 2026-11-05
+
+### The landing page, the live trial, the upgrade path
+
+- **lockin.surge.sh is now the landing page** (source in `site/`): hero with the
+  live 50-second Study Mode countdown on the stopwatch ring, a screen mosaic, a
+  showcase slider, a how-it-works stage, proof figures, FAQ and footer.
+- **One domain, two products.** The landing lives at `/`, the product at
+  `/app/`, downloads at `/downloads/`, screenshots under `/screenshots/`. The
+  pack step `npm run pack:site` stages `dist/site` for the Surge deploy.
+- **The live trial** at `/app/?trial=1` runs the real app against a pre-filled
+  demo week (14 seeded days of sessions, tasks, schedules and an honest slip log)
+  on a local **Test Account** — its own browser store, no Firebase, no network
+  call, one-tap Reset, real store untouched.
+- **Browser gaps are stated, not hidden.** Control and the Settings Device card
+  show an explicit "Only available on the Android app" card with download CTAs
+  instead of an empty panel — in the app and in the trial.
+- **Root service-worker kill switch** at `/sw.js` retires the 1.11.x root worker,
+  so visitors still controlled by the old cached shell land on the landing page
+  instead of a stale app.
+
+### Release
+
+- Bumped to 1.12.0 (versionCode 220): signed release APK, extension zip and the
+  packed site deploy, GitHub release `v1.12.0`, docs updated.
+
 ## 1.11.1 — 2026-11-05
 
 ### Google sign-in on Android

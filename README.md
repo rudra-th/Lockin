@@ -8,6 +8,12 @@
 
 A study-first focus PWA. Keep a short task list for today and tomorrow, then run wake-locked **Study Mode** sessions that take over the whole screen — and log, honestly, every time you walk away from them.
 
+The marketing home lives at [`site/`](site/) and the product lives at
+[`app/`](app/); downloads are served from the same domain at
+[lockin.surge.sh/downloads/](https://lockin.surge.sh/downloads/). The browser
+trial runs the real app at [`/app/?trial=1`](https://lockin.surge.sh/app/?trial=1)
+on a local **Test Account** with a seeded demo week.
+
 Vanilla JavaScript. No build step, no framework, no analytics. Everything lives in your browser's localStorage — and an optional Google account can mirror a copy to your own private cloud.
 
 ## The premise

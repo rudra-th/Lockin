@@ -17,6 +17,7 @@ import {
 } from '../native.js';
 import { accountState, signIn, signOut, deleteCloudData } from '../account.js';
 import { syncNow } from '../sync.js';
+import { isTrial, resetTrial } from '../trial.js';
 
 export function initSettings(Router) {
   Router.register('/settings', { mount, unmount: null });
@@ -333,13 +334,19 @@ function deviceCard() {
    instead of showing empty Android controls. */
 function webDeviceCard() {
   return el('div', { class: 'card ctl-pointer' },
-    el('h2', { class: 'blocking-head' }, svg('phone', 14), el('span', {}, 'Android build')),
+    el('h2', { class: 'blocking-head' }, svg('phone', 14), el('span', {}, 'Only available on the Android app')),
     el('p', { class: 'muted ctl-lede' },
-      'This tab is the web app. It runs every focus session, schedule and progress view — but screen time, per-app limits and the strict kiosk need Android’s own usage and accessibility services.'),
-    el('button', {
-      class: 'btn btn-subtle btn-block',
-      onclick: () => Router.go('/control'),
-    }, svg('shield', 16), 'See what Control unlocks'),
+      'Screen time, usage access, per-app limits and the strict kiosk need Android’s own services. A browser cannot read another app’s foreground time or cover it. This tab still runs every focus session, schedule and progress view.'),
+    el('div', { class: 'btn-stack' },
+      el('a', {
+        class: 'btn btn-primary btn-block',
+        href: '/downloads/lockin.apk', download: '',
+      }, svg('phone', 16), 'Download for Android'),
+      el('button', {
+        class: 'btn btn-subtle btn-block',
+        onclick: () => Router.go('/control'),
+      }, svg('shield', 16), 'See what Control unlocks'),
+    ),
   );
 }
 
@@ -415,37 +422,47 @@ function dataCard() {
   }, svg('copy', 16), 'Export backup (JSON)');
 
   const importBtn = el('button', { class: 'btn btn-subtle btn-block', onclick: () => input.click() }, svg('book', 16), 'Restore backup');
-  const replayBtn = el('button', {
+  const replayBtn = isTrial ? null : el('button', {
     class: 'btn btn-subtle btn-block',
     onclick: () => { Router.go('/start?replay=1'); },
   }, svg('play', 16), 'Rerun the opening walkthrough');
 
   const wipeBtn = el('button', {
     class: 'btn btn-danger btn-block',
-    onclick: () => openSheet('Delete everything?', (close) => [
-      el('p', { class: 'muted' }, 'Tasks, sessions, streaks — gone for good. Export a backup first if any of it matters.'),
+    onclick: () => openSheet(isTrial ? 'Reset the demo?' : 'Delete everything?', (close) => [
+      el('p', { class: 'muted' }, isTrial
+        ? 'The seeded week comes back exactly as it started. Nothing outside this trial store is touched.'
+        : 'Tasks, sessions, streaks — gone for good. Export a backup first if any of it matters.'),
       el('div', { class: 'actions' },
         el('button', {
           class: 'btn btn-primary',
-          onclick: () => { Store.reset(); close(); Router.go('/start'); hint('Cleared.'); },
-        }, 'Wipe it'),
+          onclick: () => {
+            close();
+            if (isTrial) { resetTrial(); return; }
+            Store.reset(); Router.go('/start'); hint('Cleared.');
+          },
+        }, isTrial ? 'Reset it' : 'Wipe it'),
         el('button', { class: 'btn btn-subtle', onclick: () => close() }, 'Keep'),
       ),
     ]),
-  }, svg('trash', 16), 'Erase all data');
+  }, svg('trash', 16), isTrial ? 'Reset the demo week' : 'Erase all data');
 
-  const installBtn = el('button', {
+  const installBtn = isTrial ? null : el('button', {
     class: 'btn btn-subtle btn-block', style: 'display:none',
     id: 'install-btn',
     onclick: () => { tryInstall(); },
   }, svg('copy', 16), 'Install Lockin');
-  document.addEventListener('lockin:installable', () => { installBtn.style.display = ''; }, { once: true });
-  if (window.matchMedia('(display-mode: standalone)').matches) installBtn.style.display = 'none';
+  if (installBtn) {
+    document.addEventListener('lockin:installable', () => { installBtn.style.display = ''; }, { once: true });
+    if (window.matchMedia('(display-mode: standalone)').matches) installBtn.style.display = 'none';
+  }
 
   return el('div', { class: 'card' },
     el('h2', {}, 'Data & privacy'),
     el('p', { class: 'muted', style: 'margin:0 0 4px' },
-      'Everything lives in this browser’s localStorage. No analytics, no trackers — and no network calls unless you sign in above to mirror a copy to your own cloud.'),
+      isTrial
+        ? 'This trial keeps a separate copy in this browser’s localStorage: no analytics, no trackers, no Google account and no network calls. Your real Lockin store is not read or written.'
+        : 'Everything lives in this browser’s localStorage. No analytics, no trackers — and no network calls unless you sign in above to mirror a copy to your own cloud.'),
     el('div', { class: 'btn-stack' }, exportBtn, installBtn, replayBtn),
     el('div', { class: 'btn-stack' }, importBtn, wipeBtn),
     input,
@@ -469,6 +486,34 @@ function accountCard() {
     const syncing = st.status === 'syncing';
     card.textContent = '';
     card.append(el('h2', { class: 'acct-head' }, svg('cloud', 14), el('span', {}, 'Account')));
+
+    /* The trial account is local by design: no Firebase, no sign-out. */
+    if (st.trial) {
+      card.append(
+        el('div', { class: 'acct-id' },
+          el('div', { class: 'acct-avatar-wrap' },
+            el('span', { class: 'acct-avatar acct-fallback' }, 'T'),
+          ),
+          el('div', { class: 'acct-who' },
+            el('b', {}, st.user.name),
+            el('span', {}, st.user.email),
+          ),
+        ),
+        el('div', { class: 'acct-status is-idle' },
+          el('i', { class: 'acct-dot' }),
+          'Demo account — local only',
+        ),
+        el('p', { class: 'muted', style: 'margin:10px 0 0' },
+          'This trial is signed in as Test Account. It is a demo profile with a seeded week, it never contacts Google or Firebase, and its data lives in a separate browser store. Your real Lockin data is untouched.'),
+        el('div', { class: 'btn-stack' },
+          el('button', {
+            class: 'btn btn-subtle btn-block',
+            onclick: () => resetTrial(),
+          }, svg('repeat', 16), 'Reset the demo week'),
+        ),
+      );
+      return;
+    }
 
     if (!st.user) {
       card.append(
