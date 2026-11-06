@@ -41,6 +41,7 @@ What the shipped APK declares — nothing more:
 | `INTERNET` | Capacitor local server and future opt-in sync. |
 | Accessibility service (off by default, user-enabled) | See which app comes to the front, so apps you chose can be covered, foreground minutes counted against daily limits, and the kiosk's app allowlist enforced. `canRetrieveWindowContent=false`: package names only — no screen text, page content or keystrokes. |
 | Device admin receiver (optional, inert) | Becomes active only after the user runs the one-time `dpm set-device-owner` command. Then the kiosk can use Android lock task; without it Lockin falls back to screen pinning and says **Limited kiosk**. |
+| Home-screen widget and Quick Settings tile | **No permission.** They render a snapshot the app writes to device-local `lockin_widget` preferences: today's minutes, the target, the streak and the next block. The tile opens Focus setup; neither surface reads usage stats or starts a session. |
 
 The accessibility service is optional. Without it Lockin still measures and
 rings; Settings says "Service off — nothing is blocked yet" instead of
@@ -55,6 +56,10 @@ counters stay in device-local `SharedPreferences`. The kiosk is a separate
 opt-in from Study Mode: device owner is the only mode that can truly hold the
 phone, and the UI labels the pinning fallback honestly. A deadline releases
 lock task even if the app dies. See [`android.md`](android.md).
+
+The home-screen widget and the Quick Settings tile ask for nothing. They draw a
+device-local copy of numbers the app already shows, and the tile opens Focus
+setup rather than starting a session.
 
 ## What we will never ask for
 

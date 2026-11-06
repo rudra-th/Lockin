@@ -8,7 +8,7 @@ verified in a browser or an emulator with confidence.
 `docs/android-release.md` · **Version:** ______ · **Device:** ______ ·
 **Date:** ______
 
-Progress: **0 / 38 checked**
+Progress: **0 / 44 checked**
 
 ---
 
@@ -108,7 +108,24 @@ not just Lockin).
 - [ ] Ending inside the first 20 seconds discards the session instead of
       banking a sliver of a minute.
 
-## 7. Shell & offline
+## 7. Home screen: widget and tile
+
+- [ ] Settings → Android → **Home screen → Pin widget** (or the launcher's
+      widget picker where pinning is not offered) places the widget, and it
+      shows today's minutes / target, a progress bar and the streak without
+      opening the app.
+- [ ] On a fresh install the widget says **Open Lockin to fill this in** — not a
+      fake `0m / 2h` pretending to be today.
+- [ ] Run a session, then wait a minute (or background the app): the widget's
+      minutes and bar move; tapping it opens Lockin.
+- [ ] The **Focus** tile is available in the shade's edit screen and carries the
+      Focus label.
+- [ ] Tapping the tile opens Study Mode's setup screen. No session starts until
+      the hold on the ring completes.
+- [ ] With a session running the tile reads **Session running** and active;
+      ending the session returns it to today's minutes.
+
+## 8. Shell & offline
 
 - [ ] Airplane mode: app opens, all views render, starting a session works
       (everything is local).

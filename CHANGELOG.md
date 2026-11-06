@@ -3,6 +3,27 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.15.0 — 2026-11-06
+
+### On the home screen — widget and Quick Settings tile
+
+- **Home-screen widget.** Today's focus minutes against the target, the current
+  streak and the next block, on the launcher. It redraws whenever the app
+  writes, and tapping it opens Lockin. `Settings → Android → Home screen → Pin
+  widget` asks the launcher to place it where pinning is supported; otherwise a
+  long-press on the home screen adds it.
+- **Quick Settings tile.** A **Focus** tile opens the Focus setup screen — it
+  never starts a session on its own, because the hold on the ring is the
+  consent. The tile reads active while a session is running and inactive
+  otherwise.
+- **One snapshot, no second source of truth.** The store stays authoritative.
+  The app mirrors minutes, target, streak, next block and live state into
+  device-local preferences (`lockin_widget`) and native redraws both surfaces
+  from that copy. Nothing here is synced or uploaded.
+- **Route handoff.** A tapped tile now asks for any screen (`/focus`), not just
+  Schedule; `MainActivity` passes it to the router on cold and warm starts.
+- Bumped to 1.15.0 (versionCode 250).
+
 ## 1.14.0 — 2026-11-06
 
 ### Clean slate — daily targets replace the honesty log

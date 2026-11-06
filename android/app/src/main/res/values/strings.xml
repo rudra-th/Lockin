@@ -38,4 +38,21 @@
     <string name="block_strict_until">This session is still running</string>
     <string name="block_strict_foot">Lockin is holding the line. Finish the session, or end it in Lockin.</string>
     <string name="block_back">Back to Lockin</string>
+
+    <!-- home-screen widget -->
+    <string name="widget_name">Lockin today</string>
+    <string name="widget_desc">Today’s focus time against your daily target, with the next block.</string>
+    <string name="widget_title">Lockin</string>
+    <string name="widget_initial">0m / 2h</string>
+    <string name="widget_unset">Open Lockin to fill this in</string>
+    <string name="widget_open">Tap to open</string>
+    <string name="widget_session">Session running · tap to open</string>
+    <string name="widget_next">Next · %1$s</string>
+    <string name="widget_streak">%1$d-day streak</string>
+    <string name="widget_met">Target met</string>
+
+    <!-- Quick Settings tile -->
+    <string name="tile_label">Focus</string>
+    <string name="tile_live">Session running</string>
+    <string name="tile_empty">Open Lockin</string>
 </resources>

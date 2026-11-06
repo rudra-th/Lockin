@@ -13,6 +13,7 @@ import { initSettings } from './views/settings.js';
 import { initWalkthrough } from './views/walkthrough.js';
 import { startAlarms } from './alarms.js';
 import { startNative, isNative } from './native.js';
+import { startGlance } from './glance.js';
 import { startUsageSnapshots } from './usage.js';
 import { initAccount } from './account.js';
 
@@ -81,6 +82,7 @@ Router.start();
 applyTheme();
 startAlarms();
 startNative();
+startGlance(); // Android only; mirrors today to the widget and tile
 startUsageSnapshots(); // Android only; folds usage into the synced store
 initAccount(); // only touches the network when the user asked for the cloud
 

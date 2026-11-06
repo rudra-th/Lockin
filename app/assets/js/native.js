@@ -467,6 +467,33 @@ export async function launchApp(pkg) {
   }
 }
 
+/* ---------- home screen ---------- */
+
+/** Mirror today's numbers to the widget and the Quick Settings tile. */
+export async function pushWidget(snapshot) {
+  if (!isNative) return false;
+  try {
+    await plugin.syncWidget({ snapshot: { ...snapshot } });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Ask the launcher to place the widget. Not every launcher allows pinning. */
+export async function requestWidgetPin() {
+  if (!isNative) return { supported: false, requested: false };
+  try {
+    const res = await plugin.requestWidgetPin();
+    return {
+      supported: Boolean(res?.supported),
+      requested: Boolean(res?.requested),
+    };
+  } catch (_) {
+    return { supported: false, requested: false };
+  }
+}
+
 /* ---------- screen time ---------- */
 
 function usageRows(result) {

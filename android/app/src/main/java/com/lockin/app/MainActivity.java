@@ -5,9 +5,12 @@ import android.os.Bundle;
 
 import com.getcapacitor.BridgeActivity;
 
+import org.json.JSONObject;
+
 /**
  * The shell. It registers the small LockinNative bridge and remembers a route
- * requested by a tapped notification, so a cold start still lands on Schedule.
+ * requested by a tapped notification or Quick Settings tile, so a cold start
+ * still lands on the right screen.
  */
 public class MainActivity extends BridgeActivity {
 
@@ -27,7 +30,7 @@ public class MainActivity extends BridgeActivity {
         captureRoute(intent);
     }
 
-    /** A notification tap asks for Schedule. Warm starts get an event too. */
+    /** A notification or tile tap asks for a screen. Warm starts get an event too. */
     private void captureRoute(Intent intent) {
         if (intent == null) return;
 
@@ -37,14 +40,18 @@ public class MainActivity extends BridgeActivity {
             intent.removeExtra("alarmAction");
         }
 
-        if (!intent.getBooleanExtra("openSchedule", false)) return;
+        String route = intent.getStringExtra("openRoute");
+        if (route == null && intent.getBooleanExtra("openSchedule", false)) route = "/schedule";
+        if (route == null || route.isEmpty() || route.charAt(0) != '/') return;
+
         intent.removeExtra("openSchedule");
-        pendingRoute = "/schedule";
+        intent.removeExtra("openRoute");
+        pendingRoute = route;
 
         if (bridge == null || bridge.getWebView() == null) return;
-        bridge.getWebView().post(() -> bridge.getWebView().evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('lockin:native-route',{detail:'/schedule'}))",
-                null));
+        String js = "window.dispatchEvent(new CustomEvent('lockin:native-route',{detail:"
+                + JSONObject.quote(route) + "}))";
+        bridge.getWebView().post(() -> bridge.getWebView().evaluateJavascript(js, null));
     }
 
     /** Hand an alarm action to the queue the web bridge drains. */

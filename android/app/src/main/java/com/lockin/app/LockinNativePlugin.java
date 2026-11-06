@@ -8,6 +8,7 @@ import android.app.AppOpsManager;
 import android.app.admin.DevicePolicyManager;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
+import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -79,6 +80,51 @@ public class LockinNativePlugin extends Plugin {
     public void consumeAlarmActions(PluginCall call) {
         JSObject result = new JSObject();
         result.put("actions", AlarmActions.consume(getContext()));
+        call.resolve(result);
+    }
+
+    /* ---------- home screen ---------- */
+
+    /**
+     * Copy today's numbers to native storage and redraw the widget and tile.
+     * The web app owns the truth; this is a mirror for surfaces it cannot draw.
+     */
+    @PluginMethod
+    public void syncWidget(PluginCall call) {
+        JSObject input = call.getObject("snapshot");
+        WidgetStore.Snapshot snapshot = new WidgetStore.Snapshot();
+        if (input != null) {
+            snapshot.minutes = Math.max(0, Math.min(1440, input.optInt("minutes", 0)));
+            snapshot.goal = Math.max(1, Math.min(1440, input.optInt("goal", 120)));
+            snapshot.streak = Math.max(0, input.optInt("streak", 0));
+            snapshot.next = input.optString("next", "");
+            snapshot.session = input.optBoolean("session", false);
+            snapshot.until = Math.max(0L, input.optLong("until", 0L));
+        }
+        snapshot.updatedAt = System.currentTimeMillis();
+
+        WidgetStore.write(getContext(), snapshot);
+        LockinWidgetProvider.refreshAll(getContext());
+        call.resolve();
+    }
+
+    /** Ask the launcher to place the widget; not every launcher allows it. */
+    @PluginMethod
+    public void requestWidgetPin(PluginCall call) {
+        JSObject result = new JSObject();
+        AppWidgetManager manager = AppWidgetManager.getInstance(getContext());
+        boolean supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && manager.isRequestPinAppWidgetSupported();
+        result.put("supported", supported);
+
+        Activity activity = getActivity();
+        if (!supported || activity == null) {
+            result.put("requested", false);
+            call.resolve(result);
+            return;
+        }
+        ComponentName provider = new ComponentName(getContext(), LockinWidgetProvider.class);
+        result.put("requested", manager.requestPinAppWidget(provider, null, null));
         call.resolve(result);
     }
 

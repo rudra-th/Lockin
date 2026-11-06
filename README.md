@@ -51,7 +51,7 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 |---|---|---|
 | **Web app** | The whole study clock: tasks, Study Mode, daily targets, Progress in Settings, the weekly card, Control's web explanation. Installable, offline. | `app/` → **[lockin.surge.sh](https://lockin.surge.sh)** |
 | **Browser extension** | Only blocking, short-video rules, per-site daily limits and screen time. No timer, no tasks, no streaks. | `extension/` → pack with `node tools/pack-extension.mjs` |
-| **Android app** | The same UI in a Capacitor shell: exact alarms, full-screen lock-screen alarms, Start/Skip actions, notification permission, usage access, screen time in Settings, app blocking, per-app limits and the kiosk in Control, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
+| **Android app** | The same UI in a Capacitor shell: exact alarms, full-screen lock-screen alarms, Start/Skip actions, notification permission, usage access, screen time in Settings, app blocking, per-app limits and the kiosk in Control, a home-screen widget and a Quick Settings tile, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
 
 The web app is the source of truth for a study session. The extension is deliberately the smaller instrument — it holds the block list and per-site daily allowances, counts the active Chrome tab, and says so in its own README.
 

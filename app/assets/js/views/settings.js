@@ -13,7 +13,7 @@ import { ensureAlarmPermission } from '../alarms.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
   openExactAlarmSettings, openFullScreenIntentSettings, openUsageAccessSettings,
-  openAccessibilitySettings,
+  openAccessibilitySettings, requestWidgetPin,
 } from '../native.js';
 import { accountState, signIn, signOut, deleteCloudData } from '../account.js';
 import { syncNow } from '../sync.js';
@@ -192,6 +192,15 @@ function nativeCard() {
   addEventListener('visibilitychange', onVisible);
   setTimeout(refresh, 0); // the card is appended right after this returns
 
+  const widgetBtn = el('button', {
+    class: 'btn btn-subtle btn-sm',
+    onclick: async () => {
+      const res = await requestWidgetPin();
+      if (res.requested) hint('Place the widget wherever you want it');
+      else hint('Long-press the home screen → Widgets → Lockin, or add the Focus tile from Quick Settings');
+    },
+  }, 'Pin widget');
+
   return el('div', { class: 'card' },
     el('h2', {}, 'Android'),
     setrow('Alarms & reminders',
@@ -209,6 +218,9 @@ function nativeCard() {
     setrow('Usage access',
       'Reads per-app foreground time for the screen-time card below. Lockin can open the setting, but only you can grant it.',
       el('div', { class: 'native-ctrl' }, usagePill, usageBtn)),
+    setrow('Home screen',
+      'Today’s minutes against the target, the streak and the next block — as a widget. The Quick Settings tile opens Focus setup; it never starts a session on its own.',
+      el('div', { class: 'native-ctrl' }, widgetBtn)),
     el('p', { class: 'tiny', style: 'margin:12px 0 0' },
       'Lockin reads how long an app was in the foreground. It does not read page content, keystrokes or files.'),
   );

@@ -8,8 +8,9 @@ shell adds the capabilities a browser cannot have.
 > covers exact alarms, full-screen alarm screens with Start/Skip, notification
 > permission, usage access, per-app screen time, optional app blocking through a
 > user-enabled accessibility service, per-app daily limits, an optional
-> device-owner kiosk, and optional Google sign-in for cloud sync. Device testing
-> is the remaining gate before sharing a release APK.
+> device-owner kiosk, a home-screen widget and a Quick Settings tile, and
+> optional Google sign-in for cloud sync. Device testing is the remaining gate
+> before sharing a release APK.
 > Lockin distributes directly — no Play Store. The UI still states the web limit
 > plainly: the browser build rings only while Lockin is open.
 
@@ -50,7 +51,7 @@ android/
   app/src/main/
     AndroidManifest.xml
     java/com/lockin/app/
-      MainActivity.java          registers LockinNative
+      MainActivity.java          registers LockinNative, hands off openRoute
       LockinNativePlugin.java    bridge: alarms, usage, permissions, blocking
       AlarmReceiver.java         notification + full-screen intent + Start/Skip
       AlarmActivity.java         lock-screen alarm screen
@@ -60,8 +61,13 @@ android/
       LockinDeviceAdminReceiver.java   optional device owner for the kiosk
       BootReceiver.java          re-seeds alarms after reboot
       AlarmScheduler.java        shared scheduling/cancel helpers
+      WidgetStore.java           device-local snapshot the widget renders
+      LockinWidgetProvider.java  home-screen widget
+      FocusTileService.java      Quick Settings tile
     res/xml/accessibility_service_config.xml
     res/xml/device_admin.xml
+    res/xml/lockin_widget_info.xml  widget size, preview, update period
+    res/layout/widget_lockin.xml    the widget's card
     res/                         icons, splash, strings, overlay layout
   variables.gradle               SDK levels and AndroidX versions
   capacitor.settings.gradle
@@ -78,7 +84,9 @@ Outside the shell every export is inert, so the same `app/` still runs on the
 web and in the extension pack.
 
 - On boot it consumes a notification route (cold start lands on Schedule) and
-  clears stale alarms — the foreground engine owns the app while it is open.
+  clears stale alarms — the foreground engine owns the app while it is open. A
+  route is now generic: a Quick Settings tile asks for `/focus`, and
+  `MainActivity` hands any `/path` to the router on cold and warm starts.
 - On boot and every resume it drains the `AlarmActions` queue: **Start session**
   or **Skip today** tapped on a notification or the lock-screen alarm applies
   once, even if the app was closed when it was tapped.
@@ -96,6 +104,9 @@ web and in the extension pack.
   screen-time card from `UsageStatsManager`. App blocking, per-app limits and
   the kiosk live in the separate **Control** tab; Settings keeps the permissions
   and a pointer to it.
+- On every store write, and on a one-minute tick, it mirrors today's numbers to
+  the home screen through `syncWidget` (see below). Outside the shell that call
+  is inert.
 
 ## Native capabilities
 
@@ -248,6 +259,31 @@ inside it: it cannot tell YouTube Shorts from a normal video without reading
 screen content, which Lockin refuses to do. The extension blocks the `/shorts`
 and `/reels` URLs themselves; the Android preset blocks the whole app during
 focus and says so.
+
+### Home screen: widget and Quick Settings tile
+
+Both surfaces live outside the WebView, so they cannot read the store. The web
+app stays authoritative and pushes a small snapshot; native only renders it.
+
+- **One snapshot, device-local.** `glance.js` listens for `lockin:changed`,
+  composes `{ minutes, goal, streak, next, session, until }`, and calls
+  `LockinNative.syncWidget` when the signature changes. The plugin writes it to
+  the `lockin_widget` `SharedPreferences` and redraws every placed widget and
+  the tile. Nothing here is synced or uploaded.
+- **The widget.** `LockinWidgetProvider` draws today's minutes over the target,
+  a progress bar, the streak (or **Target met**) and what comes next. Tapping it
+  opens Lockin. `Settings → Android → Home screen → Pin widget` calls
+  `requestPinAppWidget` where the launcher supports pinning; otherwise the row
+  says how to add it from the launcher's widget picker. It reads no usage stats
+  and starts nothing.
+- **The tile.** `FocusTileService` is a **Focus** tile whose only action opens
+  the Focus setup screen (`openRoute=/focus`). It never starts a session on its
+  own — the hold on the ring is the consent. It reads active while a session is
+  live and shows today's minutes as its subtitle.
+- **Stale-safe.** `updatePeriodMillis` is a half-hour fallback; the real redraw
+  is each app write. A session whose `until` deadline has passed is not shown as
+  live, and a fresh install shows an honest "Open Lockin to fill this in"
+  instead of a fake zero.
 
 ## Permissions
 
