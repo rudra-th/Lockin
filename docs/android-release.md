@@ -55,6 +55,17 @@ npm run bump -- 1.5.0        # version agrees across package.json, sw.js, build.
 npm run android:build -- assembleRelease
 ```
 
+Tag the exact commit that ships, and push the tag with the branch:
+
+```powershell
+git tag -a v1.5.0 -m "Lockin 1.5.0 - <one line about the release>"
+git push origin main v1.5.0
+```
+
+The tag is annotated on purpose: `git show v1.5.0` names the release, and the
+GitHub releases page can be built from it. Tag after the last fix for that
+version is in, never before.
+
 The signed APK lands at `android/app/build/outputs/apk/release/app-release.apk`.
 Copy it to `dist/lockin-<version>-release.apk` for distribution:
 
