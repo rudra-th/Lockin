@@ -21,9 +21,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.provider.Settings;
+import android.util.Base64;
 import android.view.accessibility.AccessibilityManager;
 
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -39,6 +41,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -626,6 +631,51 @@ public class LockinNativePlugin extends Plugin {
             call.resolve();
         } catch (RuntimeException err) {
             call.reject("Could not open that app");
+        }
+    }
+
+    /**
+     * Hand a rendered PNG to the system share sheet. The WebView has no file
+     * sharing of its own, so the image arrives as base64, is written to the
+     * cache, and is exposed through the existing FileProvider.
+     */
+    @PluginMethod
+    public void shareImage(PluginCall call) {
+        String data = call.getString("data", "");
+        String name = call.getString("name", "lockin.png");
+        String text = call.getString("text", "");
+        if (data == null || data.isEmpty()) {
+            call.reject("No image");
+            return;
+        }
+        try {
+            byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+            File dir = new File(getContext().getCacheDir(), "shares");
+            if (!dir.exists() && !dir.mkdirs()) throw new IOException("No cache directory");
+            String safe = name == null || name.isEmpty()
+                    ? "lockin.png"
+                    : name.replaceAll("[^a-zA-Z0-9._-]", "_");
+            File file = new File(dir, safe);
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write(bytes);
+            }
+
+            Uri uri = FileProvider.getUriForFile(getContext(),
+                    getContext().getPackageName() + ".fileprovider", file);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("image/png");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            if (text != null && !text.isEmpty()) send.putExtra(Intent.EXTRA_TEXT, text);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            Intent chooser = Intent.createChooser(send, "Share your card");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            Activity activity = getActivity();
+            if (activity != null) activity.startActivity(chooser);
+            else getContext().startActivity(chooser);
+            call.resolve();
+        } catch (Exception err) {
+            call.reject("Could not share the image", err);
         }
     }
 

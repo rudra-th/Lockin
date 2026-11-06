@@ -1720,9 +1720,12 @@ body[data-mode='onboard'] #view {
 .share-today:hover { background: var(--panel-2); }
 .share-today[hidden] { display: none; }
 .share-preview {
-  display: block; width: 100%; height: auto; border-radius: 16px;
+  display: block; width: 100%; height: auto; border-radius: 18px;
   border: 1px solid var(--line-2); background: var(--panel-2); margin: 0 0 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
 }
+.share-preview-square { aspect-ratio: 1 / 1; object-fit: cover; }
+.share-preview-week { aspect-ratio: 4 / 5; object-fit: cover; }
 .share-credit {
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
   padding: 12px 14px; border-radius: 14px; background: var(--panel-2);

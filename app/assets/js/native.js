@@ -467,6 +467,27 @@ export async function launchApp(pkg) {
   }
 }
 
+/* ---------- sharing ---------- */
+
+/**
+ * Hand a canvas PNG to the system share sheet. The WebView cannot pass a File
+ * to navigator.share, so the base64 image goes through the bridge instead.
+ * Returns false on the web (the caller falls back to the Web Share API).
+ */
+export async function shareImage({ dataURL, name = 'lockin.png', text = '' } = {}) {
+  if (!isNative) return false;
+  const raw = String(dataURL || '');
+  const comma = raw.indexOf(',');
+  const data = comma >= 0 ? raw.slice(comma + 1) : raw;
+  if (!data) return false;
+  try {
+    await plugin.shareImage({ data, name, text });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 /* ---------- home screen ---------- */
 
 /** Mirror today's numbers to the widget and the Quick Settings tile. */
