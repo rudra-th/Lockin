@@ -1,17 +1,11 @@
 /* Lockin — landing page behaviour.
-   Everything here is progressive: the page reads without it, and the live
-   pieces (the 50 second ring, the screen switcher, the stage slider) are real
-   interactions rather than decoration.
-
-   Version 1.12.0: the product moved under /app/ and the trial opened at
-   /app/?trial=1; downloads live at /downloads/. */
+   The page reads without this file. With it, the hero wordmark gives way and
+   the phone rises into a pinned stage: Plan, Start, Lock and Review run on the
+   scroll, and the session clock is driven by the same gesture. */
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* ---------- the root service worker, once ----------
-   The previous release served the app from /. If a visitor still has that
-   worker, retire it so the landing page is what they see next. The kill-switch
-   at /sw.js does the same from inside the worker; this covers the page side. */
+/* ---------- retire the old root service worker ---------- */
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations?.()
@@ -25,15 +19,41 @@ if ('serviceWorker' in navigator) {
     .catch(() => { /* service workers are a bonus */ });
 }
 
-/* An installed copy of the old root app should keep opening the product,
-   not the marketing page. */
+/* An installed copy of the old root app should keep opening the product. */
 if (matchMedia('(display-mode: standalone)').matches && location.pathname === '/') {
   location.replace('/app/');
 }
 
 /* ---------- reveal on scroll ---------- */
 
-const reveals = [...document.querySelectorAll('.reveal')];
+const revealGroups = [
+  '.hero-top',
+  '.story-head',
+  '.section-head',
+  '.rules-head',
+  '.trial-copy',
+  '.faq-head',
+  '.footer-top',
+];
+
+const revealNodes = [];
+for (const selector of revealGroups) {
+  document.querySelectorAll(selector).forEach((group) => {
+    [...group.children].forEach((node, index) => {
+      node.style.setProperty('--d', `${Math.min(index * 70, 280)}ms`);
+      revealNodes.push(node);
+    });
+  });
+}
+
+document.querySelectorAll('.control-panel, .control-fine, .rule, .trial-card, .qa, .download-inner > *, .footer-mark')
+  .forEach((node, index) => {
+    node.style.setProperty('--d', `${Math.min((index % 4) * 60, 180)}ms`);
+    revealNodes.push(node);
+  });
+
+revealNodes.forEach((node) => node.classList.add('reveal'));
+
 if ('IntersectionObserver' in window && !reduceMotion) {
   const io = new IntersectionObserver((entries) => {
     for (const entry of entries) {
@@ -41,144 +61,114 @@ if ('IntersectionObserver' in window && !reduceMotion) {
       entry.target.classList.add('is-in');
       io.unobserve(entry.target);
     }
-  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
-  reveals.forEach((node) => io.observe(node));
+  }, { rootMargin: '0px 0px -7% 0px', threshold: 0.08 });
+  revealNodes.forEach((node) => io.observe(node));
 } else {
-  reveals.forEach((node) => node.classList.add('is-in'));
+  revealNodes.forEach((node) => node.classList.add('is-in'));
 }
 
-/* ---------- the hero ring ---------- */
+/* ---------- the scroll story ---------- */
 
-const ring = document.getElementById('hero-ring');
-const clock = document.getElementById('hero-clock');
-const bar = document.getElementById('hero-bar');
-const startBtn = document.getElementById('hero-start');
-const statusEl = document.getElementById('hero-status');
-const DURATION = 50_000;
-const CIRC = 2 * Math.PI * 268;
+const hero = document.querySelector('.hero');
+const word = document.querySelector('.hero-word');
+const storyInner = document.querySelector('.story-inner');
+const stage = document.querySelector('.story-stage');
+const phoneStage = document.querySelector('.phone-stage');
+const phone = document.getElementById('story-phone');
+const steps = [...document.querySelectorAll('.step')];
+const screens = [...document.querySelectorAll('.screen')];
+const tabs = [...document.querySelectorAll('.ph-tab')];
+const sessionRing = document.querySelector('[data-session-ring]');
+const sessionClock = document.querySelector('[data-session-clock]');
 
-let remaining = DURATION;
-let running = false;
-let startedAt = 0;
-let base = DURATION;
-let frame = 0;
+const screenOrder = ['plan', 'start', 'lock', 'review'];
+const RING = 540.35;
+let activeStep = -1;
+let clockValue = -1;
 
-function paintTimer() {
-  const safe = Math.max(0, remaining);
-  const secs = Math.ceil(safe / 1000);
-  if (clock) clock.textContent = `00:${String(secs).padStart(2, '0')}`;
-  if (bar) bar.style.width = `${(safe / DURATION) * 100}%`;
-  if (ring) {
-    ring.style.strokeDasharray = String(CIRC);
-    ring.style.strokeDashoffset = String(CIRC * (1 - safe / DURATION));
+const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
+const smooth = (t) => t * t * (3 - 2 * t);
+
+function setActive(index) {
+  steps.forEach((step, i) => step.classList.toggle('is-active', i === index));
+  screens.forEach((screen) => screen.classList.toggle('is-active', screen.dataset.screen === screenOrder[index]));
+  tabs.forEach((tab) => tab.classList.toggle('is-on', tab.dataset.tab === screenOrder[index]));
+}
+
+function update() {
+  const vh = window.innerHeight;
+  const isMobile = window.matchMedia('(max-width: 900px)').matches;
+
+  /* the monument loses a little weight as the first screen leaves */
+  if (word && hero && !reduceMotion) {
+    const heroRect = hero.getBoundingClientRect();
+    const p = clamp01(-heroRect.top / (vh * 0.9));
+    word.style.transform = `translate3d(0, ${(-p * 20).toFixed(2)}px, 0) scale(${(1 - p * 0.07).toFixed(4)})`;
+    word.style.opacity = String(1 - p * 0.4);
+  }
+
+  if (!storyInner || !phone) return;
+
+  /* the phone comes up from below as the story enters */
+  const storyRect = storyInner.getBoundingClientRect();
+  const rise = reduceMotion ? 1 : smooth(clamp01((vh * 0.82 - storyRect.top) / (vh * 0.62)));
+  if (phoneStage) {
+    phoneStage.style.transform = `translate3d(0, ${((1 - rise) * 72).toFixed(2)}px, 0) scale(${(0.97 + rise * 0.03).toFixed(4)})`;
+    phoneStage.style.opacity = String(0.4 + rise * 0.6);
+  } else if (phone) {
+    phone.style.transform = `translate3d(0, ${((1 - rise) * 64).toFixed(2)}%, 0) scale(${(0.94 + rise * 0.06).toFixed(4)})`;
+    phone.style.opacity = String(0.3 + rise * 0.7);
+  }
+
+  /* The stage is pinned for the length of .story-inner. Its progress drives
+     which screen is showing, so the phone and the caption can never drift. */
+  const pinTop = isMobile ? 57 : 82;
+  const stageHeight = stage ? stage.offsetHeight : vh;
+  const travel = Math.max(1, storyInner.offsetHeight - stageHeight);
+  const progress = clamp01((pinTop - storyRect.top) / travel);
+  const next = Math.min(steps.length - 1, Math.floor(progress * steps.length));
+
+  if (next !== activeStep) {
+    activeStep = next;
+    setActive(next);
+  }
+
+  /* the scroll runs the 45 minute session while the Start screen is up */
+  if (sessionRing) {
+    const local = clamp01(progress * steps.length - 1);
+    const seconds = Math.max(0, Math.round(45 * 60 * (1 - local)));
+    if (seconds !== clockValue) {
+      clockValue = seconds;
+      sessionRing.style.strokeDashoffset = String(RING * (1 - local));
+      if (sessionClock) {
+        sessionClock.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+      }
+    }
   }
 }
 
-function setStatus(text) {
-  if (statusEl) statusEl.textContent = text;
-}
-
-function tick(now) {
-  if (!running) return;
-  remaining = base - (now - startedAt);
-  if (remaining <= 0) {
-    remaining = 0;
-    running = false;
-    paintTimer();
-    if (startBtn) startBtn.textContent = 'Go again';
-    setStatus('Done — that was 50 seconds');
-    return;
-  }
-  paintTimer();
-  frame = requestAnimationFrame(tick);
-}
-
-function startTimer() {
-  if (running) {
-    running = false;
-    cancelAnimationFrame(frame);
-    base = remaining;
-    if (startBtn) startBtn.textContent = 'Resume';
-    setStatus('Paused');
-    return;
-  }
-  if (remaining <= 0) remaining = DURATION;
-  base = remaining;
-  startedAt = performance.now();
-  running = true;
-  if (startBtn) startBtn.textContent = 'Pause';
-  setStatus('Focusing — the ring is the clock');
-  paintTimer();
-  frame = requestAnimationFrame(tick);
-}
-
-if (startBtn && ring && clock && bar) {
-  paintTimer();
-  startBtn.addEventListener('click', startTimer);
-}
-
-/* ---------- real screens, one at a time ---------- */
-
-const views = {
-  today: 'Today: minutes banked, the daily target, the current streak and the clean-day verdict.',
-  week: 'The week: seven bars against the goal line, then every clean day for thirteen weeks.',
-  session: 'The session: a wall-clock ring, the daily target, attached tasks and one honest way out.',
-  rules: 'The rules: strict, earned exit, clean-day floor, Pomodoro and the alarm defaults.',
-};
-
-const showTabs = [...document.querySelectorAll('.show-tab')];
-const showFrames = [...document.querySelectorAll('.show-frame')];
-const showFact = document.getElementById('showcase-fact');
-
-function showView(name) {
-  showTabs.forEach((tab) => {
-    const on = tab.dataset.view === name;
-    tab.classList.toggle('is-active', on);
-    tab.setAttribute('aria-selected', String(on));
+let ticking = false;
+function onScroll() {
+  if (ticking) return;
+  ticking = true;
+  requestAnimationFrame(() => {
+    update();
+    ticking = false;
   });
-  showFrames.forEach((frame) => frame.classList.toggle('is-active', frame.dataset.frame === name));
-  if (showFact && views[name]) showFact.textContent = views[name];
 }
 
-showTabs.forEach((tab) => tab.addEventListener('click', () => showView(tab.dataset.view)));
+addEventListener('scroll', onScroll, { passive: true });
+addEventListener('resize', onScroll, { passive: true });
+update();
 
-/* ---------- how it works ---------- */
-
-const stages = [
-  { clause: 'Put the week on the record.' },
-  { clause: 'One hold arms the room.' },
-  { clause: 'Strict mode covers the apps.' },
-  { clause: 'The log tells the truth.' },
-];
-
-const howRange = document.getElementById('how-range');
-const howClause = document.getElementById('how-clause');
-const howFrames = [...document.querySelectorAll('.how-frame')];
-const howLabels = [...document.querySelectorAll('[data-stage-btn]')];
-
-function setStage(n) {
-  const index = Math.max(0, Math.min(stages.length - 1, Number(n) || 0));
-  howFrames.forEach((frame) => frame.classList.toggle('is-active', Number(frame.dataset.stage) === index));
-  howLabels.forEach((btn) => btn.classList.toggle('is-active', Number(btn.dataset.stageBtn) === index));
-  if (howRange) howRange.value = String(index);
-  if (howClause) howClause.textContent = stages[index].clause;
-}
-
-if (howRange) {
-  howRange.addEventListener('input', () => setStage(howRange.value));
-  howLabels.forEach((btn) => btn.addEventListener('click', () => setStage(btn.dataset.stageBtn)));
-  setStage(0);
-}
-
-/* ---------- the proof figures count once ---------- */
+/* ---------- figures count once ---------- */
 
 function countUp(node) {
   const target = Number(node.dataset.count) || 0;
   if (!target) { node.textContent = '0'; return; }
   const began = performance.now();
-  const length = 900;
   function step(now) {
-    const t = Math.min(1, (now - began) / length);
+    const t = Math.min(1, (now - began) / 900);
     const eased = 1 - Math.pow(1 - t, 3);
     node.textContent = String(Math.round(target * eased));
     if (t < 1) requestAnimationFrame(step);
@@ -194,21 +184,11 @@ if ('IntersectionObserver' in window && !reduceMotion) {
       countUp(entry.target);
       countObserver.unobserve(entry.target);
     }
-  }, { threshold: 0.5 });
+  }, { threshold: 0.6 });
   counters.forEach((node) => countObserver.observe(node));
 } else {
   counters.forEach((node) => { node.textContent = node.dataset.count; });
 }
-
-/* ---------- one open FAQ card at a time ---------- */
-
-const faqCards = [...document.querySelectorAll('.faq-card')];
-faqCards.forEach((card) => {
-  card.addEventListener('toggle', () => {
-    if (!card.open) return;
-    faqCards.forEach((other) => { if (other !== card) other.open = false; });
-  });
-});
 
 /* ---------- OS-aware downloads ---------- */
 
@@ -277,23 +257,10 @@ function bytes(n) {
   return mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.max(1, Math.round(Number(n) / 1024))} KB`;
 }
 
-/* ---------- a little scroll drift on the ring ---------- */
+/* ---------- years ---------- */
 
-const arc = document.querySelector('.hero-arc');
-if (arc && !reduceMotion) {
-  let scheduled = false;
-  addEventListener('scroll', () => {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      const shift = Math.min(64, window.scrollY * 0.07);
-      arc.style.transform = `translateY(${shift.toFixed(2)}px)`;
-      scheduled = false;
-    });
-  }, { passive: true });
+const year = new Date().getFullYear();
+for (const id of ['year', 'footer-year']) {
+  const node = document.getElementById(id);
+  if (node) node.textContent = String(year);
 }
-
-/* ---------- footer year ---------- */
-
-const year = document.getElementById('year');
-if (year) year.textContent = String(new Date().getFullYear());

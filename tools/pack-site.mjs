@@ -5,7 +5,7 @@
      /        the landing page from site/
      /app/    the real app from app/, so it keeps relative paths and its own
               service-worker scope under /app/
-     /screenshots/, /downloads/  the assets the landing page links to
+     /downloads/  the APK and extension the landing page links to
 
    No bundler and no dependencies. The root /sw.js is the retire worker that
    releases visitors still controlled by the 1.11.x root-scope service worker. */
@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = path.join(ROOT, 'site');
 const APP = path.join(ROOT, 'app');
-const SHOTS = path.join(ROOT, 'docs', 'screenshots');
 const DIST = path.join(ROOT, 'dist');
 const OUT = path.join(DIST, 'site');
 
@@ -65,7 +64,7 @@ async function dirSize(dir) {
   return total;
 }
 
-for (const required of [SITE, APP, SHOTS]) {
+for (const required of [SITE, APP]) {
   if (!existsSync(required)) {
     console.error(`missing ${path.relative(ROOT, required)} — cannot pack the site`);
     process.exit(1);
@@ -88,10 +87,6 @@ await mkdir(OUT, { recursive: true });
 
 await cp(SITE, OUT, { recursive: true });
 await cp(APP, path.join(OUT, 'app'), { recursive: true });
-await cp(SHOTS, path.join(OUT, 'screenshots'), {
-  recursive: true,
-  filter: (src) => !src.endsWith('.md') && !src.endsWith('.json'),
-});
 
 await mkdir(path.join(OUT, 'downloads'), { recursive: true });
 await cp(apk, path.join(OUT, 'downloads', 'lockin.apk'));

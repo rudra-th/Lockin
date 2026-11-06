@@ -4,9 +4,12 @@
   <meta charset="utf-8">
   <title>Lockin — a study clock that locks in</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Lockin is a study-first focus app: recurring schedule blocks, wake-locked Study Mode, strict app blocking on Android, and an honest log of every time you left. Try the live browser trial.">
+  <meta name="description" content="Lockin is a study-first focus app: recurring schedule blocks, wake-locked Study Mode, strict app blocking on Android, and a seven-day screen-time chart. Try the live browser trial.">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#08090c">
+  <meta property="og:title" content="Lockin — a study clock that locks in">
+  <meta property="og:description" content="Schedule the week, start one session, and let Study Mode hold the screen. Android also covers the apps you choose.">
+  <meta property="og:type" content="website">
   <link rel="icon" href="/app/favicon.svg" sizes="any" type="image/svg+xml">
   <link rel="icon" href="/app/assets/icons/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="/app/assets/icons/apple-touch-icon.png">
@@ -31,335 +34,369 @@
       <span>Lockin</span>
     </a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="#features">Features</a>
-      <a href="#progress">Progress</a>
-      <a href="#how">How it works</a>
-      <a href="#download">Download</a>
+      <a href="#story">The app</a>
+      <a href="#control">Control</a>
+      <a href="#rules">Rules</a>
       <a href="#faq">FAQ</a>
+      <a href="#download">Download</a>
     </nav>
-    <a class="nav-cta" href="/app/?trial=1">Try the trial</a>
+    <a class="nav-cta" href="/app/?trial=1">Try it free</a>
   </header>
 
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
-      <div class="hero-copy">
+      <div class="hero-top">
         <h1 id="hero-title">A study clock<br>that locks in.</h1>
-        <p class="hero-sub">Recurring blocks, wake-locked Study Mode, and an honest log of every time you leave. The Android build also covers the apps you choose.</p>
+        <p class="hero-sub">Recurring blocks, a wake-locked Study Mode, and an honest log of every time you leave. On Android, it also covers the apps you choose.</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="/app/?trial=1">Try the live trial</a>
-          <a class="btn btn-quiet" href="#download">Get the app</a>
+          <a class="btn btn-primary" href="/app/?trial=1">Open the live trial</a>
+          <a class="btn btn-quiet" href="#download">Download the app</a>
         </div>
-        <p class="hero-foot">No account needed. The trial is the real app, not a video.</p>
+        <p class="hero-meta">No account needed. The trial is the real app, not a video.</p>
       </div>
 
-      <div class="hero-stage" aria-label="A live 50 second Study Mode demo">
-        <div class="hero-arc" aria-hidden="true">
-          <svg viewBox="0 0 600 600" id="hero-ring-svg">
-            <circle class="ring-track" cx="300" cy="300" r="268" fill="none" stroke-width="26"/>
-            <circle class="ring-live" id="hero-ring" cx="300" cy="300" r="268" fill="none" stroke-width="26" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <figure class="hero-shot" data-ui>
-          <img src="/screenshots/home.png" width="860" height="1864" alt="Lockin Home: days until the exam, today’s focused minutes and the next schedule block" fetchpriority="high">
-        </figure>
-        <div class="hero-timer" data-ui>
-          <div class="ht-kicker">Study Mode · live</div>
-          <div class="ht-clock" id="hero-clock">00:50</div>
-          <div class="ht-bar" aria-hidden="true"><i id="hero-bar"></i></div>
-          <div class="ht-row">
-            <button class="btn btn-primary btn-sm" id="hero-start" type="button">Start 50 seconds</button>
-            <span class="ht-status" id="hero-status" role="status" aria-live="polite">Ready when you are</span>
+      <div class="hero-word" aria-hidden="true">lockin</div>
+
+      <a class="hero-cue" href="#story">
+        <span>Scroll to lock in</span>
+        <i aria-hidden="true"></i>
+      </a>
+    </section>
+
+    <section class="story" id="story" aria-labelledby="story-title">
+      <div class="story-head">
+        <h2 id="story-title">The whole app,<br>in one hold.</h2>
+        <p>Keep scrolling. The phone plans the week, starts the session, locks the apps and then shows you the truth.</p>
+      </div>
+
+      <div class="story-inner">
+        <div class="story-stage">
+          <div class="phone-stage">
+            <span class="stage-tag" aria-hidden="true"><i></i>Live interface</span>
+            <div class="phone" id="story-phone" aria-hidden="true">
+            <div class="phone-frame">
+              <div class="phone-screen">
+                <span class="phone-island"></span>
+                <div class="phone-status">
+                  <span class="ps-time">9:41</span>
+                  <span class="ps-icons"><i></i><i></i><b></b></span>
+                </div>
+
+                <div class="phone-body">
+                  <!-- PLAN -->
+                  <section class="screen is-active" data-screen="plan">
+                    <p class="scr-date">Thursday 6 November</p>
+                    <h3 class="scr-title">Today</h3>
+                    <div class="week-strip">
+                      <span><b>M</b><i></i></span>
+                      <span><b>T</b><i></i></span>
+                      <span><b>W</b><i></i></span>
+                      <span><b>T</b><i class="on"></i></span>
+                      <span><b>F</b><i class="on"></i></span>
+                      <span><b>S</b><i class="on"></i></span>
+                      <span><b>S</b><i></i></span>
+                    </div>
+                    <div class="block-row">
+                      <span class="block-time">19:00</span>
+                      <span class="block-copy"><b>Deep work</b><span>Chemistry · 90m</span></span>
+                      <span class="switch on"></span>
+                    </div>
+                    <div class="block-row">
+                      <span class="block-time">21:00</span>
+                      <span class="block-copy"><b>Revision</b><span>Past papers · 60m</span></span>
+                      <span class="switch on"></span>
+                    </div>
+                    <div class="block-row is-dim">
+                      <span class="block-time">07:30</span>
+                      <span class="block-copy"><b>Morning review</b><span>Flashcards · 25m</span></span>
+                      <span class="switch"></span>
+                    </div>
+                    <p class="scr-foot">Next block in 2h 10m</p>
+                  </section>
+
+                  <!-- START -->
+                  <section class="screen" data-screen="start">
+                    <p class="scr-kicker">Deep work · Chemistry</p>
+                    <div class="ring-wrap">
+                      <svg viewBox="0 0 200 200">
+                        <circle class="ring-track" cx="100" cy="100" r="86" fill="none" stroke-width="7"/>
+                        <circle class="ring-fill" data-session-ring cx="100" cy="100" r="86" fill="none" stroke-width="7" stroke-linecap="round"/>
+                      </svg>
+                      <span class="ring-center"><b data-session-clock>45:00</b><span>remaining</span></span>
+                    </div>
+                    <div class="target">
+                      <div class="target-row"><span>Today</span><b>2h 05m / 3h</b></div>
+                      <div class="target-bar"><i></i></div>
+                    </div>
+                    <div class="task-line">Problem set 4 <span>12 left</span></div>
+                    <div class="hold">Hold to leave</div>
+                  </section>
+
+                  <!-- LOCK -->
+                  <section class="screen screen-lock" data-screen="lock">
+                    <p class="lock-kicker">Strict mode</p>
+                    <h3 class="lock-title">Instagram<br>is blocked.</h3>
+                    <p class="lock-until">Until 20:30</p>
+                    <p class="lock-left"><b>41</b><span>min left in the hold</span></p>
+                    <div class="lock-list">
+                      <div><span>Instagram</span><b>Blocked</b></div>
+                      <div><span>YouTube</span><b>Blocked</b></div>
+                      <div><span>X</span><b>Blocked</b></div>
+                    </div>
+                    <p class="lock-note">Leaving takes a hold. The kiosk releases at the deadline. Always.</p>
+                  </section>
+
+                  <!-- REVIEW -->
+                  <section class="screen" data-screen="review">
+                    <p class="scr-date">This week</p>
+                    <h3 class="scr-score">87<span>%</span></h3>
+                    <p class="scr-sub">of your daily goal</p>
+                    <div class="heat" aria-hidden="true">
+                      <i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i>
+                      <i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+                      <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i>
+                      <i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i>
+                      <i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i>
+                      <i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i>
+                      <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i>
+                    </div>
+                    <div class="review-stats">
+                      <div><b>10</b><span>clean days</span></div>
+                      <div><b>3</b><span>honest slips</span></div>
+                      <div><b>12h</b><span>focused</span></div>
+                    </div>
+                  </section>
+                </div>
+
+                <nav class="phone-tabs">
+                  <span class="ph-tab" data-tab="home">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>
+                    <span>Home</span>
+                  </span>
+                  <span class="ph-tab" data-tab="plan">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16M8 14h3M8 17h6"/></svg>
+                    <span>Plan</span>
+                  </span>
+                  <span class="ph-tab" data-tab="start">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5l3 2"/></svg>
+                    <span>Focus</span>
+                  </span>
+                  <span class="ph-tab" data-tab="lock">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
+                    <span>Control</span>
+                  </span>
+                  <span class="ph-tab" data-tab="review">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg>
+                    <span>Stats</span>
+                  </span>
+                </nav>
+              </div>
+            </div>
           </div>
-          <p class="ht-note">A real countdown on this page. The app runs the same ring for hours.</p>
+          </div>
+
+          <div class="story-copy">
+            <article class="step is-active" data-step="plan">
+              <h3>Plan the week.</h3>
+              <p>Name a block, pick the days, set the alarm. Lockin repeats it, so tomorrow is already decided.</p>
+            </article>
+            <article class="step" data-step="start">
+              <h3>Start the hold.</h3>
+              <p>A wall-clock ring, the daily target and the tasks you attached. The screen stays awake for as long as the session runs.</p>
+            </article>
+            <article class="step" data-step="lock">
+              <h3>Lock the apps.</h3>
+              <p>Strict mode covers the apps you choose. On Android, leaving takes a hold; the kiosk releases at the deadline, every time.</p>
+            </article>
+            <article class="step" data-step="review">
+              <h3>Review the truth.</h3>
+              <p>Seven days against the goal, thirteen weeks of clean days, every honest slip. No seeded sessions. No streak for sale.</p>
+              <a class="btn btn-primary step-cta" href="/app/?trial=1">Open the live trial</a>
+            </article>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="section" id="features" aria-labelledby="features-title">
-      <div class="section-head reveal">
-        <h2 id="features-title">One day, held together.</h2>
-        <p>Schedule the shape, keep a short list, then let Study Mode hold the screen. Every screen below is the real app.</p>
+    <section class="section control" id="control" aria-labelledby="control-title">
+      <div class="section-head">
+        <h2 id="control-title">See where<br>the hours go.</h2>
+        <p>A seven-day screen-time chart, the apps that took the time, and a limit on the ones you choose. Control opens with it.</p>
       </div>
 
-      <div class="board">
-        <article class="tile tile-head reveal" style="--d:0ms">
-          <h3>What a day looks like</h3>
-          <p>Five screens, one clock. No feed, no badges, no streak for sale.</p>
-        </article>
-
-        <article class="tile tile-shot tile-home reveal" style="--d:60ms" data-ui>
-          <img src="/screenshots/home.png" width="860" height="1864" alt="Home screen with exam countdown, daily focus and the next block" loading="lazy">
-          <div class="tile-copy">
-            <h3>Home remembers three things</h3>
-            <p>Days left, today’s focus, and the next block. Nothing else.</p>
+      <div class="control-panel" data-ui>
+        <div class="cp-head">
+          <div>
+            <p class="cp-label">Screen time</p>
+            <p class="cp-total">14h 25m <span>this week</span></p>
           </div>
-        </article>
+          <p class="cp-delta"><b>42m</b> less than last week</p>
+        </div>
 
-        <article class="tile tile-shot reveal" style="--d:120ms" data-ui>
-          <img src="/screenshots/schedule.png" width="860" height="1864" alt="Schedule screen with a live next block, day ring and recurring blocks" loading="lazy">
-          <div class="tile-copy">
-            <h3>Blocks that repeat</h3>
-            <p>Name a block, pick the days, set the alarm.</p>
+        <div class="cp-chart">
+          <div class="cp-goal"><span>3h a day</span></div>
+          <div class="cp-bars">
+            <div class="cp-day"><i style="--h: 54%"></i><span>M</span><b>2h 10</b></div>
+            <div class="cp-day"><i style="--h: 76%"></i><span>T</span><b>3h 05</b></div>
+            <div class="cp-day"><i style="--h: 35%"></i><span>W</span><b>1h 25</b></div>
+            <div class="cp-day over"><i style="--h: 92%"></i><span>T</span><b>4h 20</b></div>
+            <div class="cp-day"><i style="--h: 68%"></i><span>F</span><b>2h 45</b></div>
+            <div class="cp-day over"><i style="--h: 100%"></i><span>S</span><b>5h 10</b></div>
+            <div class="cp-day"><i style="--h: 46%"></i><span>S</span><b>1h 50</b></div>
           </div>
-        </article>
+        </div>
 
-        <article class="tile tile-shot reveal" style="--d:180ms" data-ui>
-          <img src="/screenshots/focus.png" width="860" height="1864" alt="Study Mode running room with a circular clock ring and daily target meter" loading="lazy">
-          <div class="tile-copy">
-            <h3>Study Mode holds the screen</h3>
-            <p>Wake lock, a live target meter, and slips that are logged.</p>
+        <div class="cp-apps">
+          <p class="cp-label">Most used</p>
+          <div class="cp-app">
+            <span class="cp-name">Instagram</span>
+            <i class="cp-meter" style="--w: 92%"></i>
+            <b>4h 12m</b>
           </div>
-        </article>
-
-        <article class="tile tile-shot reveal" style="--d:240ms" data-ui>
-          <img src="/screenshots/progress.png" width="860" height="1864" alt="Progress screen with the goal ring, seven day bars and clean-day heatmap" loading="lazy">
-          <div class="tile-copy">
-            <h3>Clean days, not theatre</h3>
-            <p>A 13-week heatmap and the Honesty Log.</p>
+          <div class="cp-app">
+            <span class="cp-name">YouTube</span>
+            <i class="cp-meter" style="--w: 68%"></i>
+            <b>3h 05m</b>
           </div>
-        </article>
-
-        <article class="tile tile-text reveal" style="--d:300ms">
-          <h3>Today and tomorrow</h3>
-          <p>Two days deep. A task list, not a backlog graveyard.</p>
-        </article>
-
-        <article class="tile tile-shot reveal" style="--d:360ms" data-ui>
-          <img src="/screenshots/control.png" width="860" height="1864" alt="Control screen with app blocking, per-app limits and the strict kiosk" loading="lazy">
-          <div class="tile-copy">
-            <h3>Android does the blocking</h3>
-            <p>Choose apps, set limits, arm the strict kiosk.</p>
+          <div class="cp-app">
+            <span class="cp-name">WhatsApp</span>
+            <i class="cp-meter" style="--w: 40%"></i>
+            <b>1h 48m</b>
           </div>
-        </article>
+          <div class="cp-app">
+            <span class="cp-name">Chrome</span>
+            <i class="cp-meter" style="--w: 30%"></i>
+            <b>1h 22m</b>
+          </div>
+        </div>
 
-        <article class="tile tile-text reveal" style="--d:420ms">
-          <h3>Local first</h3>
-          <p>Your data stays on your device. Export a complete JSON backup whenever you want.</p>
-        </article>
+        <div class="cp-foot">
+          <span>Instagram blocked after 30 min</span>
+          <span>YouTube Shorts off</span>
+        </div>
+      </div>
+      <p class="control-fine">Demo numbers from Test Account. On Android, the chart is your real usage.</p>
+    </section>
 
-        <article class="tile tile-text reveal" style="--d:480ms">
-          <h3>Chrome extension</h3>
-          <p>Blocks sites and cuts Shorts and Reels at the URL.</p>
+    <section class="section rules" id="rules" aria-labelledby="rules-title">
+      <div class="rules-head">
+        <h2 id="rules-title">It refuses<br>to fake it.</h2>
+        <p>The engine runs on these four rules, not on encouragement.</p>
+      </div>
+      <div class="rule-list">
+        <article class="rule">
+          <p class="rule-figure"><b data-count="10">0</b><span>s</span></p>
+          <h3>Ten seconds is an accident.</h3>
+          <p>Away for less and it is never logged as a slip. The clock keeps the difference.</p>
         </article>
-
-        <article class="tile tile-text reveal" style="--d:540ms">
-          <h3>Optional cloud</h3>
-          <p>Sign in with Google and mirror a copy to your own private Firestore.</p>
+        <article class="rule">
+          <p class="rule-figure"><b data-count="3">0</b></p>
+          <h3>Three rescues a day.</h3>
+          <p>After that, a slip is a slip. Nothing is quietly erased from the log.</p>
+        </article>
+        <article class="rule">
+          <p class="rule-figure"><b data-count="15">0</b><span>m</span></p>
+          <h3>Fifteen minutes earns an exit.</h3>
+          <p>Real work buys a neutral way out of a session. Leaving early asks you to mean it.</p>
+        </article>
+        <article class="rule">
+          <p class="rule-figure"><b data-count="7">0</b><span>day</span></p>
+          <h3>Seven days, shown honestly.</h3>
+          <p>The chart and the log say what happened, not what would look good.</p>
         </article>
       </div>
     </section>
 
-    <section class="section showcase" id="progress" aria-labelledby="progress-title">
-      <div class="showcase-copy reveal">
-        <h2 id="progress-title">Every number, earned.</h2>
-        <p>The app never seeds a session, never inflates a streak, and never calls a broken day clean. Pick a view and look at what it actually records.</p>
-        <div class="showcase-tabs" role="tablist" aria-label="Real app screens">
-          <button class="show-tab is-active" type="button" role="tab" aria-selected="true" data-view="today">Today</button>
-          <button class="show-tab" type="button" role="tab" aria-selected="false" data-view="week">The week</button>
-          <button class="show-tab" type="button" role="tab" aria-selected="false" data-view="session">The session</button>
-          <button class="show-tab" type="button" role="tab" aria-selected="false" data-view="rules">The rules</button>
-        </div>
-        <p class="showcase-fact" id="showcase-fact">Today: minutes banked, the daily target, the current streak and the clean-day verdict.</p>
+    <section class="section trial" id="trial" aria-labelledby="trial-title">
+      <div class="trial-copy">
+        <h2 id="trial-title">Try it before<br>you trust it.</h2>
+        <p>Test Account opens the real app with a believable week already on the clock. Schedule, Study Mode, alarms while the tab is open and every Progress view work.</p>
+        <ul class="trial-list">
+          <li>App blocking, screen time and the strict kiosk say “Android only” — they never pretend.</li>
+          <li>One tap resets the week. The trial keeps its own browser storage.</li>
+        </ul>
+        <a class="btn btn-primary" href="/app/?trial=1">Meet Test Account</a>
       </div>
-      <div class="showcase-disc reveal" style="--d:120ms">
-        <div class="showcase-frames" data-ui>
-          <img class="show-frame is-active" data-frame="today" src="/screenshots/home.png" width="860" height="1864" alt="Home screen" loading="lazy">
-          <img class="show-frame" data-frame="week" src="/screenshots/progress.png" width="860" height="1864" alt="Progress screen" loading="lazy">
-          <img class="show-frame" data-frame="session" src="/screenshots/focus.png" width="860" height="1864" alt="Study Mode screen" loading="lazy">
-          <img class="show-frame" data-frame="rules" src="/screenshots/settings.png" width="860" height="1864" alt="Settings screen with the strict rules" loading="lazy">
+      <div class="trial-card" data-ui>
+        <p class="tc-label">Demo account</p>
+        <div class="tc-id">
+          <span class="tc-avatar">T</span>
+          <span><b>Test Account</b><span>test.account@lockin.app</span></span>
         </div>
+        <p class="tc-status"><i></i> Local only — no Google account</p>
+        <div class="tc-rows">
+          <div><span>Seeded week</span><b>14 days</b></div>
+          <div><span>Sessions</span><b>24</b></div>
+          <div><span>Honest slips</span><b>3</b></div>
+          <div><span>Clean days</span><b>10</b></div>
+        </div>
+        <p class="tc-fine">The seeded numbers are fixed demo data, not a claim about your study.</p>
       </div>
     </section>
 
-    <section class="section how" id="how" aria-labelledby="how-title">
-      <div class="how-copy reveal">
-        <h2 id="how-title">Plan. Start. Lock. Review.</h2>
-        <p class="how-clause" id="how-clause">Put the week on the record.</p>
+    <section class="section faq" id="faq" aria-labelledby="faq-title">
+      <div class="faq-head">
+        <h2 id="faq-title">Questions,<br>answered.</h2>
+        <p>The honest version, including what a browser cannot do.</p>
       </div>
-      <div class="how-stage reveal" style="--d:100ms" data-ui>
-        <img class="how-frame is-active" data-stage="0" src="/screenshots/schedule.png" width="860" height="1864" alt="Schedule screen with recurring blocks" loading="lazy">
-        <img class="how-frame" data-stage="1" src="/screenshots/focus.png" width="860" height="1864" alt="Study Mode with a countdown" loading="lazy">
-        <img class="how-frame" data-stage="2" src="/screenshots/control.png" width="860" height="1864" alt="Control screen with app blocking" loading="lazy">
-        <img class="how-frame" data-stage="3" src="/screenshots/progress.png" width="860" height="1864" alt="Progress screen with the honesty log" loading="lazy">
-      </div>
-      <div class="how-controls reveal" style="--d:180ms">
-        <label class="sr-only" for="how-range">How it works stage</label>
-        <input id="how-range" class="how-range" type="range" min="0" max="3" step="1" value="0">
-        <div class="how-labels">
-          <button type="button" data-stage-btn="0" class="is-active">Plan</button>
-          <button type="button" data-stage-btn="1">Start</button>
-          <button type="button" data-stage-btn="2">Lock</button>
-          <button type="button" data-stage-btn="3">Review</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="section proof" id="proof" aria-labelledby="proof-title">
-      <div class="section-head reveal">
-        <h2 id="proof-title">It refuses to fake it.</h2>
-        <p>These are the rules the engine actually runs on, not marketing numbers.</p>
-      </div>
-      <div class="proof-grid">
-        <article class="proof-tile reveal" style="--d:0ms">
-          <div class="proof-num"><b data-count="10">0</b><span>s</span></div>
-          <p>An away shorter than ten seconds is an accident, not a slip.</p>
+      <div class="faq-list">
+        <article class="qa">
+          <h3>What works in the browser trial?</h3>
+          <p>Schedule blocks, today and tomorrow tasks, Study Mode sessions, the wake lock, the daily target, the Honesty Log, Progress, export and import. Alarms ring while the tab is open. Everything is local to a separate trial store, so your real Lockin data is untouched.</p>
         </article>
-        <article class="proof-tile reveal" style="--d:80ms">
-          <div class="proof-num"><b data-count="3">0</b><span>free</span></div>
-          <p>Rescues a day before an away episode becomes a logged slip.</p>
+        <article class="qa">
+          <h3>What needs the Android app?</h3>
+          <p>App blocking, per-app daily limits, screen time, usage access, exact alarms that ring when the app is closed, full-screen alarms, and the strict kiosk. A browser cannot see or cover another app. Those cards say “Only available on the Android app” and link to the download.</p>
         </article>
-        <article class="proof-tile reveal" style="--d:160ms">
-          <div class="proof-num"><b data-count="15">0</b><span>m</span></div>
-          <p>Real work earns a neutral exit. Leaving early asks you to mean it.</p>
+        <article class="qa">
+          <h3>Do I need a Google account?</h3>
+          <p>No. Lockin works signed out and keeps everything in this browser. If you want a mirror on another device, sign in with Google and it copies tasks, schedules, sessions, slips and settings to your own private Firestore. The trial uses a local Test Account and never contacts Google.</p>
         </article>
-        <article class="proof-tile reveal" style="--d:240ms">
-          <div class="proof-num"><b data-count="7">0</b><span>day week</span></div>
-          <p>A screen-time chart for the week, with the apps that took the time.</p>
+        <article class="qa">
+          <h3>How strict is Strict Mode?</h3>
+          <p>Off means tracking only. On, leaving for more than ten seconds is an away episode; you get three free rescues a day, then it is logged. Fifteen minutes of real work earns a neutral exit. The Android kiosk can pin the phone to Lockin and an allowlist, with a deadline that always releases it. It is a focus aid, not a trap.</p>
+        </article>
+        <article class="qa">
+          <h3>Where does my data live?</h3>
+          <p>In your browser’s localStorage. The Android app keeps its data on the phone; signing in mirrors a copy to your own private cloud. The trial uses a separate key and never reads your real store.</p>
+        </article>
+        <article class="qa">
+          <h3>How do I install the APK or extension?</h3>
+          <p>Tap the Android download and open the file; Android may ask you to allow installs from this browser once. For Chrome or Edge, download the extension ZIP, unzip it, open <span class="inline-code">chrome://extensions</span>, turn on Developer mode and choose Load unpacked. The popup explains every block rule.</p>
         </article>
       </div>
     </section>
 
     <section class="download" id="download" aria-labelledby="download-title">
       <div class="download-inner">
-        <div class="download-copy reveal">
-          <h2 id="download-title">Take the clock with you.</h2>
-          <p id="download-lede">The Android build is the full instrument: exact alarms, app blocking, screen time and the strict kiosk. The extension covers sites on a laptop.</p>
+        <h2 id="download-title">Take the clock<br>with you.</h2>
+        <p class="download-lede" id="download-lede">The Android build is the full instrument: exact alarms, app blocking, screen time and the strict kiosk. The extension covers sites on a laptop.</p>
+        <div class="download-row">
           <div class="download-actions">
             <a class="btn btn-ink" id="download-primary" href="/downloads/lockin.apk" download>Download for Android</a>
             <a class="btn btn-ink-quiet" id="download-extension" href="/downloads/lockin-extension.zip" download>Get the Chrome extension</a>
           </div>
-          <p class="download-note" id="download-note">Android may ask you to allow installs from this browser. The APK is signed and installs directly.</p>
+          <a class="download-trial" href="/app/?trial=1">or open the browser trial</a>
         </div>
+        <p class="download-note" id="download-note">Android may ask you to allow installs from this browser. The APK is signed and installs directly.</p>
 
-        <div class="download-card reveal" style="--d:120ms" data-ui>
-          <div class="dl-row">
-            <div>
-              <b>Android app</b>
-              <span class="dl-sub">APK · Android 8+ · signed</span>
-            </div>
-            <span class="dl-meta"><span data-dl-version>latest</span> · <span data-dl-apk-size>—</span></span>
-          </div>
-          <div class="dl-row">
-            <div>
-              <b>Chrome extension</b>
-              <span class="dl-sub">ZIP · Chrome or Edge</span>
-            </div>
-            <span class="dl-meta"><span data-dl-version>latest</span> · <span data-dl-zip-size>—</span></span>
-          </div>
-          <div class="dl-row">
-            <div>
-              <b>Browser trial</b>
-              <span class="dl-sub">No install · Test Account</span>
-            </div>
-            <a class="dl-link" href="/app/?trial=1">Open</a>
-          </div>
-          <p class="dl-fine">Direct downloads from this page. No form, no store, no account.</p>
+        <div class="download-meta">
+          <div><span>Android app</span><b data-dl-version>latest</b><span data-dl-apk-size>—</span></div>
+          <div><span>Chrome extension</span><b data-dl-version>latest</b><span data-dl-zip-size>—</span></div>
+          <div><span>Browser trial</span><b>No install</b><span>Test Account</span></div>
         </div>
-      </div>
-    </section>
-
-    <section class="section trial-section" id="trial" aria-labelledby="trial-title">
-      <div class="trial-copy reveal">
-        <h2 id="trial-title">Meet Test Account.</h2>
-        <p>The trial opens the whole app with a demo profile and a believable week already on the clock, so Progress has something to show and every screen has a real state.</p>
-        <ul class="trial-list">
-          <li>Schedule, tasks, Study Mode, alarms while the tab is open and every Progress view work.</li>
-          <li>App blocking, screen time, usage access and the strict kiosk say “Android only” — they never pretend.</li>
-          <li>One tap resets the week. The trial keeps its own browser storage.</li>
-        </ul>
-        <a class="btn btn-primary" href="/app/?trial=1">Open the live trial</a>
-      </div>
-
-      <div class="account-card reveal" style="--d:120ms" data-ui>
-        <div class="acct-head">Account</div>
-        <div class="acct-id">
-          <span class="acct-avatar">T</span>
-          <div>
-            <b>Test Account</b>
-            <span>test.account@lockin.app</span>
-          </div>
-        </div>
-        <div class="acct-status"><i></i> Demo account — local only</div>
-        <p class="acct-note">A local demo profile with a seeded week. Your real Lockin data is untouched.</p>
-        <div class="acct-divider" aria-hidden="true"></div>
-        <div class="acct-stat"><span>Seeded week</span><b>14 days</b></div>
-        <div class="acct-stat"><span>Sessions</span><b>24</b></div>
-        <div class="acct-stat"><span>Honest slips</span><b>3</b></div>
-        <div class="acct-stat"><span>Clean days</span><b>10</b></div>
-        <a class="btn btn-primary btn-block" href="/app/?trial=1">Enter the trial</a>
-        <p class="acct-fine">The seeded numbers are fixed demo data, not a claim about your study.</p>
-      </div>
-    </section>
-
-    <section class="section faq" id="faq" aria-labelledby="faq-title">
-      <div class="faq-head reveal">
-        <h2 id="faq-title">Questions, answered.</h2>
-        <p>The honest version, including what a browser cannot do.</p>
-      </div>
-      <div class="faq-stack">
-        <details class="faq-card reveal" open>
-          <summary>
-            <span class="faq-tab">Trial</span>
-            <span class="faq-q">What works in the browser trial?</span>
-          </summary>
-          <p>Schedule blocks, today and tomorrow tasks, Study Mode sessions, the wake lock, the daily target, the Honesty Log, Progress, export and import. Alarms ring while the tab is open. Everything is local to a separate trial store, so your real Lockin data is untouched.</p>
-        </details>
-        <details class="faq-card reveal" style="--d:60ms">
-          <summary>
-            <span class="faq-tab">Android</span>
-            <span class="faq-q">What needs the Android app?</span>
-          </summary>
-          <p>App blocking, per-app daily limits, screen time, usage access, exact alarms that ring when the app is closed, full-screen alarms, and the strict kiosk. A browser cannot see or cover another app. Those cards say “Only available on the Android app” and link to the download.</p>
-        </details>
-        <details class="faq-card reveal" style="--d:120ms">
-          <summary>
-            <span class="faq-tab">Account</span>
-            <span class="faq-q">Do I need a Google account?</span>
-          </summary>
-          <p>No. Lockin works signed out and keeps everything in this browser. If you want a mirror on another device, sign in with Google and it copies tasks, schedules, sessions, slips and settings to your own private Firestore. The trial uses a local Test Account and never contacts Google.</p>
-        </details>
-        <details class="faq-card reveal" style="--d:180ms">
-          <summary>
-            <span class="faq-tab">Strict</span>
-            <span class="faq-q">How strict is Strict Mode?</span>
-          </summary>
-          <p>Off means tracking only. On, leaving for more than ten seconds is an away episode; you get three free rescues a day, then it is logged. Fifteen minutes of real work earns a neutral exit. The Android kiosk can pin the phone to Lockin and an allowlist, with a deadline that always releases it. It is a focus aid, not a trap.</p>
-        </details>
-        <details class="faq-card reveal" style="--d:240ms">
-          <summary>
-            <span class="faq-tab">Privacy</span>
-            <span class="faq-q">Where does my data live?</span>
-          </summary>
-          <p>In your browser’s localStorage. The Android app keeps its data on the phone; signing in mirrors a copy to your own private cloud. The trial uses a separate key and never reads your real store.</p>
-        </details>
-        <details class="faq-card reveal" style="--d:300ms">
-          <summary>
-            <span class="faq-tab">Install</span>
-            <span class="faq-q">How do I install the APK or extension?</span>
-          </summary>
-          <p>Tap the Android download and open the file; Android may ask you to allow installs from this browser once. For Chrome or Edge, download the extension ZIP, unzip it, open <span class="inline-code">chrome://extensions</span>, turn on Developer mode and choose Load unpacked. The popup explains every block rule.</p>
-        </details>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <div class="footer-mark" aria-hidden="true">
-      <svg viewBox="0 0 900 420" preserveAspectRatio="xMidYMid meet">
-        <path d="M450 70a200 200 0 1 1-141.4 58.6" fill="none" stroke="#c6f24e" stroke-width="46" stroke-linecap="round"/>
-        <rect x="345" y="215" width="210" height="150" rx="38" fill="#c6f24e"/>
-        <circle cx="450" cy="282" r="23" fill="#08090c"/>
-        <rect x="438" y="282" width="24" height="48" rx="12" fill="#08090c"/>
-      </svg>
-    </div>
-    <div class="footer-inner">
-      <div class="footer-name">Lockin</div>
+    <div class="footer-top">
       <p class="footer-line">Focus, strictly. Built for one thing.</p>
       <div class="footer-grid">
         <div>
           <span>Product</span>
-          <a href="#features">Features</a>
-          <a href="#progress">Progress</a>
+          <a href="#story">The app</a>
+          <a href="#control">Control</a>
           <a href="#download">Download</a>
         </div>
         <div>
@@ -370,7 +407,7 @@
         </div>
         <div>
           <span>Read</span>
-          <a href="#how">How it works</a>
+          <a href="#rules">Rules</a>
           <a href="#faq">FAQ</a>
           <a href="https://github.com/rudra-th/Lockin" rel="noopener">Source</a>
         </div>
@@ -380,10 +417,11 @@
           <span class="footer-quiet">Vanilla JS. No framework.</span>
         </div>
       </div>
-      <div class="footer-end">
-        <span>© <span id="year">2026</span> Lockin</span>
-        <a href="#top">Back to the top</a>
-      </div>
+    </div>
+    <div class="footer-mark" aria-hidden="true">lockin</div>
+    <div class="footer-end">
+      <span>© <span id="footer-year">2026</span> Lockin</span>
+      <a href="#top">Back to the top</a>
     </div>
   </footer>
 
