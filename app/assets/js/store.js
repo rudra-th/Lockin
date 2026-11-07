@@ -441,15 +441,17 @@ const Store = {
   },
 
   /**
-   * Fold a native usage snapshot (daily totals + today's per-app rows) into
-   * the store. Identical snapshots write nothing, so a foreground app cannot
-   * keep the sync engine awake. Returns true when something changed.
+   * Fold a native usage snapshot into the store: daily totals plus each day's
+   * top apps. Identical snapshots write nothing, so a foreground app cannot
+   * keep the sync engine awake. `todayApps` is the fallback for platforms or
+   * older builds that only report today's per-app rows. Returns true when
+   * something changed.
    */
-  recordScreenTime(days, apps) {
+  recordScreenTime(days, todayApps) {
     if (isTrial || !Array.isArray(days) || !days.length) return false;
     const today = todayKey();
     const now = Date.now();
-    const top = (apps || [])
+    const normApps = (list) => (list || [])
       .map((a) => ({
         package: String(a.package || ''),
         label: String(a.label || a.package || '').slice(0, 48),
@@ -458,6 +460,7 @@ const Store = {
       .filter((a) => a.label && a.mins > 0 && !SELF_PACKAGES.has(a.package))
       .sort((a, b) => b.mins - a.mins)
       .slice(0, 6);
+    const fallback = normApps(todayApps);
 
     const byId = new Map((this.state.screenTime || []).map((row) => [row.day, row]));
     let changed = false;
@@ -465,7 +468,11 @@ const Store = {
       if (!row || typeof row.day !== 'string' || !row.day) continue;
       const prev = byId.get(row.day);
       const mins = Math.max(0, Math.round((Number(row.ms) || 0) / 60000));
-      const nextApps = row.day === today ? top : (prev?.apps || []);
+      const nextApps = Array.isArray(row.apps)
+        ? normApps(row.apps)
+        : row.day === today
+          ? fallback
+          : (prev?.apps || []);
       const same = prev
         && prev.mins === mins
         && screenAppsKey(prev.apps) === screenAppsKey(nextApps);

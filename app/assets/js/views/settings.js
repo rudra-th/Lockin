@@ -8,7 +8,6 @@ import { openSheet, hint, accountAvatar } from '../ui.js';
 import { tryInstall } from '../install.js';
 import { examByName } from '../exams.js';
 import { setrow, toggle, stepper } from '../controls.js';
-import { progressCards } from './stats.js';
 import { ensureAlarmPermission } from '../alarms.js';
 import {
   isNative, nativeStatus, requestNotifications, openNotificationSettings,
@@ -21,21 +20,30 @@ import { ensurePairCode, rotatePairCode } from '../summary.js';
 import { isTrial, resetTrial } from '../trial.js';
 
 export function initSettings(Router) {
-  Router.register('/settings', { mount, unmount: null });
-  /* Old #/stats bookmarks and links land in the Progress section. */
+  Router.register('/settings', { mount, unmount });
+  /* Old #/stats bookmarks and links land on the Progress screen. */
   Router.register('/stats', {
-    mount: () => { Router.go('/settings?section=progress'); },
+    mount: () => { Router.go('/progress'); },
     unmount: null,
   });
 }
 
-/* Settings is grouped the way it is used: what a session does, what the phone
-   does, what the record shows, and who owns the data. */
+/* Cards attach document listeners while the screen is alive; this list lets
+   the router remove every one of them on unmount instead of relying on a
+   later event to notice the card is gone. */
+let cleanups = [];
+
+function onCleanup(fn) {
+  if (typeof fn === 'function') cleanups.push(fn);
+}
+
+/* The hub is grouped the way it is used: what a session does, what the phone
+   does, the record, who owns the data. Each row opens one deep screen. */
 const SECTIONS = [
-  { id: 'study', label: 'Study', icon: 'book', blurb: 'Target, rounds and alarms', short: 'Target & alarms' },
-  { id: 'device', label: 'Device', icon: 'phone', blurb: 'Screen, alerts and Android access', short: 'Screen & alerts' },
-  { id: 'progress', label: 'Progress', icon: 'chart', blurb: 'Today, the week and the record', short: 'The record' },
-  { id: 'you', label: 'You', icon: 'user', blurb: 'Profile, account, data and credits', short: 'Profile & data' },
+  { id: 'study', label: 'Study & focus', icon: 'book', blurb: 'Daily target, Pomodoro lengths and schedule alarms.' },
+  { id: 'device', label: 'Screen & alerts', icon: 'phone', blurb: 'Wake lock, notifications and Android access.' },
+  { id: 'account', label: 'Account & sync', icon: 'cloud', blurb: 'Optional cloud mirror and the browser extension.' },
+  { id: 'data', label: 'Data & backup', icon: 'copy', blurb: 'Export, restore, install and credits.' },
 ];
 
 function targetCard() {
@@ -132,23 +140,6 @@ function pill(on, onText = 'On', offText = 'Off') {
   return el('span', { class: `native-pill${on ? ' on' : ''}` }, on ? onText : offText);
 }
 
-/* ---------- screen time lives in Control ---------- */
-
-function screenTimeCard() {
-  if (!isNative) return null;
-
-  return el('div', { class: 'card ctl-pointer' },
-    el('div', { class: 'ctl-card-head' },
-      el('h2', { class: 'blocking-head' }, svg('clock', 16), el('span', {}, 'Screen time')),
-      el('span', { class: 'ctl-tag' }, 'In Control')),
-    el('p', { class: 'muted ctl-lede' },
-      'Your week chart, today’s total and most-used apps now live in Control — next to the limits that act on them.'),
-    el('button', {
-      class: 'btn btn-subtle btn-block',
-      onclick: () => Router.go('/control'),
-    }, svg('chart', 17), 'Open Control'));
-}
-
 function nativeCard() {
   if (!isNative) return null;
 
@@ -190,6 +181,7 @@ function nativeCard() {
 
   const onVisible = () => { if (!document.hidden) refresh(); };
   addEventListener('visibilitychange', onVisible);
+  onCleanup(() => removeEventListener('visibilitychange', onVisible));
   setTimeout(refresh, 0); // the card is appended right after this returns
 
   const widgetBtn = el('button', {
@@ -524,17 +516,15 @@ function accountCard() {
     );
   }
 
-  /* Sync and account events repaint the card while it is alive; once Settings
-     unmounts it, the listeners remove themselves so nothing lingers. */
-  const repaint = () => {
-    if (document.contains(card)) paint();
-    else {
-      document.removeEventListener('lockin:account', repaint);
-      document.removeEventListener('lockin:sync', repaint);
-    }
-  };
+  /* Sync and account events repaint the card while it is alive. The router
+     removes these listeners on unmount, so nothing lingers between visits. */
+  const repaint = () => { if (document.contains(card)) paint(); };
   document.addEventListener('lockin:account', repaint);
   document.addEventListener('lockin:sync', repaint);
+  onCleanup(() => {
+    document.removeEventListener('lockin:account', repaint);
+    document.removeEventListener('lockin:sync', repaint);
+  });
   paint();
   return card;
 }
@@ -564,84 +554,86 @@ function aboutCard() {
   );
 }
 
-function sectionHead(meta) {
-  return el('div', { class: 'setpanel-head' },
-    el('div', { class: 'setpanel-eyebrow' }, svg(meta.icon, 13), el('span', {}, meta.label)),
-    el('p', {}, meta.blurb),
+function menuRow(meta, target) {
+  return el('button', {
+    class: 'menu-row', type: 'button',
+    onclick: () => Router.go(target),
+  },
+    el('span', { class: 'menu-icon' }, svg(meta.icon, 18)),
+    el('span', { class: 'menu-txt' },
+      el('b', {}, meta.label),
+      el('span', {}, meta.blurb)),
+    el('span', { class: 'menu-go', innerHTML: svg('chevR', 16) }),
   );
 }
 
-function sectionNav(active, onPick) {
-  const nav = el('nav', { class: 'setnav', 'aria-label': 'Settings sections' });
-  SECTIONS.forEach((meta) => {
-    nav.append(el('button', {
-      type: 'button',
-      class: 'setnav-btn',
-      dataset: { section: meta.id },
-      'aria-pressed': String(meta.id === active),
-      'aria-controls': `setpanel-${meta.id}`,
-      onclick: () => onPick(meta.id),
-    },
-      el('span', { class: 'setnav-icon' }, svg(meta.icon, 17)),
-      el('span', { class: 'setnav-txt' },
-        el('b', {}, meta.label),
-        el('small', {}, meta.short)),
-    ));
-  });
-  return nav;
+function hub() {
+  const p = Store.state.profile || {};
+  const rows = [
+    ...SECTIONS.map((meta) => menuRow(meta, `/settings?section=${meta.id}`)),
+  ];
+  /* Progress is a record, not a lever — a direct link, not a settings screen. */
+  rows.splice(2, 0, menuRow({
+    label: 'Progress', icon: 'chart',
+    blurb: 'Today, the week and the whole record.',
+  }, '/progress'));
+
+  return el('section', { class: 'view-anim' },
+    el('header', { class: 'app-head' },
+      el('div', { class: 'grow' },
+        el('h1', {}, 'You'),
+        el('div', { class: 'sub' },
+          p.name ? `${p.name}${p.exam ? ` · ${p.exam}` : ''}` : 'Profile, app and data.'),
+      ),
+    ),
+    profileCard(),
+    el('div', { class: 'menu' }, rows),
+    lookCard(),
+    el('p', { class: 'tiny', style: 'text-align:center;margin:20px 0 0' },
+      'Lockin · focus, strictly.'),
+  );
 }
 
-function render(host, params = {}) {
-  const initial = SECTIONS.some((s) => s.id === params.section) ? params.section : 'study';
+function sectionScreen(meta) {
   const cards = {
     study: [targetCard(), pomoCard(), alarmsCard()],
     device: [
       deviceBasicsCard(),
-      ...(isNative ? [screenTimeCard(), nativeCard(), deviceCard()] : [webDeviceCard()]),
+      ...(isNative ? [nativeCard(), deviceCard()] : [webDeviceCard()]),
     ],
-    progress: progressCards(),
-    you: [profileCard(), lookCard(), accountCard(), dataCard(), aboutCard()],
-  };
+    account: [accountCard()],
+    data: [dataCard(), aboutCard()],
+  }[meta.id] || [];
 
-  const panels = new Map();
-  SECTIONS.forEach((meta) => {
-    panels.set(meta.id, el('section', {
-      class: 'setpanel',
-      id: `setpanel-${meta.id}`,
-      'aria-label': meta.label,
-      hidden: meta.id !== initial,
-    }, sectionHead(meta), ...cards[meta.id]));
-  });
-
-  const nav = sectionNav(initial, activate);
-  const scrollHost = host; // #view scrolls, not the window
-
-  function activate(id) {
-    panels.forEach((panel, key) => { panel.hidden = key !== id; });
-    nav.querySelectorAll('.setnav-btn').forEach((btn) => {
-      btn.setAttribute('aria-pressed', String(btn.dataset.section === id));
-    });
-    history.replaceState(null, '', `#/settings?section=${id}`);
-    scrollHost.scrollTop = 0;
-    const status = document.getElementById('a11y-status');
-    if (status) {
-      const meta = SECTIONS.find((s) => s.id === id);
-      status.textContent = `${meta ? meta.label : id} settings section`;
-    }
-  }
-
-  host.append(el('section', { class: 'view-anim stagger' },
-    el('div', { class: 'app-head' },
+  return el('section', { class: 'view-anim' },
+    el('button', {
+      class: 'backrow', type: 'button', onclick: () => Router.go('/settings'),
+    }, svg('chevL', 16), 'You'),
+    el('header', { class: 'app-head' },
       el('div', { class: 'grow' },
-        el('h1', {}, 'Settings'),
-        el('div', { class: 'sub' }, 'Every lever, grouped the way you use it.'),
+        el('h1', {}, meta.label),
+        el('div', { class: 'sub' }, meta.blurb),
       ),
     ),
-    nav,
-    [...panels.values()],
-  ));
+    cards.filter(Boolean),
+  );
+}
+
+function render(host, params = {}) {
+  if (params.section === 'progress') { Router.go('/progress'); return; }
+  const meta = SECTIONS.find((s) => s.id === params.section);
+  host.append(meta ? sectionScreen(meta) : hub());
 }
 
 function mount(host, params) {
+  cleanups = [];
   render(host, params);
+}
+
+function unmount() {
+  const fns = cleanups;
+  cleanups = [];
+  fns.forEach((fn) => {
+    try { fn(); } catch (_) { /* one bad cleanup must not block the rest */ }
+  });
 }

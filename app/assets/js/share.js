@@ -11,6 +11,7 @@
 
 import { Store } from './store.js';
 import { el, fmtMin, todayKey, addDays, parseKey, weekSummary } from './util.js';
+import { latestOnly } from '../../core/async.js';
 import { svg } from './icons.js';
 import { openSheet, hint } from './ui.js';
 import { isNative, shareImage } from './native.js';
@@ -662,8 +663,8 @@ export function openShareSheet({ mins, goal } = {}) {
   const focusMin = Math.max(0, Math.round(mins ?? Store.focusMinutesOn(todayKey())));
   const target = Math.max(1, Math.round(goal ?? Store.goalToday() ?? focusMin));
   let credit = true;
-  let building = null;
   let previewUrl = null;
+  const builds = latestOnly();
 
   const preview = el('img', {
     class: 'share-preview share-preview-square',
@@ -673,19 +674,21 @@ export function openShareSheet({ mins, goal } = {}) {
   const caption = shareCaption(focusMin);
 
   const build = () => {
-    building = makeFile({
+    const mine = builds.next();
+    const task = makeFile({
       mins: focusMin,
       goal: target,
       name: Store.state.profile.name || '',
       credit,
     }).then((made) => {
+      if (!builds.isCurrent(mine)) return made; // a newer toggle already won
       const next = previewUrlFor(made);
       preview.src = next;
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = next;
       return made;
     });
-    return building;
+    return task;
   };
 
   const copyCaption = async () => {
@@ -769,8 +772,8 @@ export function openShareSheet({ mins, goal } = {}) {
 export function openWeekShare() {
   const summary = currentWeekSummary();
   let credit = true;
-  let building = null;
   let previewUrl = null;
+  const builds = latestOnly();
 
   const preview = el('img', {
     class: 'share-preview share-preview-week',
@@ -780,18 +783,20 @@ export function openWeekShare() {
   const caption = weekCaption(summary);
 
   const build = () => {
-    building = makeWeekFile({
+    const mine = builds.next();
+    const task = makeWeekFile({
       summary,
       name: Store.state.profile.name || '',
       credit,
     }).then((made) => {
+      if (!builds.isCurrent(mine)) return made; // a newer toggle already won
       const next = previewUrlFor(made);
       preview.src = next;
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = next;
       return made;
     });
-    return building;
+    return task;
   };
 
   const copyCaption = async () => {

@@ -9,7 +9,7 @@ import { Store } from './store.js';
 import { Router } from './router.js';
 import {
   el, eventsBetween, spanLabel, daysLabel, todayKey, dateKey,
-  reminderBody, nudgeDue, nudgeBody,
+  reminderBody, nudgeDue, nudgeBody, pickDueEvents, sameOccurrence,
 } from './util.js';
 import { svg } from './icons.js';
 import { closeSheet, hint } from './ui.js';
@@ -271,19 +271,12 @@ function check() {
     /* "Alarm at start" is per block; a reminder still fires when it is off. */
     .filter((ev) => ev.kind === 'remind' || ev.occ.schedule.alarm !== false);
 
-  let start = null;
-  let remind = null;
-  for (const ev of events) {
-    if (fired.has(eventKey(ev))) continue;
-    if (ev.kind === 'start') {
-      if (!start || ev.at > start.at) start = ev;
-    } else if (!remind || ev.at > remind.at) {
-      remind = ev;
-    }
-  }
+  const { start, remind } = pickDueEvents(events, (ev) => fired.has(eventKey(ev)));
 
   if (start) {
-    remember(eventKey(start));
+    /* The start owns its whole occurrence: a reminder that was already due in
+       the same lookback must not ring "in 0 min" on the next tick. */
+    for (const ev of sameOccurrence(events, start)) remember(eventKey(ev));
     ringStart(start);
     return;
   }

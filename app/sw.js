@@ -1,7 +1,7 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.15.1';
+const VERSION = 'lockin.v1.16.0';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
 const BASE = new URL('./', self.location).pathname;
@@ -13,6 +13,7 @@ const PRECACHE = [
   './manifest.webmanifest',
   './favicon.svg',
   './assets/css/app.css',
+  './assets/css/design.css',
   './core/time.js',
   './core/goal.js',
   './core/session.js',
@@ -20,6 +21,7 @@ const PRECACHE = [
   './core/week.js',
   './core/notify.js',
   './core/sync.js',
+  './core/async.js',
   './assets/js/store.js',
   './assets/js/trial.js',
   './assets/js/exams.js',
@@ -38,12 +40,15 @@ const PRECACHE = [
   './assets/js/sync.js',
   './assets/js/summary.js',
   './assets/js/usage.js',
+  './assets/js/usage-format.js',
   './assets/js/share.js',
   './assets/js/app.js',
   './assets/js/views/home.js',
   './assets/js/views/schedule.js',
   './assets/js/views/focus.js',
   './assets/js/views/stats.js',
+  './assets/js/views/screen-time.js',
+  './assets/js/views/progress.js',
   './assets/js/views/settings.js',
   './assets/js/views/walkthrough.js',
   './assets/fonts/hanken-grotesk-latin.woff2',

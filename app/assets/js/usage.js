@@ -23,11 +23,11 @@ export async function snapshotUsage() {
   try {
     const status = await nativeStatus();
     if (!status?.usage) return false; // permission off — never invent data
-    const [today, week] = await Promise.all([
+    const [today, month] = await Promise.all([
       queryUsageToday(),
-      queryUsageDaily(7),
+      queryUsageDaily(30),
     ]);
-    return Store.recordScreenTime(week, today);
+    return Store.recordScreenTime(month, today);
   } catch (_) {
     return false;
   }

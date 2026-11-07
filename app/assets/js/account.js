@@ -8,7 +8,7 @@ import { isNative } from './native.js';
 import { loadFirebase } from './firebase.js';
 import { startSync, stopSync, syncStatus, resetSyncMeta } from './sync.js';
 import { Store } from './store.js';
-import { ensurePairCode } from './summary.js';
+import { ensurePairCode, resetSummarySignature } from './summary.js';
 import { authErrorMessage, errorCodeOf, isCancel } from '../../core/auth-errors.js';
 import { isTrial, TRIAL_ACCOUNT } from './trial.js';
 
@@ -214,6 +214,7 @@ export async function deleteCloudData() {
     if (code) {
       try { await F.deleteDoc(F.doc(db, 'public', code)); } catch (_) { /* already gone */ }
     }
+    resetSummarySignature(); // the next sign-in republishes even if nothing changed
     resetSyncMeta(); // a later sign-in re-uploads from scratch
     await signOut();
   } catch (err) {

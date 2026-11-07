@@ -71,6 +71,15 @@ function signatureOf(data) {
   return JSON.stringify(rest);
 }
 
+/**
+ * Forget the last published signature. Call this when the public document may
+ * be gone (cloud delete) so the next sync republishes instead of skipping.
+ */
+export function resetSummarySignature() {
+  lastSig = null;
+  try { localStorage.removeItem(SIG_KEY); } catch (_) { /* pairing still works */ }
+}
+
 /** Write the summary when its content actually changed. Best-effort only. */
 export async function publishSummary({ db, F, uid }) {
   if (!db || !F || !uid) return false;

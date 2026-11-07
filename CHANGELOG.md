@@ -3,6 +3,42 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.16.0 — 2026-11-07
+
+### The Instrument — the whole app, rebuilt around one action
+
+- **A new visual system.** Near-black canvas, two surfaces, one hero and one
+  primary action per screen. Hanken Grotesk for the interface, Fraunces for the
+  two places that deserve it (the Home line and the done screen), IBM Plex Mono
+  for clocks and figures. Lime is reserved for the action that matters.
+- **Five tabs, one job each: Home · Plan · Focus · Phone · You.** Progress left
+  Settings for its own screen; Settings is now a short hub of four groups.
+- **Home** answers “what now?” with today’s minutes against the target, the next
+  block and the week strip. The strip opens Progress.
+- **Focus** opens on a setup screen: timer or stopwatch, rounds and a Strict
+  Mode switch. Strict mode blocks every app outside your allowlist, hides pause,
+  and makes ending a long hold that forfeits the running segment — rounds you
+  already finished stay banked.
+- **Phone** leads with the week chart, today’s total and the top apps. **More**
+  opens a full screen-time screen with 7- or 30-day ranges, per-day totals and
+  each day’s app breakdown, including past days.
+- **Progress** is a dedicated record screen. **Settings** is four grouped
+  sections: Study & focus, Screen & alerts, Account & sync, Data & backup.
+- **Light theme is warm paper**, not an inversion. Theme follows the system by
+  default and remains switchable in Settings → You.
+- **Fixes**
+  - A schedule start marks its whole occurrence as fired, so a reminder due in
+    the same lookback cannot ring “in 0 min” on the next tick.
+  - Deleting cloud data resets the public-summary signature, so the next sync
+    republishes instead of skipping.
+  - Share previews are generation-guarded; a slow older render can no longer
+    overwrite a newer one.
+  - Settings removes every document listener on unmount instead of waiting for
+    a later event to notice the card is gone.
+  - Holding the end control through navigation is cancelled cleanly.
+- Native usage now reports each day’s top apps for the last 30 days; older
+  snapshots still fall back to today’s list.
+
 ## 1.15.1 — 2026-11-07
 
 ### Share the card, for real

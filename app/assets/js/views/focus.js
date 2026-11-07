@@ -1,13 +1,13 @@
 /* Lockin — Study Mode: the session engine.
    The engine is module-level and survives navigation and reloads. Strict
-   Mode is gone: the room holds the screen, the clock tells the truth, and
-   stopping is always allowed. */
+   Mode is a per-session choice: the phone holds the line, the clock tells the
+   truth, and the long-hold end is always there. */
 
 import { Store, uid } from '../store.js';
 import { Router } from '../router.js';
 import {
   el, fmtClock, fmtWatch, fmtMin, todayKey, FREE_EXIT_SEC, END_HOLD_MS,
-  blockSessionMin, spanMin, occurrenceOn, parseKey,
+  blockSessionMin, spanMin, occurrenceOn, parseKey, completedRoundMinutes,
 } from '../util.js';
 import { svg } from '../icons.js';
 import { closeSheet, hint, goalMeter, updateGoalMeter } from '../ui.js';
@@ -89,7 +89,9 @@ export function resumeFromSnapshot() {
 
 /* ---------- kiosk (Android opt-in) ---------- */
 
-const kioskOn = () => isNative && !!Store.state.settings.kiosk;
+/* Session strict mode is the Focus toggle; the legacy Control kiosk switch
+   still arms it for people who set it up there. */
+const kioskOn = () => isNative && (!!Store.state.settings.strictMode || !!Store.state.settings.kiosk);
 
 /** Keep the fail-open deadline at least two minutes ahead of the clock. */
 function kioskUntil() {
@@ -345,6 +347,10 @@ function finishBreak() {
 
 function finish(finished, opts = {}) {
   const discard = !!opts.discard;
+  const forfeit = !!opts.forfeit;
+  /* A break is not focus. Ending during one must never write the break's
+     minutes as a focus record; completed rounds are already banked. */
+  const skipSegment = !!opts.skipSegment || Session.phase === 'break';
   releaseKiosk();
   clearInterval(timer);
   timer = null;
@@ -353,7 +359,7 @@ function finish(finished, opts = {}) {
   const secs = stopMode ? stopSeconds() : null;
   /* stopwatch sessions write their record here — engine never hits completeRound
      (timer rounds record there); an early end keeps its minutes, a discard does not */
-  if (stopMode && !discard) {
+  if (stopMode && !discard && !skipSegment && !forfeit) {
     Store.set((s) => s.sessions.push({
       id: currentSessId,
       day: todayKey(),
@@ -366,16 +372,23 @@ function finish(finished, opts = {}) {
       aborted: !finished,
     }));
   }
+  /* Rounds already completed are banked on their own; a break or a strict
+     forfeit ends the segment without banking it again. */
+  const banked = discard ? 0 : completedRoundMinutes(Session.cfg?.min, Session.roundIdx);
   const minsStudied = discard
     ? 0
-    : finished
-      ? (stopMode ? Math.round(secs / 60) : Session.cfg.min * Math.max(1, Session.roundIdx))
-      : (stopMode ? Math.round(secs / 60) : Math.max(0, Math.round((Date.now() - Session.startedAt) / 60000)));
+    : skipSegment || forfeit
+      ? banked
+      : finished
+        ? (stopMode ? Math.round(secs / 60) : Session.cfg.min * Math.max(1, Session.roundIdx))
+        : (stopMode ? Math.round(secs / 60) : Math.max(0, Math.round((Date.now() - Session.startedAt) / 60000)));
   Session.lastDone = {
     done: !!finished,
-    discarded: discard,
+    discarded: discard || (forfeit && !banked),
+    forfeited: forfeit && banked > 0,
+    breakEnd: skipSegment && !discard,
     mins: minsStudied,
-    secs, // stopwatch precision for the done screen
+    secs: forfeit ? null : secs, // a forfeited stopwatch segment banks nothing
     today: Store.focusMinutesOn(todayKey()),
     goal: Store.goalToday(),
   };
@@ -391,6 +404,17 @@ function abandon() {
   closeSheet();
   if (freeNow()) {
     finish(false, { discard: true });
+    return;
+  }
+  /* Ending a break is not ending focus; the rounds already banked stay. */
+  if (Session.phase === 'break') {
+    finish(false, { skipSegment: true });
+    return;
+  }
+  /* Strict mode's cost is the round you leave: completed rounds stay banked,
+     the current segment is forfeited. */
+  if (Session.cfg?.strict) {
+    finish(false, { forfeit: true });
     return;
   }
   if (Session.cfg?.mode !== 'stop') recordEarlyEnd(Session.cfg.taskIds, Session.startedAt);
@@ -492,215 +516,236 @@ function setupScreen() {
   const pomoSettings = Store.state.settings.pomo || { focus: 25, short: 5, long: 15 };
   let min = Math.max(1, Math.min(180,
     Number(q.get('min')) || Number(Store.state.settings.lastMin) || pomoSettings.focus || 25));
-  let rounds = 1;
-  let pomo = false;
-  /* A link may pin the mode (?mode=timer from Home's Start button); without
-     one the tab remembers what you used last. */
-  const qMode = q.get('mode');
-  let mode = qMode === 'stop' || qMode === 'timer'
-    ? qMode
+  let mode = q.get('mode') === 'stop' || q.get('mode') === 'timer'
+    ? q.get('mode')
     : (Store.state.settings.lastMode === 'stop' ? 'stop' : 'timer');
+  let pomo = false;
+  let strictOn = Boolean(Store.state.settings.strictMode);
   const pickedTasks = new Set();
   const tasksToday = Store.openTasks(todayKey());
 
-  /* today counter — how many real sessions already banked today */
-  const doneToday = Store.state.sessions.filter((x) =>
-    x.day === todayKey() && x.kind === 'focus').length;
   const todayMins = Store.focusMinutesOn(todayKey());
   const goal = Store.goalToday();
-  const pct = Math.min(100, Math.round((todayMins / Math.max(1, goal)) * 100));
+  const doneToday = Store.state.sessions.filter((x) =>
+    x.day === todayKey() && x.kind === 'focus').length;
 
-  /* one quiet line, not another card */
-  const goalLine = el('div', {
-    class: `study-goal${pct >= 100 ? ' is-met' : ''}`,
-    role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct),
-    'aria-label': `Daily target: ${fmtMin(todayMins)} of ${fmtMin(goal)}`,
-  },
-    el('span', { class: 'sg-label' }, 'Today'),
-    el('div', { class: 'sg-track' }, el('i', { style: `width:${pct}%` })),
-    el('span', { class: 'sg-num' }, el('b', {}, fmtMin(todayMins)), el('span', {}, ` / ${fmtMin(goal)}`)),
+  /* ---------- header ---------- */
+
+  const head = el('div', { class: 'app-head study-head' },
+    el('div', { class: 'grow' },
+      el('h1', {}, 'Focus'),
+      el('div', { class: 'sub' }, 'One block, one clock.'),
+    ),
   );
 
-  /* mode is a quiet segmented switch — the length dial is the decision */
-  const modeSeg = el('div', { class: 'mode-seg', role: 'group', 'aria-label': 'Session mode' },
-    ['timer', 'stop'].map((m) => el('button', {
-      class: `mode-seg-btn${mode === m ? ' is-on' : ''}`,
-      'aria-pressed': String(mode === m),
-      onclick: () => {
-        if (mode === m) return;
-        /* A link can pin the mode once (Home's Start button). Once the user
-           picks a mode by hand, drop that pin so the choice survives the
-           re-render instead of snapping back to the link's mode. */
-        const parts = (location.hash.split('?')[1] || '');
-        const qs = new URLSearchParams(parts);
-        qs.delete('mode');
-        const rest = qs.toString();
-        history.replaceState(null, '', `#/focus${rest ? `?${rest}` : ''}`);
-        Store.set((s) => { s.settings.lastMode = m; });
-        renderHost();
-      },
-    }, m === 'timer' ? 'Timer' : 'Stopwatch')));
+  const meta = el('div', { class: 'focus-meta' },
+    'Today ', el('b', {}, fmtMin(todayMins)),
+    el('span', {}, goal ? ` / ${fmtMin(goal)}` : ''),
+    el('span', {}, ` · ${doneToday} ${doneToday === 1 ? 'session' : 'sessions'}`),
+  );
 
-  const lenBtns = [];
+  /* ---------- length dial ---------- */
+
   const dialNum = el('span', { class: 'dial-num' }, String(min));
   const dialUnit = el('span', { class: 'dial-unit' }, min === 1 ? 'minute' : 'minutes');
-  const dialGo = el('span', { class: 'dial-go' }, svg('play', 12), el('span', {}, 'Start'));
-  const dial = el('button', { class: 'dial', onclick: () => startWith(min) },
+  const dial = el('button', {
+    class: 'dial', type: 'button',
+    onclick: () => arm(),
+  },
     el('span', { class: 'dial-ticks', 'aria-hidden': 'true' }),
-    dialNum, dialUnit, dialGo);
-  const dialProj = el('div', { class: 'dial-proj' });
-  const pomoChip = el('button', {
-    class: 'pomo-chip', 'aria-pressed': 'false',
-    'aria-label': `Pomodoro: ${pomoSettings.focus || 25} minute focus rounds with breaks, three rounds`,
-    onclick: () => {
-      pomo = !pomo;
-      rounds = pomo ? 3 : 1;
-      if (pomo) selectMin(pomoSettings.focus || 25);
-      paintLen();
-      hint(pomo ? `Pomodoro: ${min}m focus + breaks, ×3` : 'One round, one finish');
-    },
-  }, svg('flame', 13), `Pomodoro · ${pomoSettings.focus || 25}m ×3`);
+    dialNum, dialUnit,
+    el('span', { class: 'dial-go' }, svg('play', 12), el('span', {}, 'Start')),
+  );
+  const projection = el('div', { class: 'dial-proj' });
+
+  function totalMinutes() {
+    let total = pomo ? min * 3 : min;
+    if (pomo) total += pomoSettings.short + pomoSettings.long;
+    return total;
+  }
+
+  function paintProjection() {
+    const end = new Date(Date.now() + totalMinutes() * 60000);
+    const sameDay = end.toDateString() === new Date().toDateString();
+    const clock = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    projection.textContent = pomo
+      ? `${min}m × 3 · ends ≈ ${clock}${sameDay ? '' : ' tomorrow'}`
+      : `ends ≈ ${clock}${sameDay ? '' : ' tomorrow'}`;
+  }
+
+  /* Five lengths, one visible choice. Tapping a chip selects; the dial starts. */
+  const presets = [10, 25, 45, 50, 90];
+  if (!presets.includes(min)) {
+    presets.push(min);
+    presets.sort((a, b) => a - b);
+    if (presets.length > 5) presets.splice(presets.indexOf(min) - 1, 1);
+  }
+  const lenBtns = [];
+  const lenRow = el('div', { class: 'len-row' }, presets.map((m) => {
+    const b = el('button', {
+      class: 'len', type: 'button', dataset: { min: String(m) },
+      'aria-pressed': 'false', 'aria-label': `${m} minutes`,
+      onclick: () => { selectMin(m); },
+    }, el('b', {}, String(m)), el('span', {}, 'min'));
+    lenBtns.push(b);
+    return b;
+  }));
 
   function selectMin(m) {
     min = m;
-    paintLen();
-  }
-
-  /* Every start — a length chip or the stopwatch — opens the intention
-     screen first. The hold is the commitment, not a punishment. */
-  function startWith(m) {
-    Store.set((s) => { s.settings.lastMode = 'timer'; s.settings.lastMin = m; });
-    Session.cfg = { min: m, taskIds: [...pickedTasks], rounds, mode: 'timer' };
-    Session.phase = 'armed';
-    renderHost();
-  }
-
-  function projectedEnd() {
-    const now = new Date();
-    let total = pomo ? min * rounds : min;
-    if (pomo) {
-      for (let i = 1; i < rounds; i += 1) total += i % 2 ? pomoSettings.short : pomoSettings.long;
-    }
-    const end = new Date(now.getTime() + total * 60000);
-    const sameDay = end.toDateString() === now.toDateString();
-    return `ends ≈ ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${sameDay ? '' : ' tomorrow'}`;
-  }
-
-  function paintLen() {
+    dialNum.textContent = String(min);
+    dialUnit.textContent = min === 1 ? 'minute' : 'minutes';
+    dial.setAttribute('aria-label', `Start ${min} minute${min === 1 ? '' : 's'}${pomo ? ', Pomodoro ×3' : ''}`);
     lenBtns.forEach((b) => {
       const on = Number(b.dataset.min) === min;
       b.classList.toggle('is-on', on);
       b.setAttribute('aria-pressed', String(on));
     });
-    pomoChip.classList.toggle('is-on', pomo);
-    pomoChip.setAttribute('aria-pressed', String(pomo));
-    dialNum.textContent = String(min);
-    dialUnit.textContent = min === 1 ? 'minute' : 'minutes';
-    dial.setAttribute('aria-label',
-      `Start ${min} minute${min === 1 ? '' : 's'}${pomo ? `, Pomodoro ×${rounds}` : ''}`);
-    dialProj.textContent = pomo ? `${min}m × ${rounds} · ${projectedEnd()}` : projectedEnd();
+    paintProjection();
   }
 
-  /* A session launched from an alarm carries the block's remaining length.
-     Show it as its own chip so the choice is visible, not just implicit. */
-  const presetMins = [10, 25, 45, 50, 90];
-  if (!presetMins.includes(min)) presetMins.push(min);
-  presetMins.sort((a, b) => a - b).forEach((m) => {
-    const b = el('button', {
-      class: 'len', dataset: { min: String(m) }, 'aria-pressed': 'false',
-      onclick: () => startWith(m),
-    }, el('b', {}, String(m)), el('span', {}, 'm'));
-    lenBtns.push(b);
-  });
-  paintLen();
+  /* ---------- strict ---------- */
 
-  function startLabel() {
-    return mode === 'stop' ? 'Arm the stopwatch' : `Arm ${min} min`;
-  }
-
-  const startBtnLabel = el('span', {}, startLabel());
-  const startBtn = el('button', {
-    class: 'btn btn-primary btn-block study-start',
+  const strictNote = el('span', {}, isNative
+    ? 'Blocks every app except the ones you allow.'
+    : 'Android app only.');
+  const strictSwitch = el('button', {
+    class: 'switch', type: 'button', role: 'switch',
+    'aria-checked': String(strictOn),
+    'aria-disabled': String(!isNative),
+    'aria-label': 'Strict mode',
     onclick: () => {
-      if (mode === 'stop') {
-        Store.set((s) => { s.settings.lastMode = 'stop'; });
-        Session.cfg = { min: 0, taskIds: [...pickedTasks], rounds: 1, mode: 'stop' };
-      } else {
-        Store.set((s) => { s.settings.lastMode = 'timer'; });
-        Session.cfg = { min, taskIds: [...pickedTasks], rounds, mode: 'timer' };
-      }
-      Session.phase = 'armed';
-      renderHost();
+      if (!isNative) { hint('Strict mode runs in the Android app.'); return; }
+      strictOn = !strictOn;
+      strictSwitch.setAttribute('aria-checked', String(strictOn));
+      strictRow.classList.toggle('is-on', strictOn);
+      Store.set((s) => { s.settings.strictMode = strictOn; });
+      if (strictOn) hint('Strict: distractions blocked for the session');
     },
-  }, svg('lock', 18), startBtnLabel);
+  });
+  const strictRow = el('div', { class: `strict-row${strictOn ? ' is-on' : ''}` },
+    el('span', { class: 'strict-icon' }, svg('lock', 17)),
+    el('span', { class: 'strict-txt' },
+      el('b', {}, 'Strict mode'),
+      strictNote,
+    ),
+    strictSwitch,
+  );
 
-  const taskChipRow = tasksToday.length
-    ? el('div', { class: 'chips' }, tasksToday.map((t) => {
-        const chip = el('button', {
-          class: 'chip', style: 'max-width:300px', 'aria-pressed': 'false',
-          onclick: () => {
-            if (pickedTasks.has(t.id)) { pickedTasks.delete(t.id); chip.setAttribute('aria-pressed', 'false'); }
-            else { pickedTasks.add(t.id); chip.setAttribute('aria-pressed', 'true'); }
-          },
-        }, t.title.length > 30 ? `${t.title.slice(0, 28)}…` : t.title);
-        return chip;
-      }))
+  if (isNative) {
+    /* The row states the truth about this phone: hard lock needs device owner. */
+    strictStatus().then((st) => {
+      if (!st) return;
+      if (st.deviceOwner) {
+        strictNote.textContent = 'Hard lock · no leaving, no uninstalling.';
+      } else {
+        strictNote.textContent = 'Blocks apps. Set up hard lock in Phone for no escape.';
+      }
+      if (strictOn && !st.deviceOwner) strictNote.classList.add('is-warn');
+    }).catch(() => {});
+  }
+
+  /* ---------- tasks ---------- */
+
+  const taskPanel = tasksToday.length
+    ? el('div', { class: 'attach-panel', hidden: true },
+        el('div', { class: 'chips' }, tasksToday.map((t) => {
+          const chip = el('button', {
+            class: 'chip', type: 'button', 'aria-pressed': 'false',
+            onclick: () => {
+              if (pickedTasks.has(t.id)) { pickedTasks.delete(t.id); chip.setAttribute('aria-pressed', 'false'); }
+              else { pickedTasks.add(t.id); chip.setAttribute('aria-pressed', 'true'); }
+            },
+          }, t.title.length > 30 ? `${t.title.slice(0, 28)}…` : t.title);
+          return chip;
+        })),
+      )
     : null;
 
-  const taskPanel = taskChipRow
-    ? el('div', { class: 'attach-panel', hidden: true }, taskChipRow)
-    : null;
-
+  const attachLabel = el('span', {}, tasksToday.length
+    ? `${tasksToday.length} task${tasksToday.length === 1 ? '' : 's'} today`
+    : 'No tasks today');
   const attach = tasksToday.length
     ? el('button', {
-        class: 'attach-row', 'aria-expanded': 'false',
+        class: 'attach-row', type: 'button', 'aria-expanded': 'false',
         onclick: () => {
           const open = taskPanel.hidden;
           taskPanel.hidden = !open;
           attach.setAttribute('aria-expanded', String(open));
-          attach.classList.toggle('is-open', open);
         },
       },
-        el('span', { class: 'ar-left' }, `${tasksToday.length} task${tasksToday.length === 1 ? '' : 's'} today`),
+        attachLabel,
         el('span', { class: 'ar-act' }, 'Attach', el('i', { class: 'ar-caret', innerHTML: svg('caret', 14) })),
       )
     : null;
 
-  const footNote = doneToday
+  /* ---------- mode + start ---------- */
+
+  const modeBtns = [
+    ['timer', 'Timer'],
+    ['pomo', 'Pomodoro'],
+    ['stop', 'Stopwatch'],
+  ];
+  const modeSeg = el('div', { class: 'mode-seg', role: 'group', 'aria-label': 'Session mode' },
+    modeBtns.map(([id, label]) => el('button', {
+      class: `mode-seg-btn${(mode === 'stop' ? id === 'stop' : id === (pomo ? 'pomo' : 'timer')) ? ' is-on' : ''}`,
+      type: 'button',
+      'aria-pressed': String(mode === 'stop' ? id === 'stop' : id === (pomo ? 'pomo' : 'timer')),
+      onclick: () => {
+        mode = id === 'stop' ? 'stop' : 'timer';
+        pomo = id === 'pomo';
+        if (pomo) selectMin(pomoSettings.focus || 25);
+        paintMode();
+        paintProjection();
+      },
+    }, label)));
+
+  function paintMode() {
+    [...modeSeg.children].forEach((b, i) => {
+      const id = modeBtns[i][0];
+      const on = mode === 'stop' ? id === 'stop' : id === (pomo ? 'pomo' : 'timer');
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    startLabel.textContent = mode === 'stop' ? 'Start stopwatch' : `Start ${min} minutes`;
+  }
+
+  const startLabel = el('span', {}, mode === 'stop' ? 'Start stopwatch' : `Start ${min} minutes`);
+  const startBtn = el('button', {
+    class: 'btn btn-primary btn-block study-start', type: 'button',
+    onclick: () => arm(),
+  }, svg('lock', 18), startLabel);
+
+  function arm() {
+    Store.set((s) => {
+      s.settings.lastMode = mode;
+      if (mode === 'timer') s.settings.lastMin = min;
+    });
+    Session.cfg = mode === 'stop'
+      ? { min: 0, taskIds: [...pickedTasks], rounds: 1, mode: 'stop', strict: strictOn }
+      : { min, taskIds: [...pickedTasks], rounds: pomo ? 3 : 1, mode: 'timer', strict: strictOn };
+    Session.phase = 'armed';
+    renderHost();
+  }
+
+  const footNote = el('p', { class: 'study-note' }, doneToday
     ? `Session ${doneToday + 1} today · ${fmtMin(todayMins)} banked`
-    : 'First session today';
+    : 'First session today');
 
-  const openCentre = el('div', { class: 'open-centre' },
-    el('div', { class: 'open-glyph' }, svg('clock', 42)),
-    el('p', { class: 'open-copy' },
-      'No length. Start it, work, pause or lay it down whenever. The seconds you run are the seconds that count.'),
-  );
+  selectMin(min);
+  paintMode();
+  paintProjection();
 
-  return el('section', { class: `study${mode === 'stop' ? ' is-open' : ''}` },
-    el('div', { class: 'app-head study-head' },
-      el('div', { class: 'grow' },
-        el('h1', {}, 'Study Mode'),
-        el('div', { class: 'sub' },
-          'The room holds the screen. The clock tells the truth.'),
-      ),
-    ),
-    goalLine,
+  return el('section', { class: 'study' },
+    head,
+    meta,
+    el('div', { class: 'dial-wrap' }, dial, projection),
+    lenRow,
     modeSeg,
-    mode === 'stop'
-      ? openCentre
-      : el('div', { class: 'study-len' },
-          el('div', { class: 'dial-wrap' }, dial, dialProj),
-          el('div', { class: 'len-row' }, lenBtns),
-          el('div', { class: 'len-meta' },
-            pomoChip,
-            el('span', { class: 'len-hint' }, 'Tap a length to start'))),
+    strictRow,
     attach,
     taskPanel,
-    mode === 'stop'
-      ? el('div', { class: 'study-foot' },
-          el('p', { class: 'study-note' }, footNote),
-          startBtn)
-      : el('p', { class: 'study-note study-note-flow' }, footNote),
+    el('div', { class: 'study-foot' }, footNote, startBtn),
   );
 }
 
@@ -760,6 +805,17 @@ function armedScreen() {
     btn.removeEventListener('pointercancel', holdCancel);
   }
 
+  const strictRules = Session.cfg.strict
+    ? el('div', { class: 'strict-rules' },
+        el('b', {}, 'Strict rules'),
+        el('ul', {},
+          el('li', {}, 'Other apps stay blocked until the session ends.'),
+          el('li', {}, 'The end hold is longer, and ending forfeits the round in progress.'),
+          el('li', {}, 'The first fifteen seconds are an accident window. After that, leaving is a decision.'),
+        ),
+      )
+    : null;
+
   return el('div', { class: 'card armed-card' },
     el('h2', {}, 'One breath before you go in'),
     el('div', { class: 'armed-what' },
@@ -771,6 +827,7 @@ function armedScreen() {
       ? el('div', { class: 'muted', style: 'margin-top:6px' },
           `${Session.cfg.taskIds.length} task${Session.cfg.taskIds.length === 1 ? '' : 's'} attached`)
       : null,
+    strictRules,
     el('p', { class: 'tiny armed-copy' },
       'As you hold, Lockin wakes the screen and opens the room. When the ring closes, you are in.'),
     el('div', { class: 'holdwrap armed-hold' }, btn, note),
@@ -858,9 +915,12 @@ function sessionCore({ label, note, clockClass = '', breathe = false, tasks = tr
 }
 
 function quitButton() {
+  const strict = Boolean(Session.cfg?.strict);
   const b = el('button', {
     class: 'btn btn-subtle btn-block btn-quit',
-    'aria-label': 'End session — hold to confirm',
+    'aria-label': strict
+      ? 'End session — hold longer to confirm; the round in progress is forfeited'
+      : 'End session — hold to confirm',
     onpointerdown: startQuitHold,
     onkeydown: (ev) => {
       if (ev.key !== ' ' && ev.key !== 'Enter') return;
@@ -868,7 +928,7 @@ function quitButton() {
       ev.preventDefault();
       startQuitHold(ev);
     },
-  }, svg('check', 15), el('span', {}, 'End — hold'));
+  }, svg('check', 15), el('span', {}, strict ? 'End — hold longer' : 'End — hold'));
   return b;
 }
 
@@ -901,13 +961,14 @@ function runningScreen() {
   const label = rounds > 1 ? `Focus · round ${Session.roundIdx} of ${rounds}` : 'Focus';
   const endsAt = new Date(Session.plannedEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   if (Date.now() - Session.startedAt < 8000) armUndoPill();
+  const note = Session.cfg.label
+    ? `${Session.cfg.label} · ends at ${endsAt}`
+    : `Ends at ${endsAt} · the minutes stay yours whenever you stop`;
   return el('div', { class: 'session' },
     sessionChrome(Session.cfg.label ? 'Block' : 'Focus'),
     sessionCore({
       label,
-      note: Session.cfg.label
-        ? `${Session.cfg.label} · ends at ${endsAt}`
-        : `Ends at ${endsAt} · the minutes stay yours whenever you stop`,
+      note: Session.cfg.strict ? `${note} · strict: ending forfeits this round` : note,
     }),
     kioskDock(),
     el('footer', { class: 'sess-foot' }, quitButton())
@@ -917,20 +978,25 @@ function runningScreen() {
 /* ---------- stopwatch screens ---------- */
 
 function stopRunningScreen() {
+  const strict = Boolean(Session.cfg?.strict);
   return el('div', { class: 'session' },
     sessionChrome('Focus', 'live'),
     sessionCore({
       label: 'Stopwatch',
-      note: 'Every second in here is banked. Pause is honest rest — it stops the count.',
+      note: strict
+        ? 'Strict: the count runs until you end it. There is no pause in here.'
+        : 'Every second in here is banked. Pause is honest rest — it stops the count.',
       clockClass: 'stopwatch',
       breathe: true,
     }),
     kioskDock(),
     el('footer', { class: 'sess-foot' },
-      el('div', { class: 'sess-foot-split' },
-        el('button', { class: 'btn btn-primary', onclick: pauseStop }, svg('pause', 15), 'Pause'),
-        quitButton()
-      )
+      strict
+        ? el('div', { class: 'sess-foot-split' }, quitButton())
+        : el('div', { class: 'sess-foot-split' },
+            el('button', { class: 'btn btn-primary', onclick: pauseStop }, svg('pause', 15), 'Pause'),
+            quitButton()
+          )
     )
   );
 }
@@ -962,14 +1028,24 @@ function startQuitHold(ev) {
   if (btn.dataset.holding === '1') return;
   btn.dataset.holding = '1';
   const t0 = performance.now();
-  const HOLD_MS = END_HOLD_MS;
+  const HOLD_MS = Session.cfg?.strict ? END_HOLD_MS * 2 : END_HOLD_MS;
   let raf = 0;
+
+  /* One listener set per hold. A previous incomplete hold would otherwise
+     leave its keyup/blur handlers latched onto the same button forever. */
+  if (btn._cancelHold) btn._cancelHold();
 
   const cancel = () => {
     cancelAnimationFrame(raf);
     btn.style.filter = '';
     delete btn.dataset.holding;
+    btn.removeEventListener('pointerup', cancel);
+    btn.removeEventListener('pointercancel', cancel);
+    btn.removeEventListener('keyup', cancel);
+    btn.removeEventListener('blur', cancel);
+    if (btn._cancelHold === cancel) btn._cancelHold = null;
   };
+  btn._cancelHold = cancel;
 
   const step = (now) => {
     if (!document.contains(btn)) { cancel(); return; }
@@ -981,10 +1057,10 @@ function startQuitHold(ev) {
   raf = requestAnimationFrame(step);
 
   /* Pointer, keyboard and focus loss all cancel the same hold. */
-  btn.addEventListener('pointerup', cancel, { once: true });
-  btn.addEventListener('pointercancel', cancel, { once: true });
-  btn.addEventListener('keyup', cancel, { once: true });
-  btn.addEventListener('blur', cancel, { once: true });
+  btn.addEventListener('pointerup', cancel);
+  btn.addEventListener('pointercancel', cancel);
+  btn.addEventListener('keyup', cancel);
+  btn.addEventListener('blur', cancel);
 }
 
 /* ---------- break screen ---------- */
@@ -1040,14 +1116,23 @@ function doneScreen() {
   const goal = d.goal ?? Store.goalToday();
   const canShare = goal > 0 && today >= goal;
   let line;
-  if (d.discarded) line = 'Nothing banked. The clock reset clean.';
+  if (d.breakEnd) line = 'Break ended. Every round you finished stays banked.';
+  else if (d.forfeited) line = 'Current segment forfeited. Rounds you finished stay banked.';
+  else if (d.discarded) line = 'Nothing banked. The clock reset clean.';
   else if (good) line = 'Minutes banked. The day got what you gave it.';
   else line = 'Stopped early — the minutes stay yours.';
+  const heading = d.breakEnd
+    ? 'Break ended'
+    : good
+      ? 'Session banked'
+      : d.discarded
+        ? 'Session discarded'
+        : 'Session ended';
   return el('div', { class: 'done-wrap' },
     el('div', { class: 'done-card view-anim' },
       good ? confettiBurst() : null,
       el('h1', { class: `done-kicker ${good ? 'is-good' : 'is-warn'}`, tabindex: '-1' },
-        good ? 'Session banked' : d.discarded ? 'Session discarded' : 'Session ended',
+        heading,
         good ? ' 🎉' : ''),
       el('div', { class: `done-amount${good ? '' : ' is-warn'}` },
         d.discarded ? '—' : `+${bankedText}`),
@@ -1067,7 +1152,7 @@ function doneScreen() {
       }, svg('share', 15), 'Share today') : null,
       el('button', {
         class: 'done-more',
-        onclick: () => { Session.phase = 'idle'; Router.go('/settings?section=progress'); },
+        onclick: () => { Session.phase = 'idle'; Router.go('/progress'); },
       }, 'See the week', svg('chevR', 14)),
     )
   );

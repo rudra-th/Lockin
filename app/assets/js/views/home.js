@@ -1,23 +1,21 @@
-/* Lockin — Home: three facts about today.
-   Days left, today's focus, and the next block.
-   Tasks live in Schedule; target days, history and screen time live in Settings.
-   Nothing else. */
+/* Lockin — Home: today, in one glance.
+   One hero (minutes focused), the next block, and the week. Everything else
+   has a tab. */
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
 import {
-  el, todayKey, prettyDate, fmtMin, daysUntil, dateKey,
-  nextOccurrence, occurrencesOn, spanLabel, DAYS,
+  el, todayKey, prettyDate, fmtMin, daysUntil, dateKey, addDays,
+  nextOccurrence, spanLabel, parseKey, DAYS,
 } from '../util.js';
 import { svg } from '../icons.js';
 import { formatExamMonth } from '../exams.js';
-import { openShareSheet } from '../share.js';
 
 export function initHome(Router) {
   Router.register('/home', { mount, unmount });
 }
 
-function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
 function greeting() {
   const who = Store.state.profile?.name;
@@ -67,153 +65,119 @@ function isLive() {
     && ['running', 'break', 'paused'].includes(Store.state.session.phase));
 }
 
-/* ---------- the anchor: days left ---------- */
+/* ---------- header ---------- */
 
-function examCard() {
+function topBar() {
   const p = Store.state.profile || {};
-  const open = () => Router.go('/settings');
+  const avatar = el('button', {
+    class: 'home-you', type: 'button', 'aria-label': 'Your profile and settings',
+    onclick: () => Router.go('/settings'),
+  });
+  if (p.photo) avatar.append(el('img', { src: p.photo, alt: '' }));
+  else avatar.textContent = (p.name || 'You').trim().charAt(0).toUpperCase() || 'Y';
+
+  const exam = el('button', {
+    class: `home-exam-line${p.exam || p.examDate ? '' : ' is-empty'}`,
+    type: 'button',
+    onclick: () => Router.go('/settings?section=study'),
+    'aria-label': 'Exam countdown — edit in Settings',
+  });
 
   if (!p.exam && !p.examDate) {
-    return el('button', {
-      class: 'home-exam is-empty', onclick: open,
-      'aria-label': 'Set your exam and date in Settings',
-    },
-      el('span', { class: 'he-kicker' }, svg('target', 13), 'Your exam'),
-      el('span', { class: 'he-side' },
-        el('span', { class: 'he-exam' }, 'Set the date — the countdown lives here'),
-        el('span', { class: 'he-date' }, 'Settings · Profile'),
-      ),
-      el('span', { class: 'he-go', innerHTML: svg('chevR', 18) }),
-    );
-  }
-
-  const days = p.examDate ? daysUntil(p.examDate) : null;
-  const past = days != null && days < 0;
-  const close = days != null && days >= 0 && days <= 30;
-  const exam = p.exam || 'Your exam';
-
-  let num = '—';
-  let kicker = 'Your exam';
-  let date = 'Add the date in Settings';
-  let aria;
-  if (days == null) {
-    aria = `${exam} — add the exam date in Settings`;
-  } else if (past) {
-    kicker = 'Exam passed';
-    date = 'Set the next one in Settings';
-    aria = `${exam} has passed — set the next date in Settings`;
-  } else if (days === 0) {
-    num = '0';
-    kicker = 'Exam day';
-    date = 'Today. Everything you have.';
-    aria = `${exam} is today`;
+    exam.append(svg('target', 13), el('span', {}, 'Set your exam date'));
   } else {
-    num = String(days);
-    kicker = 'Days left';
-    date = formatExamMonth(p.examDate).replace(/^[≈·]\s*/, '');
-    aria = `${days} day${days === 1 ? '' : 's'} left until ${exam} — edit in Settings`;
-  }
-
-  return el('button', {
-    class: `home-exam${close ? ' is-close' : ''}${past ? ' is-past' : ''}`,
-    onclick: open, 'aria-label': aria,
-  },
-    el('span', { class: 'he-kicker' }, svg('target', 13), kicker),
-    el('span', { class: 'he-num' }, num),
-    el('span', { class: 'he-side' },
-      el('span', { class: 'he-exam' }, exam),
-      el('span', { class: 'he-date' }, date),
-    ),
-    el('span', { class: 'he-go', innerHTML: svg('chevR', 18) }),
-  );
-}
-
-/* ---------- today's focus ---------- */
-
-function focusCaption(focusMin, live) {
-  const goal = Store.goalToday();
-  const met = goal > 0 && focusMin >= goal;
-  const left = Math.max(0, goal - focusMin);
-  if (live) return met ? '🎉 Target met. The room is still open.' : `${fmtMin(left)} to go — the clock is running.`;
-  if (met) return '🎉 Target met. Anything more is a bonus.';
-  if (!goal) return 'Set a daily target in Settings to give the day a bar.';
-  return `${fmtMin(left)} to go. One session at a time.`;
-}
-
-function focusCard({ focusMin, live, suggestedMin }) {
-  const goal = Store.goalToday();
-
-  const num = el('b', {}, fmtMin(focusMin));
-  const meterFill = goal
-    ? el('i', { style: `--pct:${Math.round(clamp01(focusMin / goal) * 100)}%` })
-    : null;
-  const meter = goal
-    ? el('div', {
-        class: `hf-meter${focusMin >= goal ? ' is-met' : ''}`, role: 'progressbar',
-        'aria-valuemin': '0', 'aria-valuemax': '100',
-        'aria-valuenow': String(Math.round(clamp01(focusMin / goal) * 100)),
-        'aria-label': `Today: ${fmtMin(focusMin)} of ${fmtMin(goal)}`,
-      }, meterFill)
-    : null;
-  const caption = el('div', { class: 'hf-caption' }, focusCaption(focusMin, live));
-  const share = el('button', {
-    class: 'share-today', type: 'button',
-    onclick: () => openShareSheet({ mins: Store.focusMinutesOn(todayKey()), goal }),
-  }, svg('share', 15), 'Share today');
-  share.hidden = !(goal > 0 && focusMin >= goal);
-
-  const card = el('div', { class: 'card home-focus' },
-    el('div', { class: 'hf-head' },
-      el('h2', {}, 'Today'),
-      live ? el('span', { class: 'live-pill' }, el('i'), 'In session') : null,
-    ),
-    el('div', { class: 'hf-num' },
-      num,
-      goal ? el('span', {}, `/ ${fmtMin(goal)}`) : el('span', {}, 'focused'),
-    ),
-    meter,
-    caption,
-    share,
-    el('button', {
-      class: 'btn btn-primary btn-block',
-      onclick: () => Router.go(live ? '/focus' : `/focus?min=${suggestedMin}&mode=timer`),
-    }, svg(live ? 'play' : 'lock', live ? 17 : 18), live ? 'Back to the room' : 'Start Study Mode',
-    live ? null : el('span', { class: 'mono', style: 'font-size:12.5px' }, `· ${suggestedMin}m`)),
-  );
-
-  function update(min, nowLive) {
-    num.textContent = fmtMin(min);
-    caption.textContent = focusCaption(min, nowLive);
-    share.hidden = !(goal > 0 && min >= goal);
-    if (meter) {
-      const pct = Math.round(clamp01(min / goal) * 100);
-      meterFill.style.setProperty('--pct', `${pct}%`);
-      meter.classList.toggle('is-met', goal > 0 && min >= goal);
-      meter.setAttribute('aria-label', `Today: ${fmtMin(min)} of ${fmtMin(goal)}`);
-      meter.setAttribute('aria-valuenow', String(pct));
+    const days = p.examDate ? daysUntil(p.examDate) : null;
+    const label = p.exam || 'Your exam';
+    if (days == null) {
+      exam.append(svg('target', 13), el('span', {}, label), el('span', {}, '· add date'));
+    } else if (days < 0) {
+      exam.append(svg('target', 13), el('span', {}, label), el('span', {}, '· passed'));
+    } else {
+      const when = formatExamMonth(p.examDate).replace(/^[≈·]\s*/, '');
+      exam.append(svg('target', 13), el('span', {}, label), el('b', {}, days === 0 ? 'today' : `${days}d`), el('span', {}, `· ${when}`));
     }
   }
 
+  return el('header', { class: 'home-top' },
+    el('div', { class: 'grow' },
+      el('div', { class: 'eyebrow' }, prettyDate(todayKey())),
+      el('h1', {}, greeting()),
+      exam,
+    ),
+    avatar,
+  );
+}
+
+/* ---------- hero: today's minutes ---------- */
+
+function heroCard() {
+  const goal = Store.goalToday();
+  const suggested = Store.state.settings.pomo?.focus || 25;
+
+  const num = el('b', {}, fmtMin(Store.focusMinutesOn(todayKey())));
+  const goalLabel = el('span', {}, goal ? `/ ${fmtMin(goal)}` : 'focused');
+  const fill = el('i', { style: 'width:0%' });
+  const track = el('div', { class: 'hero-track' }, fill);
+  const note = el('p', { class: 'hero-note' });
+  const live = el('span', { class: 'hero-live', hidden: true }, el('i'), 'Live');
+  const card = el('div', { class: 'hero' },
+    el('div', { class: 'hero-top' },
+      el('span', { class: 'hero-label' }, 'Focus today'),
+      live,
+    ),
+    el('div', { class: 'hero-num' }, num, goalLabel),
+    track,
+    note,
+    el('div', { class: 'hero-actions' },
+      el('button', {
+        class: 'btn btn-primary btn-block',
+        onclick: () => Router.go(isLive() ? '/focus' : `/focus?min=${suggested}&mode=timer`),
+      }, svg(isLive() ? 'play' : 'lock', 17), isLive() ? 'Back to the room' : `Start ${suggested} minutes`),
+    ),
+  );
+
+  function update(min, nowLive) {
+    const g = Store.goalToday();
+    const pct = g ? Math.round(clamp01(min / g) * 100) : 0;
+    num.textContent = fmtMin(min);
+    goalLabel.textContent = g ? `/ ${fmtMin(g)}` : 'focused';
+    fill.style.width = `${g ? pct : 0}%`;
+    track.setAttribute('aria-label', g ? `${pct}% of ${fmtMin(g)}` : `${fmtMin(min)} focused`);
+    card.classList.toggle('is-met', Boolean(g) && min >= g);
+    live.hidden = !nowLive;
+
+    if (!min && !g) {
+      note.textContent = 'Set a daily target in You to give the day a bar.';
+    } else if (!min) {
+      note.textContent = `${fmtMin(g)} to go. The clock hasn’t started.`;
+    } else if (g && min >= g) {
+      note.textContent = `Target cleared · ${fmtMin(min - g)} over. Anything more is a bonus.`;
+    } else if (g) {
+      note.textContent = `${fmtMin(Math.max(0, g - min))} to go · ${pct}% of today’s target.`;
+    } else {
+      note.textContent = 'One session at a time.';
+    }
+  }
+
+  update(Store.focusMinutesOn(todayKey()), isLive());
   return { node: card, update };
 }
 
 /* ---------- the next block ---------- */
 
-function scheduleCard() {
-  const count = el('span', { class: 'sched-count' });
-  const body = el('div', { class: 'sched-body' });
-  const ctaLabel = el('span', {}, 'Open schedule');
-  const cta = el('button', {
-    class: 'btn btn-subtle btn-block', onclick: () => Router.go('/schedule'),
-  }, svg('calendar', 16), ctaLabel);
-
-  const card = el('div', { class: 'card home-sched' },
-    el('div', { class: 'sched-head' },
-      el('h2', {}, svg('calendar', 14), el('span', {}, 'Schedule')),
-      count,
-    ),
-    body,
-    el('div', { class: 'sched-link' }, cta),
+function nextBlock() {
+  const time = el('span', { class: 'next-time' });
+  const kicker = el('span', { class: 'next-kicker' });
+  const name = el('span', { class: 'next-name' });
+  const meta = el('span', { class: 'next-meta' });
+  const node = el('button', {
+    class: 'next', type: 'button',
+    onclick: () => Router.go('/schedule'),
+    'aria-label': 'Open the schedule',
+  },
+    time,
+    el('span', { class: 'next-body' }, kicker, name, meta),
+    el('span', { class: 'next-go', innerHTML: svg('chevR', 17) }),
   );
 
   function update() {
@@ -221,36 +185,68 @@ function scheduleCard() {
     const schedules = Store.schedules();
     const next = nextOccurrence(schedules, now,
       (occ) => Store.isBlockSkipped(occ.schedule.id, dateKey(occ.start)));
-    const todayCount = occurrencesOn(schedules, now).length;
-
-    count.textContent = todayCount ? `${todayCount} today` : '';
-    ctaLabel.textContent = next ? 'Open schedule' : 'Plan a block';
 
     if (!next) {
-      body.replaceChildren(el('p', { class: 'sched-empty' },
-        schedules.length
-          ? 'No blocks in the next week. Add one and the alarm will ring when it starts.'
-          : 'Nothing scheduled yet. Recurring blocks are how a day gets a shape.'));
+      node.classList.add('is-empty');
+      time.textContent = '—';
+      kicker.textContent = schedules.length ? 'No blocks this week' : 'Nothing planned';
+      name.textContent = schedules.length ? 'Plan the next one' : 'Build a study block';
+      meta.textContent = schedules.length ? 'The alarm rings when a block starts' : 'Recurring blocks give the day a shape';
       return;
     }
 
+    node.classList.remove('is-empty');
     const s = next.schedule;
-    const when = next.ongoing
-      ? `ends ${untilLabel(next.end - now)}`
-      : `${dayLabel(next.start)} · ${untilLabel(next.start - now)}`;
-
-    body.replaceChildren(
-      el('span', { class: `sched-kicker${next.ongoing ? ' is-now' : ''}` },
-        next.ongoing ? el('i') : null,
-        next.ongoing ? 'In a block' : 'Next up'),
-      el('div', { class: 'sched-name' }, s.name),
-      el('div', { class: 'sched-time' }, spanLabel(s)),
-      el('div', { class: 'sched-until' }, when),
-    );
+    const start = new Date(next.start);
+    if (next.ongoing) {
+      time.replaceChildren(el('b', {}, 'Now'), el('span', {}, `→ ${new Date(next.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`));
+      kicker.textContent = 'In a block';
+      kicker.classList.add('is-now');
+      name.textContent = s.name;
+      meta.textContent = `ends ${untilLabel(next.end - now)}`;
+    } else {
+      time.replaceChildren(
+        el('b', {}, start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+        el('span', {}, dayLabel(start)),
+      );
+      kicker.textContent = 'Next up';
+      kicker.classList.remove('is-now');
+      name.textContent = s.name;
+      meta.textContent = `${spanLabel(s)} · ${untilLabel(next.start - now)}`;
+    }
   }
 
   update();
-  return { node: card, update };
+  return { node, update };
+}
+
+/* ---------- the week ---------- */
+
+function weekStrip() {
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) days.push(addDays(todayKey(), -i));
+  const vals = days.map((d) => Store.focusMinutesOn(d));
+  const max = Math.max(1, ...vals);
+  const total = vals.reduce((a, b) => a + b, 0);
+
+  const node = el('button', {
+    class: 'week', type: 'button',
+    onclick: () => Router.go('/progress'),
+    'aria-label': 'Open the full focus record',
+  },
+    el('span', { class: 'week-head' },
+      el('b', {}, 'This week'),
+      el('span', {}, fmtMin(total)),
+    ),
+    el('span', { class: 'week-bars' }, days.map((d, i) => el('span', {
+      class: `week-day${d === todayKey() ? ' is-today' : ''}${vals[i] >= Store.goalFor(d) && vals[i] > 0 ? ' is-met' : ''}`,
+    },
+      el('i', { class: 'week-fill', style: `height:${Math.max(6, Math.round((vals[i] / max) * 100))}%` }),
+      el('span', {}, d === todayKey() ? 'Today' : DAYS[parseKey(d).getDay()].slice(0, 2)),
+    ))),
+  );
+
+  return node;
 }
 
 /* ---------- render ---------- */
@@ -262,37 +258,24 @@ function paint(host, animate = true) {
   clearInterval(tickTimer);
   paintedDay = todayKey();
 
-  const cfg = Store.state.settings;
-  const live = isLive();
-  const focusMin = Store.focusMinutesOn(paintedDay) + liveMinutes();
-  const suggestedMin = cfg.pomo?.focus || 25;
+  const hero = heroCard();
+  const next = nextBlock();
 
-  const focus = focusCard({ focusMin, live, suggestedMin });
-  const sched = scheduleCard();
-
-  host.append(el('section', { class: `home${animate ? ' view-anim stagger' : ''}` },
-    el('div', { class: 'app-head home-head' },
-      el('div', { class: 'grow' },
-        el('h1', {}, greeting()),
-        el('div', { class: 'sub' }, prettyDate(paintedDay)),
-      ),
-    ),
-    examCard(),
-    el('div', { class: 'home-grid' },
-      focus.node,
-      sched.node,
-    ),
+  host.append(el('section', { class: `home${animate ? ' view-anim' : ''}` },
+    topBar(),
+    hero.node,
+    next.node,
+    weekStrip(),
   ));
 
   tickTimer = setInterval(() => {
-    /* A page left open overnight belongs to the new day, not yesterday. */
     if (todayKey() !== paintedDay) {
       host.textContent = '';
       paint(host, false);
       return;
     }
-    focus.update(Store.focusMinutesOn(paintedDay) + liveMinutes(), isLive());
-    sched.update();
+    hero.update(Store.focusMinutesOn(paintedDay) + liveMinutes(), isLive());
+    next.update();
   }, 30000);
 }
 

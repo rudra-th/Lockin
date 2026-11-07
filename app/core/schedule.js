@@ -149,6 +149,33 @@ export function eventsBetween(schedules, from, to) {
   return events.sort((a, b) => a.at - b.at);
 }
 
+/**
+ * The newest unfired start and the newest unfired reminder in one batch.
+ * The caller defines "fired"; a start still wins over its own reminder.
+ */
+export function pickDueEvents(events, isFired) {
+  let start = null;
+  let remind = null;
+  for (const ev of events) {
+    if (isFired(ev)) continue;
+    if (ev.kind === 'start') {
+      if (!start || ev.at > start.at) start = ev;
+    } else if (!remind || ev.at > remind.at) {
+      remind = ev;
+    }
+  }
+  return { start, remind };
+}
+
+/** Every event in the batch that belongs to the same occurrence as `chosen`. */
+export function sameOccurrence(events, chosen) {
+  if (!chosen) return [];
+  const id = chosen.occ.schedule.id;
+  const startMs = chosen.occ.start.getTime();
+  return events.filter((ev) => ev.occ.schedule.id === id
+    && ev.occ.start.getTime() === startMs);
+}
+
 /** Human label for a day set: "Every day", "Weekdays", "Mon · Wed · Fri". */
 export function daysLabel(days) {
   const set = [...new Set((days || []).filter((d) => d >= 0 && d <= 6))].sort();

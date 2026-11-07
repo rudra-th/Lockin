@@ -14,12 +14,13 @@
 import { Store } from './store.js';
 import {
   slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, daysUntil,
-  freeExit, blockSessionMin, parseHM, toHM, spanMin,
+  freeExit, blockSessionMin, completedRoundMinutes, parseHM, toHM, spanMin,
   occursOn, occurrenceOn, occurrencesBetween, nextOccurrence, eventsBetween, daysLabel,
-  normalizeSchedule, el,
+  normalizeSchedule, el, pickDueEvents, sameOccurrence,
   normalizeGoalHistory, goalFor, setGoalOn, dayGoalMet, minutesLeft, goalStreak, targetDays,
   parseNudgeAt, nudgeAtHM, nudgeDue, nudgeBody, reminderBody, weekSummary,
 } from './util.js';
+import { latestOnly } from '../../core/async.js';
 import { examById, examDateFor, expectedYear } from './exams.js';
 import { svg } from './icons.js';
 import {
@@ -316,6 +317,34 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(blockSessionMin(start - 5 * 3600000, start, start + 90 * 60000), 90);
     eq(blockSessionMin(start, start, start + 10 * 3600000), 180);
   });
+  test('completedRoundMinutes counts only rounds already finished', () => {
+    eq(completedRoundMinutes(25, 1), 0); // the first round is the one running
+    eq(completedRoundMinutes(25, 3), 50);
+    eq(completedRoundMinutes(0, 4), 0);
+    eq(completedRoundMinutes(25, 0), 0);
+    eq(completedRoundMinutes(-25, 2), 0);
+  });
+
+  group('Latest request wins');
+  test('latestOnly accepts only the newest token', () => {
+    const gate = latestOnly();
+    const first = gate.next();
+    const second = gate.next();
+    eq(gate.isCurrent(first), false);
+    eq(gate.isCurrent(second), true);
+  });
+  test('a slow older build cannot paint over a newer one', () => {
+    const gate = latestOnly();
+    const painted = [];
+    const finish = (token, name) => {
+      if (gate.isCurrent(token)) painted.push(name);
+    };
+    const slow = gate.next();
+    const fast = gate.next();
+    finish(fast, 'new'); // the newer toggle resolves first
+    finish(slow, 'old'); // the older one resolves late and is dropped
+    eq(painted, ['new']);
+  });
 
   group('Daily target notifications');
   test('nudge times parse and format as HH:MM', () => {
@@ -413,6 +442,61 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     );
     eq(Store.screenDay(day).apps.map((a) => a.package), ['com.android.chrome']);
   });
+  test('a per-day app breakdown is stored with its day', () => {
+    Store.set((s) => { s.screenTime = []; });
+    const day = todayKey();
+    const past = addDays(day, -2);
+    Store.recordScreenTime([
+      {
+        day: past,
+        ms: 60 * 60000,
+        apps: [
+          { package: 'com.android.chrome', label: 'Chrome', ms: 45 * 60000 },
+          { package: 'com.google.android.youtube', label: 'YouTube', ms: 10 * 60000 },
+        ],
+      },
+      {
+        day,
+        ms: 30 * 60000,
+        apps: [{ package: 'com.google.android.youtube', label: 'YouTube', ms: 20 * 60000 }],
+      },
+    ], [{ package: 'com.android.chrome', label: 'Chrome', ms: 30 * 60000 }]);
+
+    eq(Store.screenDay(past).apps.map((a) => a.label), ['Chrome', 'YouTube']);
+    eq(Store.screenDay(past).apps.map((a) => a.mins), [45, 10]);
+    /* Today's own breakdown wins over the older single-day fallback. */
+    eq(Store.screenDay(day).apps.map((a) => a.label), ['YouTube']);
+  });
+  test('per-day apps are sorted, trimmed and never include Lockin', () => {
+    Store.set((s) => { s.screenTime = []; });
+    const day = addDays(todayKey(), -1);
+    Store.recordScreenTime([{
+      day,
+      ms: 120 * 60000,
+      apps: [
+        { package: 'com.lockin.app', label: 'Lockin', ms: 30 * 60000 },
+        ...Array.from({ length: 8 }, (_, i) => ({
+          package: `app.${i}`, label: `App ${i}`, ms: (i + 1) * 60000,
+        })),
+      ],
+    }], []);
+
+    const apps = Store.screenDay(day).apps;
+    eq(apps.length, 6);
+    eq(apps.map((a) => a.label), ['App 7', 'App 6', 'App 5', 'App 4', 'App 3', 'App 2']);
+  });
+  test('screen-time rows older than 31 days are dropped', () => {
+    Store.set((s) => { s.screenTime = []; });
+    const day = todayKey();
+    const old = addDays(day, -40);
+    const edge = addDays(day, -31);
+    Store.recordScreenTime([
+      { day: old, ms: 5 * 60000 },
+      { day: edge, ms: 6 * 60000 },
+    ], []);
+    eq(Store.screenDay(old), null);
+    eq(Store.screenDay(edge).mins, 6);
+  });
 
   group('Schedule math');
   const TUE = new Date(2026, 10, 3, 5, 0); // Tue 3 Nov 2026, 05:00 local
@@ -460,6 +544,27 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(evs.map((e) => e.kind), ['remind', 'start']);
     eq([evs[0].at.getHours(), evs[0].at.getMinutes()], [6, 25]);
     eq([evs[1].at.getHours(), evs[1].at.getMinutes()], [6, 30]);
+  });
+  test('a start owns its whole occurrence once the alarm rings', () => {
+    const evs = eventsBetween([DEEP], new Date(2026, 10, 3, 6, 24), new Date(2026, 10, 3, 6, 31));
+    const fired = new Set();
+    const first = pickDueEvents(evs, (ev) => fired.has(ev.kind));
+    eq(first.start.kind, 'start');
+    /* Mark every event of that occurrence, exactly as the engine does. */
+    for (const ev of sameOccurrence(evs, first.start)) fired.add(ev.kind);
+    const again = pickDueEvents(evs, (ev) => fired.has(ev.kind));
+    eq(again.start, null);
+    eq(again.remind, null);
+  });
+  test('pickDueEvents keeps the newest unfired reminder and start', () => {
+    const evs = eventsBetween([DEEP, { ...DEEP, id: 's2', start: '06:45', end: '08:00' }],
+      new Date(2026, 10, 3, 6, 20), new Date(2026, 10, 3, 6, 50));
+    const due = pickDueEvents(evs, () => false);
+    eq(due.start.occ.schedule.id, 's2'); // 06:45 beats 06:30
+    eq(due.remind.occ.schedule.id, 's2'); // 06:40 beats 06:25
+    const onlyFirst = pickDueEvents(evs, (ev) => ev.occ.schedule.id === 's2');
+    eq(onlyFirst.start.occ.schedule.id, 's1');
+    eq(onlyFirst.remind.occ.schedule.id, 's1');
   });
   test('a reminder of zero emits only the start', () => {
     const evs = eventsBetween([{ ...DEEP, remind: 0 }], new Date(2026, 10, 3, 6, 0), new Date(2026, 10, 3, 6, 31));

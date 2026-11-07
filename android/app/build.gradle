@@ -1,6 +1,6 @@
-apply plugin: 'com.android.application'
+﻿apply plugin: 'com.android.application'
 
-/* Release signing reads android/keystore.properties (gitignored — never commit
+/* Release signing reads android/keystore.properties (gitignored ΓÇö never commit
    it). Copy keystore.properties.example, create a keystore once (the keygen is
    in docs/android-release.md), and fill the four values in. A release build
    without them fails fast below with the missing key named, instead of
@@ -18,8 +18,8 @@ android {
         applicationId "com.lockin.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 251
-        versionName "1.15.1"
+        versionCode 260
+        versionName "1.16.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -43,7 +43,7 @@ android {
     buildTypes {
         /* Google sign-in is bound to a signing certificate. The release
            certificate is the one registered in google-services.json, so debug
-           builds sign with it too when keystore.properties is present —
+           builds sign with it too when keystore.properties is present ΓÇö
            otherwise a debug APK gets DEVELOPER_ERROR from Google. */
         debug {
             if (keystorePropsFile.exists()
@@ -61,7 +61,7 @@ android {
 
 /* Fail fast, with the missing piece named, before any task runs.
    whenReady sees the whole task graph first, so a release build without
-   signing fails in seconds — not after minutes of packaging work. */
+   signing fails in seconds ΓÇö not after minutes of packaging work. */
 gradle.taskGraph.whenReady { graph ->
     def releasing = graph.allTasks.any { it.name in ['assembleRelease', 'bundleRelease'] && it.project.name == 'app' }
     if (!releasing) return
@@ -73,13 +73,13 @@ gradle.taskGraph.whenReady { graph ->
     ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].each { key ->
         if (!keystoreProps.getProperty(key)) {
             throw new GradleException(
-                "android/keystore.properties is missing '${key}' — see docs/android-release.md.")
+                "android/keystore.properties is missing '${key}' ΓÇö see docs/android-release.md.")
         }
     }
     def keystoreFile = file(keystoreProps.getProperty('storeFile'))
     if (!keystoreFile.exists()) {
         throw new GradleException(
-            "Keystore file not found: ${keystoreFile.absolutePath} — check storeFile in android/keystore.properties.")
+            "Keystore file not found: ${keystoreFile.absolutePath} ΓÇö check storeFile in android/keystore.properties.")
     }
 }
 

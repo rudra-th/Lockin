@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Lockin — Block & Track",
   "short_name": "Lockin",
-  "version": "1.15.1",
+  "version": "1.16.0",
   "description": "The blocking and screen-time half of Lockin. Block distracting sites, see where the day went, and link your phone for the same week. The study clock lives in the app.",
   "minimum_chrome_version": "110",
   "permissions": [

@@ -21,3 +21,14 @@ export function blockSessionMin(nowMs, startMs, endMs) {
   const mins = Math.ceil((end - from) / 60000);
   return Math.max(5, Math.min(180, mins || 0));
 }
+
+/**
+ * Minutes from rounds that finished before the current one. Each completed
+ * round is already banked on its own; this is only the total to show when a
+ * session ends mid-round (a break, or a strict session forfeiting the segment).
+ */
+export function completedRoundMinutes(minPerRound, roundIdx) {
+  const min = Math.max(0, Number(minPerRound) || 0);
+  const done = Math.max(0, (Number(roundIdx) || 1) - 1);
+  return Math.round(min * done);
+}

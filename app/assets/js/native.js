@@ -517,9 +517,8 @@ export async function requestWidgetPin() {
 
 /* ---------- screen time ---------- */
 
-function usageRows(result) {
-  const rows = Array.isArray(result?.usage) ? result.usage : [];
-  return rows
+function usageList(rows) {
+  return (Array.isArray(rows) ? rows : [])
     .map((row) => ({
       package: String(row.package || ''),
       label: String(row.label || row.package || ''),
@@ -527,6 +526,10 @@ function usageRows(result) {
     }))
     .filter((row) => row.ms > 0)
     .sort((a, b) => b.ms - a.ms);
+}
+
+function usageRows(result) {
+  return usageList(result?.usage);
 }
 
 /** Per-app foreground time for the last `days`, largest first. */
@@ -549,7 +552,7 @@ export async function queryUsageToday() {
   }
 }
 
-/** Daily totals, oldest first: [{ day: 'YYYY-MM-DD', ms }]. */
+/** Daily totals + each day's top apps, oldest first: [{ day, ms, apps }]. */
 export async function queryUsageDaily(days = 7) {
   if (!isNative) return [];
   try {
@@ -559,6 +562,7 @@ export async function queryUsageDaily(days = 7) {
       .map((row) => ({
         day: String(row.day || ''),
         ms: Number(row.ms) || 0,
+        apps: usageList(row.apps),
       }))
       .filter((row) => row.day);
   } catch (_) {

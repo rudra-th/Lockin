@@ -9,6 +9,8 @@ import { initHome } from './views/home.js';
 import { initSchedule } from './views/schedule.js';
 import { initFocus } from './views/focus.js';
 import { initControl } from './views/control.js';
+import { initScreenTime } from './views/screen-time.js';
+import { initProgress } from './views/progress.js';
 import { initSettings } from './views/settings.js';
 import { initWalkthrough } from './views/walkthrough.js';
 import { startAlarms } from './alarms.js';
@@ -50,7 +52,8 @@ function applyTheme() {
   const pref = Store.state.settings.theme || 'system';
   const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  const color = dark ? '#08090c' : '#f7f8f5';
+  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+  const color = dark ? '#07080a' : '#f6f5f0';
   $$('meta[name="theme-color"]').forEach((m) => { m.content = color; });
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
@@ -68,6 +71,8 @@ initHome(Router);
 initSchedule(Router);
 initFocus(Router);
 initControl(Router);
+initScreenTime(Router);
+initProgress(Router);
 initSettings(Router);
 initWalkthrough(Router);
 

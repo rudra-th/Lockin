@@ -4,6 +4,7 @@
    only holds the kiosk preference. */
 
 import { Store } from '../store.js';
+import { Router } from '../router.js';
 import { el, fmtMin, parseKey } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
@@ -14,6 +15,7 @@ import {
   nativeStatus, queryUsageToday, queryUsageDaily, openUsageAccessSettings,
 } from '../native.js';
 import { isTrial, trialScreenTime } from '../trial.js';
+import { fmtDur, appHue, recentDays } from '../usage-format.js';
 
 export function initControl(Router) {
   Router.register('/control', { mount, unmount });
@@ -69,12 +71,6 @@ let appsLoaded = false;
 let paints = [];
 let cleanup = null;
 let refreshing = false;
-
-function fmtDur(ms) {
-  const mins = Math.max(0, Math.round((Number(ms) || 0) / 60000));
-  if (ms > 0 && mins < 1) return '<1m';
-  return fmtMin(mins);
-}
 
 function appLabel(pkg) {
   const found = appList.find((a) => a.package === pkg);
@@ -194,7 +190,7 @@ function mount(host) {
   const limits = limitsCard();
   const distractions = distractionCard();
   const strictCardView = strictCard();
-  const screen = screenTimeCard();
+  const screen = phoneHero();
 
   paints = [
     blocking.paint, limits.paint, distractions.paint, strictCardView.paint,
@@ -203,7 +199,7 @@ function mount(host) {
   host.append(el('section', { class: 'view-anim stagger' },
     el('div', { class: 'app-head' },
       el('div', { class: 'grow' },
-        el('h1', {}, 'Control'),
+        el('h1', {}, 'Phone'),
         el('div', { class: 'sub' }, 'Your phone, on your terms.'),
       ),
       isNative
@@ -236,26 +232,12 @@ function unmount() {
 
 /* ---------- screen time ---------- */
 
-function appHue(label) {
-  let h = 0;
-  for (let i = 0; i < label.length; i += 1) h = (h * 31 + label.charCodeAt(i)) % 360;
-  return h;
-}
-
 function lastSeven(rows) {
-  const byDay = new Map(rows.map((row) => [row.day, row.ms]));
-  const now = new Date();
-  const out = [];
-  for (let i = 6; i >= 0; i -= 1) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    out.push({ day: key, ms: byDay.get(key) || 0 });
-  }
-  return out;
+  return recentDays(rows, 7);
 }
 
-function screenTimeCard() {
-  const node = el('div', { class: 'card ctl-screen' });
+function phoneHero() {
+  const node = el('div', { class: 'phone-hero' });
   let data = { loading: true, usageOn: isNative || isTrial, week: [], apps: [], demo: isTrial };
   let busy = false;
 
@@ -268,31 +250,24 @@ function screenTimeCard() {
 
   function paint() {
     const { week, apps, demo, usageOn, loading } = data;
-    const days = lastSeven(week);
-    const total = days[days.length - 1].ms || apps.reduce((n, row) => n + row.ms, 0);
-    const max = Math.max(...days.map((row) => row.ms), 1);
-    const previous = days.slice(0, -1).filter((row) => row.ms > 0);
-    const average = previous.length
-      ? previous.reduce((n, row) => n + row.ms, 0) / previous.length
-      : 0;
-    const diff = average && total ? total - average : 0;
-    const deltaText = !average || !total
-      ? 'No week to compare yet'
-      : Math.abs(diff) < 10 * 60000
-        ? 'About your 7-day average'
-        : `${fmtDur(Math.abs(diff))} ${diff > 0 ? 'above' : 'below'} your 7-day average`;
-
-    const head = el('div', { class: 'ctl-card-head' },
-      el('h2', { class: 'blocking-head' }, svg('clock', 16), el('span', {}, 'Screen time')),
-      el('span', { class: 'ctl-tag' }, loading ? '…' : demo ? 'Demo' : usageOn ? 'Today' : 'Off'));
+    const head = el('div', { class: 'phone-hero-head' },
+      el('span', { class: 'eyebrow' }, 'Screen time'),
+      usageOn
+        ? el('a', {
+            class: 'more-link',
+            href: '#/screen-time',
+            onclick: (ev) => { ev.preventDefault(); Router.go('/screen-time'); },
+            'aria-label': 'Open screen time details for the past 30 days',
+          }, 'More', svg('chevR', 14))
+        : el('span', { class: 'ctl-tag' }, loading ? '…' : 'Off'),
+    );
 
     if (!usageOn) {
       node.replaceChildren(
         head,
-        el('div', { class: 'ctl-empty' },
-          el('div', { class: 'ctl-empty-icon' }, svg('clock', 24)),
+        el('div', { class: 'empty-state' },
           el('b', {}, 'Usage access is off'),
-          el('p', {}, 'Android only shares per-app foreground time with apps you allow. Lockin reads the app name and the minutes — never page content, text or keystrokes.'),
+          el('p', {}, 'Android shares per-app foreground time only with apps you allow. Lockin reads the app name and the minutes — never page content, text or keystrokes.'),
           el('button', {
             class: 'btn btn-primary btn-block',
             onclick: () => openUsageAccessSettings(),
@@ -301,56 +276,69 @@ function screenTimeCard() {
       return;
     }
 
+    const days = lastSeven(week);
+    const todayMs = days[days.length - 1].ms || apps.reduce((n, row) => n + row.ms, 0);
+    const max = Math.max(...days.map((row) => row.ms), 1);
+    const previous = days.slice(0, -1).filter((row) => row.ms > 0);
+    const average = previous.length
+      ? previous.reduce((n, row) => n + row.ms, 0) / previous.length
+      : 0;
+    const diff = average && todayMs ? todayMs - average : 0;
+    const deltaText = !average || !todayMs
+      ? 'No week to compare yet'
+      : Math.abs(diff) < 10 * 60000
+        ? 'About your 7-day average'
+        : `${fmtDur(Math.abs(diff))} ${diff > 0 ? 'above' : 'below'} your 7-day average`;
+
     const chartLabel = `Daily screen time: ${days.map((row) => `${fmtDay(row.day)} ${fmtDur(row.ms)}`).join(', ')}.`;
     const chart = el('div', {
-      class: 'ctl-chart', role: 'img', 'aria-label': chartLabel,
+      class: 'day-chart', role: 'img', 'aria-label': chartLabel,
     }, days.map((row, i) => {
       const today = i === days.length - 1;
       const pct = Math.max(6, Math.round((row.ms / max) * 100));
       return el('div', {
-        class: `ctl-day${today ? ' is-today' : ''}`,
+        class: `day-col${today ? ' is-today' : ''}`,
         title: `${fmtDay(row.day)} · ${fmtDur(row.ms)}`,
       },
-        el('div', { class: 'ctl-day-bar' }, el('i', { style: `height:${pct}%` })),
-        el('span', { class: 'ctl-day-name' }, today ? 'Today' : fmtDay(row.day)));
+        el('i', { class: 'day-bar', style: `height:${pct}%` }),
+        el('span', {}, today ? 'Today' : fmtDay(row.day).slice(0, 2)));
     }));
 
-    const top = apps.slice(0, 4);
+    const top = apps.slice(0, 3);
     const appMax = Math.max(...top.map((row) => row.ms), 1);
     const most = top.length
-      ? el('div', { class: 'ctl-apps' }, top.map((row) => {
+      ? el('div', {}, top.map((row) => {
         const label = String(row.label || row.package || 'App');
         const pct = Math.max(4, Math.round((row.ms / appMax) * 100));
-        return el('div', { class: 'ctl-app' },
+        return el('div', { class: 'app-line' },
           el('span', {
-            class: 'ctl-app-badge', style: `--h:${appHue(label)}`,
+            class: 'app-badge', style: `--h:${appHue(label)}`,
             'aria-hidden': 'true',
           }, label.charAt(0).toUpperCase()),
-          el('span', { class: 'ctl-app-name' }, label),
-          el('span', { class: 'ctl-app-time' }, fmtDur(row.ms)),
+          el('span', { class: 'app-name' }, label),
+          el('span', { class: 'app-time' }, fmtDur(row.ms)),
           el('span', {
-            class: 'ctl-app-bar', role: 'progressbar',
+            class: 'app-track', role: 'progressbar',
             'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct),
             'aria-label': `${label}: ${fmtDur(row.ms)} today`,
           }, el('i', { style: `width:${pct}%` })));
       }))
-      : el('p', { class: 'muted ctl-first' }, 'No foreground time yet today. Pick up the phone and this fills in.');
+      : el('p', { class: 'muted', style: 'margin:8px 0 0' }, 'No foreground time yet today. Pick up the phone and this fills in.');
 
     node.replaceChildren(
       head,
-      el('div', { class: 'ctl-screen-total' },
-        el('b', {}, total ? fmtDur(total) : '0m'),
-        el('span', {}, 'on screen today')),
-      el('p', { class: `ctl-delta${diff > 0 ? ' is-up' : ''}` }, deltaText),
+      el('div', { class: 'phone-total' },
+        el('b', {}, todayMs ? fmtDur(todayMs) : '0m'),
+        el('span', {}, 'today')),
+      el('p', { class: `phone-delta${diff > 0 ? ' is-up' : ''}` }, deltaText),
       chart,
-      el('div', { class: 'ctl-chart-foot' }, el('span', {}, 'Last 7 days')),
-      el('div', { class: 'ctl-most-head' },
+      el('div', { class: 'chart-foot' },
+        el('span', {}, 'Last 7 days'),
+        el('span', {}, demo ? 'Demo data' : average ? `avg ${fmtDur(average)}` : '')),
+      el('div', { class: 'most-head' },
         el('b', {}, 'Most used'),
-        el('span', {}, demo ? 'Demo data' : 'Today')),
+        el('span', {}, demo ? 'Demo' : 'Today')),
       most,
-      el('p', { class: 'tiny ctl-note' }, demo
-        ? 'Demo week for the trial. On Android this is your real foreground time, read on the phone.'
-        : 'Per-app foreground time from Android. It stays on this phone.'),
     );
   }
 
