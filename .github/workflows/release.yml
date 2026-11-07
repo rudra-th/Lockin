@@ -1,0 +1,88 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # secrets are not available in step-level `if`, only in job-level env
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_B64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tag matches package.json
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+
+      - run: npm run check
+      - run: npm run design:check -- --require-browser
+      - run: npm test
+      - run: npm run lint
+
+      - run: npm run pack:extension
+
+      - name: Zip the extension
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          (cd dist/extension && zip -qr "../lockin-extension-v${version}.zip" .)
+          ls -l dist/lockin-extension-v*.zip
+
+      - uses: actions/setup-java@v4
+        if: env.HAS_KEYSTORE == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Restore the release keystore
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p android/app
+          echo "$KEYSTORE_B64" | base64 -d > android/app/release.keystore
+          cat > android/keystore.properties <<EOF
+          storeFile=release.keystore
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Restore google-services.json
+        if: env.HAS_GOOGLE_SERVICES == 'true'
+        env:
+          GOOGLE_SERVICES_B64: ${{ secrets.GOOGLE_SERVICES_B64 }}
+        run: echo "$GOOGLE_SERVICES_B64" | base64 -d > android/app/google-services.json
+
+      - name: Build the signed APK
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          chmod +x android/gradlew
+          npm run android:build -- assembleRelease
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/lockin-${version}-release.apk"
+          ls -l dist/lockin-*-release.apk
+
+      - name: Create the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/lockin-extension-v*.zip
+            dist/lockin-*-release.apk
+          fail_on_unmatched_files: false
+          generate_release_notes: true

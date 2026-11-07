@@ -115,8 +115,24 @@ docs/         architecture, privacy, permissions, Android, releases
 ## Release process
 
 1. Update `CHANGELOG.md` and the status line in `README.md`.
-2. Bump `package.json` and the `VERSION` constant in `app/sw.js`.
-3. Run `npm run check` and the browser self-check.
+2. Bump `package.json` and the `VERSION` constant in `app/sw.js` (`npm run bump -- X.Y.Z`).
+3. Run `npm run check`, `npm run design:check` and the browser self-check.
 4. Pack the extension and smoke-test `dist/extension`.
 5. Commit, tag `vX.Y.Z`, push `main` and the tag.
-6. Create a GitHub Release from the tag and attach the extension zip.
+6. Let `.github/workflows/release.yml` create the GitHub Release, or create it
+   yourself and attach the extension zip and the signed APK.
+
+The release workflow runs the checks, tests and the design floors, zips the
+extension, and builds and attaches the signed APK when these repository secrets
+exist:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 android/app/release.keystore` |
+| `ANDROID_KEYSTORE_PASSWORD` | the `storePassword` value |
+| `ANDROID_KEY_ALIAS` | the `keyAlias` value |
+| `ANDROID_KEY_PASSWORD` | the `keyPassword` value |
+| `GOOGLE_SERVICES_B64` | optional: `base64 -w0 android/app/google-services.json` |
+
+Without them the tag still produces a release with the extension zip; only the
+APK step is skipped.

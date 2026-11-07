@@ -189,7 +189,7 @@ tools/
   pack-site.mjs         stages dist/site for Surge
   gen-icons.ps1         regenerates the PWA icon set (GDI+, no deps)
   gen-extension-icons.ps1
-.github/                check workflow, issue forms, PR template
+.github/                check and release workflows, issue forms, PR template
 docs/                   architecture, privacy, permissions, Android, releases
 serve.py                dev server (defaults to app/, no-store headers)
 ```
