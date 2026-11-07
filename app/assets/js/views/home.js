@@ -5,7 +5,7 @@
 import { Store } from '../store.js';
 import { Router } from '../router.js';
 import {
-  el, todayKey, prettyDate, fmtMin, daysUntil, dateKey, addDays,
+  el, todayKey, prettyDate, fmtMin, daysUntil, dateKey, addDays, clockLabel,
   nextOccurrence, spanLabel, parseKey, DAYS,
 } from '../util.js';
 import { svg } from '../icons.js';
@@ -203,14 +203,14 @@ function nextBlock() {
     const s = next.schedule;
     const start = new Date(next.start);
     if (next.ongoing) {
-      time.replaceChildren(el('b', {}, 'Now'), el('span', {}, `→ ${new Date(next.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`));
+      time.replaceChildren(el('b', {}, 'Now'), el('span', {}, `→ ${clockLabel(next.end)}`));
       kicker.textContent = 'In a block';
       kicker.classList.add('is-now');
       name.textContent = s.name;
       meta.textContent = `ends ${untilLabel(next.end - now)}`;
     } else {
       time.replaceChildren(
-        el('b', {}, start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+        el('b', {}, clockLabel(start)),
         el('span', {}, dayLabel(start)),
       );
       kicker.textContent = 'Next up';

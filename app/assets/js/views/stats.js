@@ -5,7 +5,7 @@
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, todayKey, addDays, prettyDate, fmtMin, parseKey } from '../util.js';
+import { el, todayKey, addDays, prettyDate, fmtMin, parseKey, clockLabel } from '../util.js';
 import { svg } from '../icons.js';
 import { openWeekShare } from '../share.js';
 
@@ -316,7 +316,7 @@ function recentCard() {
     el('h2', {}, 'Recent sessions'),
     rows.length
       ? rows.map((s) => {
-          const time = new Date(s.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const time = clockLabel(s.start);
           return el('div', { class: 'sesrow' },
             el('div', { class: 'grow' },
               el('div', { class: 'ses-name' }, 'Focus',

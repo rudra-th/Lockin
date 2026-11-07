@@ -6,7 +6,7 @@
 import { Store, uid } from '../store.js';
 import { Router } from '../router.js';
 import {
-  el, fmtClock, fmtWatch, fmtMin, todayKey, FREE_EXIT_SEC, END_HOLD_MS,
+  el, fmtClock, fmtWatch, fmtMin, todayKey, clockLabel, FREE_EXIT_SEC, END_HOLD_MS,
   blockSessionMin, spanMin, occurrenceOn, parseKey, completedRoundMinutes,
 } from '../util.js';
 import { svg } from '../icons.js';
@@ -567,7 +567,7 @@ function setupScreen() {
   function paintProjection() {
     const end = new Date(Date.now() + totalMinutes() * 60000);
     const sameDay = end.toDateString() === new Date().toDateString();
-    const clock = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const clock = clockLabel(end);
     projection.textContent = pomo
       ? `${min}m × 3 · ends ≈ ${clock}${sameDay ? '' : ' tomorrow'}`
       : `ends ≈ ${clock}${sameDay ? '' : ' tomorrow'}`;
@@ -963,7 +963,7 @@ function runningScreen() {
   if (Session.cfg.mode === 'stop') return stopRunningScreen();
   const rounds = Session.cfg.rounds || 1;
   const label = rounds > 1 ? `Focus · round ${Session.roundIdx} of ${rounds}` : 'Focus';
-  const endsAt = new Date(Session.plannedEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const endsAt = clockLabel(Session.plannedEnd);
   if (Date.now() - Session.startedAt < 8000) armUndoPill();
   const note = Session.cfg.label
     ? `${Session.cfg.label} · ends at ${endsAt}`

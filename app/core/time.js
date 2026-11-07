@@ -36,6 +36,12 @@ export function fmtWatch(totalSec) {
   return h ? `${h}:${pad2(m)}:${pad2(sec)}` : `${pad2(m)}:${pad2(sec)}`;
 }
 
+/** local date → "23:05" — the app's one clock format, matching schedules */
+export function clockLabel(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 /** minutes → "1h 25m" / "42m" */
 export function fmtMin(mins) {
   mins = Math.max(0, Math.round(mins));

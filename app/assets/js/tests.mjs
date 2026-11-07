@@ -13,7 +13,7 @@
 
 import { Store } from './store.js';
 import {
-  slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, todayKey, addDays, daysUntil,
+  slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, clockLabel, todayKey, addDays, daysUntil,
   freeExit, blockSessionMin, completedRoundMinutes, parseHM, toHM, spanMin,
   occursOn, occurrenceOn, occurrencesBetween, nextOccurrence, eventsBetween, daysLabel,
   normalizeSchedule, el, pickDueEvents, sameOccurrence,
@@ -100,6 +100,8 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(fmtMin(85), '1h 25m');
     eq(fmtMin(60), '1h');
     eq(fmtMin(7), '7m');
+    eq(clockLabel(new Date(2026, 10, 3, 23, 5)), '23:05');
+    eq(clockLabel(new Date(2026, 10, 3, 7, 0)), '07:00');
   });
   test('fmtWatch floors (stopwatch up-count)', () => {
     eq(fmtWatch(0), '00:00');

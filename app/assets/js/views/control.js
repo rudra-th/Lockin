@@ -5,7 +5,7 @@
 
 import { Store } from '../store.js';
 import { Router } from '../router.js';
-import { el, fmtMin, parseKey } from '../util.js';
+import { el, fmtMin, parseKey, clockLabel } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint } from '../ui.js';
 import { setrow } from '../controls.js';
@@ -554,9 +554,9 @@ function blockingCard() {
       text = 'Service on, but no apps are selected.';
       warn = true;
     } else if (device.active) {
-      text = `Covering now: ${device.active.label}, until ${new Date(device.active.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
+      text = `Covering now: ${device.active.label}, until ${clockLabel(device.active.end)}.`;
     } else if (device.next) {
-      text = `Next window: ${device.next.label}, ${new Date(device.next.start).toLocaleDateString([], { weekday: 'short' })} ${new Date(device.next.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
+      text = `Next window: ${device.next.label}, ${new Date(device.next.start).toLocaleDateString([], { weekday: 'short' })} ${clockLabel(device.next.start)}.`;
     } else {
       text = 'No focus windows in the next 14 days. Add a schedule block or start a session.';
     }
