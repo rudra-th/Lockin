@@ -92,6 +92,11 @@ body {
   color: var(--tx);
 }
 
+::selection {
+  background: var(--acc-dim);
+  color: var(--tx);
+}
+
 h1, h2, h3 { margin: 0; }
 
 h1 {
