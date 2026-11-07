@@ -1,7 +1,7 @@
 /* Lockin service worker — precache the offline shell, runtime-cache the rest.
    Bump VERSION whenever shipped files change; old caches are purged on activate. */
 
-const VERSION = 'lockin.v1.15.0';
+const VERSION = 'lockin.v1.15.1';
 const CORE = `${VERSION}-core`;
 const RUNTIME = `${VERSION}-runtime`;
 const BASE = new URL('./', self.location).pathname;

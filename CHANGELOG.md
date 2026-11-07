@@ -3,6 +3,18 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.15.1 — 2026-11-07
+
+### Share the card, for real
+
+- **Sharing now shares the image.** The share button sends the rendered card as
+  a PNG through the Android share sheet (or the Web Share API where files are
+  supported) instead of copying a caption. Download is the fallback.
+- **A square card, drawn at 2×.** Today's card is 1:1 (2160 × 2160) with the
+  status pill, ring, seven-day rail and credit redrawn at export size. The week
+  card exports at 2160 × 2700.
+- Bumped to 1.15.1 (versionCode 251).
+
 ## 1.15.0 — 2026-11-06
 
 ### On the home screen — widget and Quick Settings tile

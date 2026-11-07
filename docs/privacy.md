@@ -1,12 +1,12 @@
 # Privacy
 
 Lockin is a study tool, not an advertising product. This document describes
-what the **shipped 1.15.0 build** does — local-first by default, with optional
+what the **shipped 1.15.1 build** does — local-first by default, with optional
 Google sign-in for cloud sync. It is written to be read, not to hide behind.
 
 ## The short version
 
-- 1.15.0 is local-first. Tasks, schedules, sessions, target history and settings
+- 1.15.1 is local-first. Tasks, schedules, sessions, target history and settings
   live in one `localStorage` key on your device.
 - Sync is opt-in. Signed out there is no account, no analytics and no
   third-party request.
