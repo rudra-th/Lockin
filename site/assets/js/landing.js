@@ -81,6 +81,7 @@ const tabs = [...document.querySelectorAll('.ph-tab')];
 const sessionRing = document.querySelector('[data-session-ring]');
 const sessionClock = document.querySelector('[data-session-clock]');
 
+const storyDots = [...document.querySelectorAll('.story-dots i')];
 const screenOrder = ['plan', 'start', 'lock', 'review'];
 const RING = 540.35;
 let activeStep = -1;
@@ -93,9 +94,41 @@ function setActive(index) {
   steps.forEach((step, i) => step.classList.toggle('is-active', i === index));
   screens.forEach((screen) => screen.classList.toggle('is-active', screen.dataset.screen === screenOrder[index]));
   tabs.forEach((tab) => tab.classList.toggle('is-on', tab.dataset.tab === screenOrder[index]));
+  storyDots.forEach((dot, i) => dot.classList.toggle('is-on', i === index));
+}
+
+/* ---------- nav: glass on scroll, a progress hairline, the current section ---------- */
+
+const nav = document.querySelector('.nav');
+const navBar = document.getElementById('nav-progress-bar');
+const navLinks = [...document.querySelectorAll('.nav-links a')];
+const navSections = navLinks
+  .map((link) => document.querySelector(link.getAttribute('href')))
+  .filter(Boolean);
+let navAt = -2;
+
+function paintNav() {
+  const y = scrollY || 0;
+  if (nav) nav.classList.toggle('is-stuck', y > 18);
+
+  if (navBar) {
+    const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+    navBar.style.transform = `scaleX(${clamp01(y / max).toFixed(4)})`;
+  }
+
+  if (!navSections.length) return;
+  const line = innerHeight * 0.34;
+  let here = -1;
+  navSections.forEach((section, i) => {
+    if (section.getBoundingClientRect().top <= line) here = i;
+  });
+  if (here === navAt) return;
+  navAt = here;
+  navLinks.forEach((link, i) => link.classList.toggle('is-here', i === here));
 }
 
 function update() {
+  paintNav();
   const vh = window.innerHeight;
   const isMobile = window.matchMedia('(max-width: 900px)').matches;
 
@@ -160,6 +193,70 @@ function onScroll() {
 addEventListener('scroll', onScroll, { passive: true });
 addEventListener('resize', onScroll, { passive: true });
 update();
+
+/* ---------- hero spotlight ---------- */
+
+if (hero) {
+  const spot = hero.querySelector('.hero-spot');
+  if (spot && !reduceMotion) {
+    hero.addEventListener('pointermove', (event) => {
+      const rect = hero.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      spot.style.setProperty('--mx', `${x.toFixed(1)}%`);
+      spot.style.setProperty('--my', `${y.toFixed(1)}%`);
+    }, { passive: true });
+  }
+}
+
+/* ---------- panels that lean toward the pointer ---------- */
+
+const tilts = [...document.querySelectorAll('[data-tilt]')];
+const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+if (!reduceMotion && finePointer) {
+  for (const card of tilts) {
+    let frame = 0;
+    let target = null;
+
+    const paint = () => {
+      frame = 0;
+      if (!target) return;
+      const { x, y } = target;
+      card.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
+      card.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
+      /* Five degrees is enough to feel physical and not enough to read as a toy. */
+      card.style.transform =
+        `perspective(1000px) rotateX(${((0.5 - y) * 5).toFixed(2)}deg) rotateY(${((x - 0.5) * 6).toFixed(2)}deg)`;
+    };
+
+    card.addEventListener('pointermove', (event) => {
+      const rect = card.getBoundingClientRect();
+      target = {
+        x: clamp01((event.clientX - rect.left) / rect.width),
+        y: clamp01((event.clientY - rect.top) / rect.height),
+      };
+      if (!frame) frame = requestAnimationFrame(paint);
+    }, { passive: true });
+
+    card.addEventListener('pointerleave', () => {
+      target = null;
+      card.style.transform = '';
+    });
+  }
+}
+
+/* ---------- the hero card is alive ---------- */
+
+const liveClock = document.querySelector('[data-live-clock]');
+if (liveClock && !reduceMotion) {
+  let left = 32 * 60 + 18;
+  setInterval(() => {
+    left = left <= 0 ? 45 * 60 : left - 1;
+    liveClock.textContent =
+      `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
+  }, 1000);
+}
 
 /* ---------- figures count once ---------- */
 

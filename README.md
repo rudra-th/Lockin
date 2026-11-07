@@ -1,12 +1,14 @@
-# Lockin — focus, strictly
+# Lockin — a study clock that locks in
 
 [![check](https://github.com/rudra-th/Lockin/actions/workflows/check.yml/badge.svg)](https://github.com/rudra-th/Lockin/actions/workflows/check.yml)
 [![release](https://img.shields.io/github/v/release/rudra-th/Lockin?display_name=tag)](https://github.com/rudra-th/Lockin/releases)
 [![web](https://img.shields.io/badge/web-lockin.surge.sh-9dff4a)](https://lockin.surge.sh)
 
-**[lockin.surge.sh](https://lockin.surge.sh)**
+**[lockin.surge.sh](https://lockin.surge.sh)** · **[Open the live trial](https://lockin.surge.sh/app/?trial=1)**
 
-A study-first focus PWA. Keep a short task list for today and tomorrow, then run wake-locked **Study Mode** sessions that take over the whole screen — and watch the daily target fill with minutes that actually happened.
+A study-first focus app for people who are tired of being cheered at. Plan recurring blocks, start a wake-locked **Study Mode** session, and watch a daily target fill with minutes that actually happened. Then share the card — a real one, drawn on your phone.
+
+No feed, no streak shop, no motivational noise. Just the next block, the hold, and the arithmetic.
 
 The marketing home lives at [`site/`](site/) and the product lives at
 [`app/`](app/); downloads are served from the same domain at
@@ -14,7 +16,7 @@ The marketing home lives at [`site/`](site/) and the product lives at
 trial runs the real app at [`/app/?trial=1`](https://lockin.surge.sh/app/?trial=1)
 on a local **Test Account** with a seeded demo week.
 
-Vanilla JavaScript. No build step, no framework. Everything lives in your browser's localStorage - and an optional Google account can mirror a copy to your own private cloud.
+Vanilla JavaScript. No build step, no framework. Everything lives in your browser's localStorage — and an optional Google account can mirror a copy to your own private cloud.
 
 ## The premise
 
@@ -27,19 +29,21 @@ Regain, Forest, Opal and friends block apps or grow trees. Lockin is doing a dif
 | Measures | A **daily target** that days are measured against. Change it today and yesterday keeps the bar it was measured against — no retroactive rewriting |
 | Remembers | A day counts when its focused minutes reach that day's target. The streak is made of target days, and the weekly card shares the last seven of them |
 
-One honest limit, stated plainly in-app: **a web app cannot block other apps on your phone** — nothing on the web can. The Android build can, with an optional accessibility service that sees only which app came to the front: pick the apps, cap their daily minutes, and they are covered during schedule blocks and Study Mode. Turn on the optional device-owner kiosk and a session can hold the phone to Lockin and an allowlist — with a deadline that always releases it. It is off until you enable it, fails open when it is off, and never reads screen content. On the web, the session is the boundary: a full-bleed screen, wake lock, a daily-target meter you can't hide from, and a clock that tells the truth.
+One honest limit, stated plainly in-app: **a web app cannot block other apps on your phone** — nothing on the web can. The Android build can, with an optional accessibility service that sees only which app came to the front: pick the apps, cap their daily minutes, and they are covered during schedule blocks and Study Mode. Turn on the optional device-owner **kiosk** and a session can hold the phone to Lockin and an allowlist — with a deadline that always releases it. It is off until you enable it, fails open when it is off, and never reads screen content. On the web, the session is the boundary: a full-bleed screen, wake lock, a daily-target meter you cannot hide from, and a clock that tells the truth.
 
 ## What's inside
 
 - **Schedule** — recurring local-time blocks with a 24-hour day ring, a live “next block” hero, and the day's tasks. Each block has a name, start and end (overnight allowed), days of the week, an on/off switch, an alarm at the start and an adjustable reminder (5 minutes by default, 0–30). The alarm rings in-app, chimes, vibrates and sends a system notification while Lockin is open; the Android build adds exact alarms for when it is closed, **Start session** and **Skip today** actions, and a lock-screen alarm when Android allows it.
-- **Study Mode** — set up around one decision: a big length dial that remembers your last length, with Timer/Stopwatch as a quiet switch; preset lengths (10–90 min) or ×3 Pomodoro with configurable focus/short/long breaks; a hold-the-ring intention screen (latches Screen Wake Lock + notification permission in one gesture); the running room draws a circular progress ring around the clock (a breathing ring for the open-ended stopwatch), keeps the app identity and a live **daily-target meter** (banked today + this session) on screen, and turns attached tasks into a checklist you can tick mid-session; during an Android kiosk session, a dock offers the allowed apps and labels a device-owner-less run **Limited kiosk**; ending is a 1.4-second hold with no punishment and no confirm sheet — inside the first 20 seconds the session is discarded, after that every minute stays banked as ended-early. A finished session gets a small confetti burst and a direct route to the week in Settings → Progress.
+- **Study Mode** — set up around one decision: a big length dial that remembers your last length, with Timer/Stopwatch as a quiet switch; preset lengths (10–90 min) or ×3 Pomodoro with configurable focus/short/long breaks; a hold-the-ring intention screen (latches Screen Wake Lock + notification permission in one gesture); the running room draws a circular progress ring around the clock (a breathing ring for the open-ended stopwatch), keeps the app identity and a live **daily-target meter** (banked today + this session) on screen, and turns attached tasks into a checklist you can tick mid-session; during an Android kiosk session, a dock offers the allowed apps and labels a device-owner-less run **Limited kiosk**; ending is a 1.4-second hold with no punishment and no confirm sheet — inside the first 20 seconds the session is discarded, after that every minute stays yours as ended-early. A finished session gets a small confetti burst and a direct route to the week in Settings → Progress.
+- **A focus card worth sharing** — a 1:1 card rendered at 2× on the device: the day's minutes, the target ring, the last seven days, your name, and an optional credit. The Android app hands the PNG straight to the system share sheet through a native bridge; the web uses the Web Share API with files, then falls back to a download and a copied caption. The week card is 4:5. Nothing is uploaded.
 - **Session survives everything** — a running session is snapshotted to storage on every change; close the tab, crash, reload — reopen and the clock is still true (wall-clock math, not setInterval accumulation).
 - **Settings, in four categories** — **Study** (daily target, Pomodoro, alarms and the check-in nudge), **Device** (screen wake, notifications, screen time and Android permissions), **Progress** (today's target ring and streak, all-time totals, a 7-day bar chart with each day's target line, task completion, a weekday-aligned 13-week target-day heatmap, recent sessions and a shareable weekly card) and **You** (profile, appearance, account, backup and About). Each category is one tap away with a deep link (`#/settings?section=progress`), and old `#/stats` links land in Progress.
-- **The room has no punishments** — every session opens the intention screen and starts on a hold. Ending is a hold too, and it always works; early minutes are kept, not logged against you. The daily target is the only judge, and it is versioned so a new target never rewrites an old day.
+- **The room has no punishments** — every session opens the intention screen and starts on a hold. Ending is a hold too, and it always works; early minutes are kept, never logged against you. The daily target is the only judge, and it is versioned so a new target never rewrites an old day.
 - **Daily check-in** — one quiet notification a day (20:00 by default, adjustable) that says how much is left of today's target. It only fires while there is a gap worth closing, and it never counts a miss. Reminders before schedule blocks carry the same target line.
 - **First-run film** — eight full-bleed scenes: your name (with a Google sign-in shortcut if you already have an account), target exam (JEE, NEET, Boards, MHT-CET and more, or type your own), the rough month and year, a daily study bar, an optional account scene, the room's rules, and every permission the schedule can use — notifications on the web; notifications, exact alarms, full-screen alarms, the accessibility service and usage access on Android. Every ask is optional, shows live status, and links to the system setting if it is denied. Skipping Google is fine; the account scene offers it again before the tour ends. No demo session, no seeded schedule. Rerunnable from Settings.
 - **Home in three facts** — days left until your exam (warm inside 30 days, a prompt once it passes), today's focused minutes against your target, and the next schedule block with a live "in 3h 12m". Tasks live in Schedule; target days, history and screen time live in Settings. Nothing else.
 - **Control** — the phone side in one home: a master blocking switch, a searchable app picker, one-tap distraction presets (short videos, feeds, streaming), per-app daily allowances with live usage bars, and the kiosk with its allowlist and honestly-labelled pinning fallback. Screen time moved to Settings, where it sits beside the permissions it needs.
+- **Home-screen widget and Quick Settings tile** — both Android extras, both read-only. The widget shows today's minutes against the target and the next block; the tile opens Focus setup. Neither can start a session on its own, and neither asks for a permission.
 - **Browser extension** — blocks a list of sites for 25/45/60 minutes, caps any site at a daily allowance (10 min–2 h), and cuts YouTube Shorts, Instagram Reels, Facebook Reels and Snapchat Spotlight on a toggle that is on by default. Spend a limit and the site holds until local midnight; the blocked page says which rule caught it and when it lifts, and the popup shows today's usage against each allowance. Chrome only, no timer, no account.
 - **Android app blocking** — pick apps in Control; a user-enabled accessibility service covers them during schedule blocks and running/paused Study Mode sessions with a full-screen overlay, the block name, a live countdown and one way out: **Leave this app**. Per-app limits use the same foreground signal to count minutes, never page content. The service receives one event type and no screen content, the list stays on the device, and everything fails open when the service is off. A break is free time; Lockin, your launcher, Settings and the dialer are never blocked.
 - **Offline-first PWA** — installable, service-worker precache of the entire shell, works with airplane mode on.
@@ -49,9 +53,9 @@ One honest limit, stated plainly in-app: **a web app cannot block other apps on 
 
 | Surface | What it is | Where |
 |---|---|---|
-| **Web app** | The whole study clock: tasks, Study Mode, daily targets, Progress in Settings, the weekly card, Control's web explanation. Installable, offline. | `app/` → **[lockin.surge.sh](https://lockin.surge.sh)** |
+| **Web app** | The whole study clock: tasks, Study Mode, daily targets, Progress in Settings, the focus and week cards, Control's web explanation. Installable, offline. | `app/` → **[lockin.surge.sh](https://lockin.surge.sh)** |
 | **Browser extension** | Only blocking, short-video rules, per-site daily limits and screen time. No timer, no tasks, no streaks. | `extension/` → pack with `node tools/pack-extension.mjs` |
-| **Android app** | The same UI in a Capacitor shell: exact alarms, full-screen lock-screen alarms, Start/Skip actions, notification permission, usage access, screen time in Settings, app blocking, per-app limits and the kiosk in Control, a home-screen widget and a Quick Settings tile, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
+| **Android app** | The same UI in a Capacitor shell: exact alarms, full-screen lock-screen alarms, Start/Skip actions, notification permission, usage access, screen time in Settings, app blocking, per-app limits and the kiosk in Control, a home-screen widget, a Quick Settings tile, and optional Google sign-in for sync. | `android/` → `npm run android:build` |
 
 The web app is the source of truth for a study session. The extension is deliberately the smaller instrument — it holds the block list and per-site daily allowances, counts the active Chrome tab, and says so in its own README.
 
@@ -72,7 +76,7 @@ The web app is the source of truth for a study session. The extension is deliber
 | [`docs/architecture.md`](docs/architecture.md) | Surfaces, shared core, schedule model, alarm semantics, sync design |
 | [`docs/privacy.md`](docs/privacy.md) | What is stored, where, and what sync will mean |
 | [`docs/permissions.md`](docs/permissions.md) | Every capability each surface asks for |
-| [`docs/android.md`](docs/android.md) | Capacitor build, exact alarms, usage access, per-app limits, optional kiosk |
+| [`docs/android.md`](docs/android.md) | Capacitor build, exact alarms, usage access, per-app limits, widget, tile, optional kiosk |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Setup, checks, release process, code rules |
 | [`CHANGELOG.md`](CHANGELOG.md) | What shipped, version by version |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and secret rules |
@@ -119,7 +123,7 @@ App blocking is opt-in: **Control** opens the system accessibility screen, then
 the master switch, the app picker and the distraction presets do the rest. The
 service reads foreground package names only, keeps the list and usage counters
 in device-local storage, and never reads screen content. Per-app limits count
-foreground minutes while it is on. Strict mode can go further with a one-time
+foreground minutes while it is on. The kiosk can go further with a one-time
 device-owner command; without it, Lockin uses screen pinning and says
 **Limited kiosk**. It is a focus aid, not a lock — Android lets you turn it off,
 and Lockin says so plainly.
@@ -153,6 +157,7 @@ app/                    the web app — the Capacitor webDir
       firebase.js       lazy Firebase SDK loader (pinned CDN, memoized)
       account.js        Google sign-in, session restore, sign-out
       sync.js           cloud sync engine: pull, merge, push, cursors
+      share.js          canvas focus card + week card, native/web sharing
       app.js            bootstrap: theme, routes, live-session resume
       icons.js          inline SVG set
       views/            home · schedule · focus · control · stats (Progress) · settings · walkthrough
@@ -175,11 +180,12 @@ extension/              Chrome: blocking + active-tab screen time
   blocked.html/js/css   where a blocked site lands
   README.md             build, load, honest limits
 android/                Capacitor 8 shell + LockinNative bridge
-  app/src/main/         manifest, MainActivity, alarms, usage access
+  app/src/main/         manifest, MainActivity, alarms, usage access, widget, QS tile
   variables.gradle      SDK 36, minSdk 24, AndroidX versions
 tools/
   check.mjs             repo check: parse, JSON, CSS, precache, versions
   pack-extension.mjs    stages dist/extension (copies app/core + fonts)
+  pack-site.mjs         stages dist/site for Surge
   gen-icons.ps1         regenerates the PWA icon set (GDI+, no deps)
   gen-extension-icons.ps1
 .github/                check workflow, issue forms, PR template
@@ -191,11 +197,11 @@ serve.py                dev server (defaults to app/, no-store headers)
 
 One localStorage key: `lockin.store.v1`. Export/import a JSON backup from Settings; "Erase all data" is real and re-runs the opening film. Sessions store minutes, tasks and the ended-early flag — no subject list to maintain.
 
-Signing in adds `lockin.sync.v1` (shadow + pull cursor) and `lockin.sync.on` (the signed-in flag). The cloud copy is a per-entity Firestore tree under `users/{uid}/` — profile and settings as single docs, schedules and tasks with tombstones, sessions and screen time append/merge by their own rules. Slips are gone: v1.14 removes the old `slips` collection once per account.
+Signing in adds `lockin.sync.v1` (shadow + pull cursor) and `lockin.sync.on` (the signed-in flag). The cloud copy is a per-entity Firestore tree under `users/{uid}/` — profile and settings as single docs, schedules and tasks with tombstones, sessions and screen time append/merge by their own rules. Signing out never deletes local data, and **Delete cloud data** removes the remote copy.
 
 ## Status
 
-v1.14.0 replaces the old clean-day rule with a **daily target**: a day counts when it reaches the target that was set on that day, and changing the target never rewrites the past. Study Mode is now a room without punishments — the hold starts it, the hold ends it, and early minutes stay yours. Schedule alarms gained **Start session** / **Skip today**, and a once-a-day check-in says how much of the target is left. Old clean-day streaks will recompute under the new rule. v1.11.0 gave the phone side one home in **Control**; v1.6.0 added **optional Google sign-in and cloud sync**; v1.4.0 made Plan **Schedule**. Live at **[lockin.surge.sh](https://lockin.surge.sh)**.
+**v1.15.0** is live at **[lockin.surge.sh](https://lockin.surge.sh)**. Android gains a home-screen widget and a Quick Settings tile — the tile opens Focus setup and never starts a session by itself — and the optional device-owner lock is now called **Kiosk** everywhere. v1.14 replaced the old day rule with a **daily target**: a day counts when it reaches the target that was set on that day, and changing the target never rewrites the past. Study Mode is a room without punishments — the hold starts it, the hold ends it, and early minutes stay yours. Schedule alarms gained **Start session** / **Skip today**, and a once-a-day check-in says how much of the target is left. v1.11.0 gave the phone side one home in **Control**; v1.6.0 added **optional Google sign-in and cloud sync**; v1.4.0 made Plan **Schedule**.
 
 ## License
 

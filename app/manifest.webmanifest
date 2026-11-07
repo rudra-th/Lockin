@@ -1,7 +1,7 @@
 {
-  "name": "Lockin — Focus, strictly",
+  "name": "Lockin — a study clock that locks in",
   "short_name": "Lockin",
-  "description": "A study-first focus PWA: recurring schedule blocks and alarms, a daily task list, wake-locked Study Mode with real Strict enforcement, and an honest slip log. Installable, offline, no account.",
+  "description": "A study-first focus PWA: recurring schedule blocks and alarms, a daily task list, wake-locked Study Mode, a daily target built from real minutes, and an optional Android kiosk. Installable, offline, no account.",
   "id": "lockin-app",
   "start_url": "./",
   "scope": "./",

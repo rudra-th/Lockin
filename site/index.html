@@ -41,12 +41,24 @@
       <a href="#download">Download</a>
     </nav>
     <a class="nav-cta" href="/app/?trial=1">Try it free</a>
+    <span class="nav-progress" aria-hidden="true"><i id="nav-progress-bar"></i></span>
   </header>
 
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-aura" aria-hidden="true">
+        <span class="aura aura-a"></span>
+        <span class="aura aura-b"></span>
+        <span class="hero-grid"></span>
+      </div>
+      <div class="hero-spot" aria-hidden="true"></div>
+
       <div class="hero-top">
-        <h1 id="hero-title">A study clock<br>that locks in.</h1>
+        <p class="eyebrow"><i aria-hidden="true"></i> A study clock, not a cheerleader</p>
+        <h1 id="hero-title">
+          <span class="line"><span>A study clock</span></span>
+          <span class="line"><span>that locks in.</span></span>
+        </h1>
         <p class="hero-sub">Recurring blocks, a wake-locked Study Mode, and a daily target built from minutes that actually happened. On Android, it also covers the apps you choose.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="/app/?trial=1">Open the live trial</a>
@@ -55,6 +67,27 @@
         <p class="hero-meta">No account needed. The trial is the real app, not a video.</p>
       </div>
 
+      <aside class="hero-live" aria-hidden="true">
+        <span class="hl-chip hl-chip-a">Wake lock held</span>
+        <span class="hl-chip hl-chip-b">Instagram covered</span>
+        <div class="hl-head">
+          <span class="hl-live"><i></i> Session running</span>
+          <span class="hl-name">Deep work</span>
+        </div>
+        <div class="hl-ring">
+          <svg viewBox="0 0 140 140">
+            <circle class="hl-track" cx="70" cy="70" r="62" fill="none" stroke-width="5"/>
+            <circle class="hl-progress" cx="70" cy="70" r="62" fill="none" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <div class="hl-clock"><b data-live-clock>32:18</b><span>left in the hold</span></div>
+        </div>
+        <div class="hl-target">
+          <div class="hl-target-row"><span>Today</span><b>1h 48m <em>/ 3h</em></b></div>
+          <div class="hl-bar"><i></i></div>
+        </div>
+        <div class="hl-foot"><span>Problem set 4</span><b>12 left</b></div>
+      </aside>
+
       <div class="hero-word" aria-hidden="true">lockin</div>
 
       <a class="hero-cue" href="#story">
@@ -62,6 +95,23 @@
         <i aria-hidden="true"></i>
       </a>
     </section>
+
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <span>Recurring blocks</span><i></i>
+        <span>Wake-locked Study Mode</span><i></i>
+        <span>A target that never rewrites the past</span><i></i>
+        <span>App blocking</span><i></i>
+        <span>Screen time</span><i></i>
+        <span>One card to share</span><i></i>
+        <span>Recurring blocks</span><i></i>
+        <span>Wake-locked Study Mode</span><i></i>
+        <span>A target that never rewrites the past</span><i></i>
+        <span>App blocking</span><i></i>
+        <span>Screen time</span><i></i>
+        <span>One card to share</span><i></i>
+      </div>
+    </div>
 
     <section class="story" id="story" aria-labelledby="story-title">
       <div class="story-head">
@@ -197,22 +247,29 @@
 
           <div class="story-copy">
             <article class="step is-active" data-step="plan">
+              <p class="step-kicker">01 — Plan</p>
               <h3>Plan the week.</h3>
               <p>Name a block, pick the days, set the alarm. Lockin repeats it, so tomorrow is already decided.</p>
             </article>
             <article class="step" data-step="start">
+              <p class="step-kicker">02 — Start</p>
               <h3>Start the hold.</h3>
               <p>A wall-clock ring, the daily target and the tasks you attached. The screen stays awake for as long as the session runs.</p>
             </article>
             <article class="step" data-step="lock">
+              <p class="step-kicker">03 — Cover</p>
               <h3>Lock the apps.</h3>
               <p>App blocking covers the apps you choose. On Android, the optional kiosk can pin the phone to Lockin and an allowlist; it releases at the deadline, every time.</p>
             </article>
             <article class="step" data-step="review">
+              <p class="step-kicker">04 — Review</p>
               <h3>Review the truth.</h3>
               <p>Seven days against their own targets, a thirteen-week target-day map, and one card you can share. No seeded sessions. No streak for sale.</p>
               <a class="btn btn-primary step-cta" href="/app/?trial=1">Open the live trial</a>
             </article>
+            <div class="story-dots" aria-hidden="true">
+              <i class="is-on"></i><i></i><i></i><i></i>
+            </div>
           </div>
         </div>
       </div>
@@ -224,7 +281,7 @@
         <p>A seven-day screen-time chart, the apps that took the time, and a limit on the ones you choose. Control opens with it.</p>
       </div>
 
-      <div class="control-panel" data-ui>
+      <div class="control-panel" data-ui data-tilt>
         <div class="cp-head">
           <div>
             <p class="cp-label">Screen time</p>
@@ -317,7 +374,7 @@
         </ul>
         <a class="btn btn-primary" href="/app/?trial=1">Meet Test Account</a>
       </div>
-      <div class="trial-card" data-ui>
+      <div class="trial-card" data-ui data-tilt>
         <p class="tc-label">Demo account</p>
         <div class="tc-id">
           <span class="tc-avatar">T</span>
@@ -368,6 +425,8 @@
     </section>
 
     <section class="download" id="download" aria-labelledby="download-title">
+      <div class="download-aura" aria-hidden="true"><span></span><span></span></div>
+      <div class="download-mark" aria-hidden="true">lockin</div>
       <div class="download-inner">
         <h2 id="download-title">Take the clock<br>with you.</h2>
         <p class="download-lede" id="download-lede">The Android build is the full instrument: exact alarms, app blocking, screen time and the optional kiosk. The extension covers sites on a laptop.</p>
@@ -391,7 +450,7 @@
 
   <footer class="footer">
     <div class="footer-top">
-      <p class="footer-line">Focus, strictly. Built for one thing.</p>
+      <p class="footer-line">A study clock. Built for one thing.</p>
       <div class="footer-grid">
         <div>
           <span>Product</span>
