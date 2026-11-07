@@ -165,7 +165,7 @@ function heroCard(now) {
         el('span', {}, enabled
           ? `${enabled} of ${schedules.length} block${schedules.length === 1 ? '' : 's'} active`
           : 'Paused — no block will ring until you turn one back on.')),
-      toggle(() => enabled > 0, () => setAllSchedules(!(enabled > 0))))
+      toggle(() => enabled > 0, () => setAllSchedules(!(enabled > 0)), 'Pause or resume every block'))
     : null;
 
   return el('div', { class: 'card sched-hero-card' },

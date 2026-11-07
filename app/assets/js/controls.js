@@ -58,9 +58,10 @@ export function setrow(title, desc, control) {
   return row;
 }
 
-export function toggle(get, setfn) {
+export function toggle(get, setfn, label) {
   const b = el('button', {
     class: 'switch', role: 'switch', 'aria-checked': String(get()),
+    ...(label ? { 'aria-label': label } : {}),
     onclick: () => {
       setfn();
       b.setAttribute('aria-checked', String(get()));
