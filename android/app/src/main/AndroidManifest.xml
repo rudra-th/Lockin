@@ -119,6 +119,45 @@
                 android:resource="@xml/lockin_widget_info" />
         </receiver>
 
+        <!-- Home-screen widget: days left until the exam. -->
+        <receiver
+            android:name=".ExamWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_exam_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lockin_exam_widget_info" />
+        </receiver>
+
+        <!-- Home-screen widget: the next block. -->
+        <receiver
+            android:name=".NextWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_next_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lockin_next_widget_info" />
+        </receiver>
+
+        <!-- Home-screen widget: this week's focus time. -->
+        <receiver
+            android:name=".WeekWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_week_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lockin_week_widget_info" />
+        </receiver>
+
         <!-- Quick Settings tile: opens Focus setup, never a silent session. -->
         <service
             android:name=".FocusTileService"

@@ -502,10 +502,10 @@ export async function pushWidget(snapshot) {
 }
 
 /** Ask the launcher to place the widget. Not every launcher allows pinning. */
-export async function requestWidgetPin() {
+export async function requestWidgetPin(kind = 'today') {
   if (!isNative) return { supported: false, requested: false };
   try {
-    const res = await plugin.requestWidgetPin();
+    const res = await plugin.requestWidgetPin({ kind });
     return {
       supported: Boolean(res?.supported),
       requested: Boolean(res?.requested),

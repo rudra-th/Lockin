@@ -3,6 +3,28 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.18.0 — 2026-11-07
+
+### Less chrome, more room
+
+- **Home now fits every phone.** The week strip's seven fixed columns were forcing
+  a 347px min-content width, so Home ran off the right edge at 360 and 320. The
+  chart, the grid and its children can shrink now, and each day is labelled in
+  two letters instead of a full "Today".
+- **The app says less.** Plan drops its duplicate time line and alarm summary,
+  Today rows show end time and duration once, Progress loses the duplicate task
+  card and streak pills, and recent sessions fold away after the first four.
+- **You is a menu again.** Row descriptions and the profile explainer are gone;
+  theme copy is one short line.
+- **Focus hides what the web cannot do.** Strict mode only appears where the
+  Android shell can enforce it.
+- **Control's web card is one sentence** and two clear actions.
+- **Four home-screen widgets.** Today (minutes against target), Exam countdown,
+  Next block and This week. Each is a read-only mirror of the numbers the app
+  already owns; pin one from You → Screen & alerts → Home screen.
+- Home, Progress and Control copy tightened throughout; no functionality removed.
+- Bumped to 1.18.0 (versionCode 280).
+
 ## 1.17.3 — 2026-11-07
 
 ### Design review: the floors hold everywhere

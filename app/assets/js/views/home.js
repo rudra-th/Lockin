@@ -151,13 +151,13 @@ function heroCard() {
     live.hidden = !nowLive;
 
     if (!min && !g) {
-      note.textContent = 'Set a daily target in You to give the day a bar.';
+      note.textContent = 'Set a daily target in You.';
     } else if (!min) {
-      note.textContent = `${fmtMin(g)} to go. The clock hasn’t started.`;
+      note.textContent = `${fmtMin(g)} to go.`;
     } else if (g && min >= g) {
-      note.textContent = `Target cleared · ${fmtMin(min - g)} over. Anything more is a bonus.`;
+      note.textContent = `${fmtMin(min - g)} over target.`;
     } else if (g) {
-      note.textContent = `${fmtMin(Math.max(0, g - min))} to go · ${pct}% of today’s target.`;
+      note.textContent = `${fmtMin(Math.max(0, g - min))} to go · ${pct}%`;
     } else {
       note.textContent = 'One session at a time.';
     }

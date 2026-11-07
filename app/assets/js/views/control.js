@@ -1049,17 +1049,10 @@ function strictCard() {
 /* ---------- web fallback ---------- */
 
 function webCard() {
-  const item = (icon, text) => el('li', {}, svg(icon, 16), el('span', {}, text));
   return el('div', { class: 'card ctl-upgrade' },
-    el('div', { class: 'ctl-upgrade-badge' }, svg('phone', 26)),
     el('h2', {}, 'The phone side needs Android'),
     el('p', { class: 'ctl-upgrade-lede' },
-      'Blocking, daily limits and kiosk sessions use Android’s own accessibility and usage services. A browser cannot see or cover another app — and this trial will not pretend it can.'),
-    el('ul', { class: 'ctl-web-list' },
-      item('clock', 'Your real screen time, read on the phone.'),
-      item('lock', 'Chosen apps covered during focus blocks.'),
-      item('shield', 'Kiosk sessions that pin the phone to Lockin.'),
-      item('film', 'Short-video and feed presets.')),
+      'Blocking, daily limits and kiosk sessions use Android’s own accessibility and usage services. A browser cannot cover another app.'),
     el('div', { class: 'btn-stack ctl-upgrade-actions' },
       el('a', {
         class: 'btn btn-primary btn-block',
@@ -1068,9 +1061,7 @@ function webCard() {
       el('a', {
         class: 'btn btn-subtle btn-block',
         href: '/downloads/lockin-extension.zip', download: '',
-      }, svg('copy', 17), 'Add the Chrome extension'),
+      }, svg('copy', 17), 'Chrome extension'),
     ),
-    el('p', { class: 'ctl-upgrade-note' },
-      'The extension blocks sites, sets daily site limits and cuts Shorts/Reels URLs. Chrome and Edge only.'),
   );
 }

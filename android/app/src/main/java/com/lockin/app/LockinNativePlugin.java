@@ -103,6 +103,14 @@ public class LockinNativePlugin extends Plugin {
             snapshot.goal = Math.max(1, Math.min(1440, input.optInt("goal", 120)));
             snapshot.streak = Math.max(0, input.optInt("streak", 0));
             snapshot.next = input.optString("next", "");
+            snapshot.nextName = input.optString("nextName", "");
+            snapshot.nextStart = input.optString("nextStart", "");
+            snapshot.nextEnd = input.optString("nextEnd", "");
+            snapshot.examName = input.optString("examName", "");
+            snapshot.examDays = Math.max(-1, input.optInt("examDays", -1));
+            snapshot.examWhen = input.optString("examWhen", "");
+            snapshot.weekMinutes = Math.max(0, Math.min(10080, input.optInt("weekMinutes", 0)));
+            snapshot.weekMetDays = Math.max(0, Math.min(7, input.optInt("weekMetDays", 0)));
             snapshot.session = input.optBoolean("session", false);
             snapshot.until = Math.max(0L, input.optLong("until", 0L));
         }
@@ -128,7 +136,18 @@ public class LockinNativePlugin extends Plugin {
             call.resolve(result);
             return;
         }
-        ComponentName provider = new ComponentName(getContext(), LockinWidgetProvider.class);
+        String kind = call.getString("kind", "today");
+        Class<?> providerClass;
+        if ("exam".equals(kind)) {
+            providerClass = ExamWidgetProvider.class;
+        } else if ("next".equals(kind)) {
+            providerClass = NextWidgetProvider.class;
+        } else if ("week".equals(kind)) {
+            providerClass = WeekWidgetProvider.class;
+        } else {
+            providerClass = LockinWidgetProvider.class;
+        }
+        ComponentName provider = new ComponentName(getContext(), providerClass);
         result.put("requested", manager.requestPinAppWidget(provider, null, null));
         call.resolve(result);
     }

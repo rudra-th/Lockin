@@ -20,6 +20,14 @@ final class WidgetStore {
         int goal = 120;
         int streak;
         String next = "";
+        String nextName = "";
+        String nextStart = "";
+        String nextEnd = "";
+        String examName = "";
+        int examDays = -1;
+        String examWhen = "";
+        int weekMinutes;
+        int weekMetDays;
         boolean session;
         long until;
         long updatedAt;
@@ -45,6 +53,14 @@ final class WidgetStore {
                 .putInt("goal", snapshot.goal)
                 .putInt("streak", snapshot.streak)
                 .putString("next", snapshot.next == null ? "" : snapshot.next)
+                .putString("nextName", snapshot.nextName == null ? "" : snapshot.nextName)
+                .putString("nextStart", snapshot.nextStart == null ? "" : snapshot.nextStart)
+                .putString("nextEnd", snapshot.nextEnd == null ? "" : snapshot.nextEnd)
+                .putString("examName", snapshot.examName == null ? "" : snapshot.examName)
+                .putInt("examDays", snapshot.examDays)
+                .putString("examWhen", snapshot.examWhen == null ? "" : snapshot.examWhen)
+                .putInt("weekMinutes", snapshot.weekMinutes)
+                .putInt("weekMetDays", snapshot.weekMetDays)
                 .putBoolean("session", snapshot.session)
                 .putLong("until", snapshot.until)
                 .putLong("updatedAt", snapshot.updatedAt)
@@ -58,6 +74,14 @@ final class WidgetStore {
         snapshot.goal = Math.max(1, prefs.getInt("goal", 120));
         snapshot.streak = Math.max(0, prefs.getInt("streak", 0));
         snapshot.next = prefs.getString("next", "");
+        snapshot.nextName = prefs.getString("nextName", "");
+        snapshot.nextStart = prefs.getString("nextStart", "");
+        snapshot.nextEnd = prefs.getString("nextEnd", "");
+        snapshot.examName = prefs.getString("examName", "");
+        snapshot.examDays = prefs.getInt("examDays", -1);
+        snapshot.examWhen = prefs.getString("examWhen", "");
+        snapshot.weekMinutes = Math.max(0, prefs.getInt("weekMinutes", 0));
+        snapshot.weekMetDays = Math.max(0, Math.min(7, prefs.getInt("weekMetDays", 0)));
         snapshot.session = prefs.getBoolean("session", false);
         snapshot.until = prefs.getLong("until", 0L);
         snapshot.updatedAt = prefs.getLong("updatedAt", 0L);

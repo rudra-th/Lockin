@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Four by two cells: this week's focus time and days on target. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_week_desc"
+    android:initialLayout="@layout/widget_small"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:previewLayout="@layout/widget_small"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

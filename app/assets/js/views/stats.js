@@ -57,7 +57,7 @@ function emptyHero() {
     el('div', { class: 'ec-kicker' }, 'Nothing measured yet'),
     el('div', { class: 'ec-title' }, 'The numbers start when ', el('em', {}, 'the clock does.')),
     el('p', { class: 'ec-copy' },
-      'Run one session in Study Mode. Minutes, target days and the weekly card fill themselves — no demo data, no defaults.'),
+      'Run one session and the record starts filling in.'),
     el('button', {
       class: 'btn btn-primary btn-block', style: 'margin-top:16px',
       onclick: () => Router.go('/focus'),
@@ -74,7 +74,6 @@ function todayCard() {
   const pct = goal ? mins / goal : 0;
   const left = Store.goalLeft(t);
   const over = Math.max(0, mins - goal);
-  const streak = Store.goalStreak(t);
   const met = Store.dayGoalMet(t);
 
   const note = !mins
@@ -82,10 +81,6 @@ function todayCard() {
     : met
       ? `Target cleared — ${fmtMin(over)} over.`
       : `${fmtMin(left)} left to hit the target.`;
-
-  const status = met
-    ? el('span', { class: 'pill acc' }, 'Target met')
-    : el('span', { class: 'pill' }, mins ? 'On the way' : 'Not started');
 
   return el('div', { class: 'card' },
     el('div', { class: 'row', style: 'gap:18px' },
@@ -99,10 +94,6 @@ function todayCard() {
         el('h2', { style: 'margin-bottom:7px' }, 'Today'),
         el('div', { class: 'stat-lead' }, `${fmtMin(mins)} of ${fmtMin(goal)}`),
         el('div', { class: 'stat-sub' }, note),
-        el('div', { class: 'pillrow' },
-          el('span', { class: 'pill' }, streak ? `${streak}-day streak` : 'No streak yet'),
-          status,
-        ),
       ),
     ),
   );
@@ -194,44 +185,6 @@ function weekCard() {
   );
 }
 
-/* ---------- tasks ---------- */
-
-function taskCard() {
-  const t = todayKey();
-  const days = [];
-  for (let i = 6; i >= 0; i -= 1) days.push(addDays(t, -i));
-  const all = days.flatMap((d) => Store.tasksOn(d));
-  const done = all.filter((x) => x.doneAt).length;
-  const today = Store.tasksOn(t);
-  const todayDone = today.filter((x) => x.doneAt).length;
-  const pct = all.length ? done / all.length : 0;
-
-  const body = all.length
-    ? el('div', { class: 'taskstat' },
-        el('div', { class: 'ts-num' }, `${Math.round(pct * 100)}%`),
-        el('div', { class: 'grow' },
-          el('div', { class: 'ts-line' },
-            el('b', {}, `${done} of ${all.length} done`),
-            el('span', {}, today.length ? `today ${todayDone}/${today.length}` : 'nothing today')),
-          el('div', { class: 'tsbar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(pct * 100)) },
-            el('i', { style: `width:${Math.round(pct * 100)}%` })),
-        ),
-      )
-    : el('div', { class: 'empty' }, 'No tasks in the last 7 days. Add them on Schedule — today or tomorrow.');
-
-  return el('div', { class: 'card' },
-    el('h2', {}, 'Tasks · last 7 days'),
-    body,
-    all.length
-      ? el('p', { class: 'tiny', style: 'margin-top:11px' },
-          'Every task counts once, whether it was finished on time or late.')
-      : el('button', {
-          class: 'btn btn-subtle btn-block', style: 'margin-top:10px',
-          onclick: () => Router.go('/schedule'),
-        }, svg('calendar', 16), 'Open Schedule'),
-  );
-}
-
 /* ---------- heatmap: 13 weekday-aligned weeks ---------- */
 
 function heatCard() {
@@ -307,25 +260,30 @@ function heatCard() {
 /* ---------- recent sessions ---------- */
 
 function recentCard() {
-  const rows = focusSessions()
+  const all = focusSessions()
     .slice()
-    .sort((a, b) => b.start - a.start)
-    .slice(0, 8);
+    .sort((a, b) => b.start - a.start);
+  const row = (s) => el('div', { class: 'sesrow' },
+    el('div', { class: 'grow' },
+      el('div', { class: 'ses-name' }, 'Focus',
+        s.aborted ? el('span', { class: 'ses-tag' }, 'ended early') : null),
+      el('div', { class: 'ses-when' }, `${prettyDate(s.day)} · ${clockLabel(s.start)}`),
+    ),
+    el('span', { class: 'ses-mins' }, fmtMin(Store.sessionMins(s))),
+  );
+  const rows = all.slice(0, 4).map(row);
+  const older = all.slice(4, 20).map(row);
 
   return el('div', { class: 'card' },
     el('h2', {}, 'Recent sessions'),
     rows.length
-      ? rows.map((s) => {
-          const time = clockLabel(s.start);
-          return el('div', { class: 'sesrow' },
-            el('div', { class: 'grow' },
-              el('div', { class: 'ses-name' }, 'Focus',
-                s.aborted ? el('span', { class: 'ses-tag' }, 'ended early') : null),
-              el('div', { class: 'ses-when' }, `${prettyDate(s.day)} · ${time}`),
-            ),
-            el('span', { class: 'ses-mins' }, fmtMin(Store.sessionMins(s))),
-          );
-        })
+      ? el('div', {},
+          rows,
+          older.length
+            ? el('details', { class: 'ses-more' },
+                el('summary', {}, `${older.length} older session${older.length === 1 ? '' : 's'}`),
+                older)
+            : null)
       : el('div', { class: 'empty' }, 'Nothing run yet. The log starts with your first session.'),
   );
 }
@@ -334,12 +292,11 @@ function recentCard() {
 
 export function progressCards() {
   const sessions = focusSessions();
-  if (!sessions.length) return [emptyHero(), taskCard()];
+  if (!sessions.length) return [emptyHero()];
   return [
     todayCard(),
     allTimeStrip(allTime()),
     weekCard(),
-    taskCard(),
     heatCard(),
     recentCard(),
   ];

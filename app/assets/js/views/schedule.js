@@ -141,14 +141,10 @@ function heroCard(now) {
         svg('plus', 15), 'Add a block'),
     );
   } else {
-    const when = next.ongoing
-      ? `until ${hhmm(next.end)}`
-      : `starts ${hhmm(next.start)}${sameDay(next.start, now) ? '' : ' tomorrow'}`;
     text.append(
       el('p', { class: 'sched-kicker' }, next.ongoing ? 'Happening now' : 'Next block'),
       el('h2', { class: 'sched-next-name' }, next.schedule.name),
-      el('p', { class: 'sched-next-time' }, spanLabel(next.schedule)),
-      el('p', { class: 'sched-next-meta' }, `${daysLabel(next.schedule.days)} · ${when}`),
+      el('p', { class: 'sched-next-meta' }, daysLabel(next.schedule.days)),
       el('div', { class: 'sched-count' },
         el('b', { 'data-next-in': '' }, untilText(next, now)),
         el('span', { 'data-next-sub': '' }, next.ongoing ? `ends ${hhmm(next.end)}` : `at ${hhmm(next.start)}`)),
@@ -160,11 +156,9 @@ function heroCard(now) {
   const enabled = schedules.filter((s) => s.enabled).length;
   const master = schedules.length
     ? el('div', { class: 'sched-master' },
-      el('div', { class: 'sched-master-txt' },
-        el('b', {}, enabled ? 'Schedule on' : 'Schedule paused'),
-        el('span', {}, enabled
-          ? `${enabled} of ${schedules.length} block${schedules.length === 1 ? '' : 's'} active`
-          : 'Paused — no block will ring until you turn one back on.')),
+      el('span', { class: 'sched-master-label' }, enabled
+        ? `Schedule on · ${enabled}/${schedules.length}`
+        : 'Schedule paused'),
       toggle(() => enabled > 0, () => setAllSchedules(!(enabled > 0)), 'Pause or resume every block'))
     : null;
 
@@ -197,7 +191,7 @@ function todaySection(now) {
       el('div', { class: 'sched-empty-glyph', innerHTML: svg('calendar', 25) }),
       el('div', { class: 'sched-empty-txt' },
         el('b', {}, 'Nothing scheduled today.'),
-        el('span', {}, 'A repeating block takes the decision out of the moment — the + in the top corner adds one.')));
+        el('span', {}, 'Add a repeating block and it appears here.')));
   } else {
     body = el('div', { class: 'sched-daylist' }, occs.map((occ) => {
       const skipped = Store.isBlockSkipped(occ.schedule.id, dateKey(occ.start));
@@ -212,7 +206,7 @@ function todaySection(now) {
         el('span', { class: 'slot-rail' }, el('i', {})),
         el('span', { class: 'slot-body' },
           el('b', {}, occ.schedule.name),
-          el('span', {}, `${occ.schedule.start} – ${occ.schedule.end} · ${fmtMin(spanMin(occ.schedule))}`)),
+          el('span', {}, `${occ.schedule.end} · ${fmtMin(spanMin(occ.schedule))}`)),
         el('span', { class: 'slot-state' }, stateText));
     }));
   }
@@ -252,7 +246,7 @@ function repeatingSection() {
       el('div', { class: 'sched-empty-glyph', innerHTML: svg('repeat', 25) }),
       el('div', { class: 'sched-empty-txt' },
         el('b', {}, 'No repeating blocks yet.'),
-        el('span', {}, 'Study, sleep, meals — put the shape of the day on the record.')),
+        el('span', {}, 'Study, sleep, meals — give the day a shape.')),
       el('button', { class: 'btn btn-subtle btn-sm', onclick: () => openEditor() }, svg('plus', 14), 'Add the first'));
 
   return el('section', { class: 'sched-sec' }, head, body);
@@ -289,23 +283,6 @@ function tasksSection() {
       el('span', { class: 'sched-sec-meta' }, 'Today & tomorrow')),
     taskDayCard(t),
     taskDayCard(addDays(t, 1)));
-}
-
-/* ---------- alarm summary ---------- */
-
-function alarmSummary() {
-  const s = Store.state.settings;
-  const on = s.scheduleAlarms;
-  const sub = on
-    ? `${s.remindDefault ? `${s.remindDefault} min reminder` : 'No reminder'} · sound ${s.alarmSound ? 'on' : 'off'} · vibrate ${s.alarmVibrate ? 'on' : 'off'}`
-    : 'No ring at block start.';
-
-  return el('div', { class: 'card sched-alarmsum' },
-    el('div', { class: 'sched-alarmsum-icon', innerHTML: svg('bell', 20) }),
-    el('div', { class: 'sched-alarmsum-txt' },
-      el('b', {}, on ? 'Alarms are on' : 'Alarms are off'),
-      el('span', {}, sub)),
-    el('button', { class: 'btn btn-subtle btn-sm', onclick: () => Router.go('/settings') }, 'Manage'));
 }
 
 /* ---------- the editor ---------- */
@@ -458,7 +435,6 @@ function render(host) {
     todaySection(now),
     tasksSection(),
     repeatingSection(),
-    alarmSummary(),
   ));
   liveKey = nextKey(now);
 }

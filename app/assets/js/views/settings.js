@@ -40,10 +40,10 @@ function onCleanup(fn) {
 /* The hub is grouped the way it is used: what a session does, what the phone
    does, the record, who owns the data. Each row opens one deep screen. */
 const SECTIONS = [
-  { id: 'study', label: 'Study & focus', icon: 'book', blurb: 'Daily target, Pomodoro lengths and schedule alarms.' },
-  { id: 'device', label: 'Screen & alerts', icon: 'phone', blurb: 'Wake lock, notifications and Android access.' },
-  { id: 'account', label: 'Account & sync', icon: 'cloud', blurb: 'Optional cloud mirror and the browser extension.' },
-  { id: 'data', label: 'Data & backup', icon: 'copy', blurb: 'Export, restore, install and credits.' },
+  { id: 'study', label: 'Study & focus', icon: 'book' },
+  { id: 'device', label: 'Screen & alerts', icon: 'phone' },
+  { id: 'account', label: 'Account & sync', icon: 'cloud' },
+  { id: 'data', label: 'Data & backup', icon: 'copy' },
 ];
 
 function targetCard() {
@@ -184,13 +184,25 @@ function nativeCard() {
   onCleanup(() => removeEventListener('visibilitychange', onVisible));
   setTimeout(refresh, 0); // the card is appended right after this returns
 
+  const widgets = [
+    { kind: 'today', label: 'Today', sub: 'Minutes against the target' },
+    { kind: 'exam', label: 'Exam countdown', sub: 'Days left until your exam' },
+    { kind: 'next', label: 'Next block', sub: 'The next thing on the schedule' },
+    { kind: 'week', label: 'This week', sub: 'Focus time and days on target' },
+  ];
   const widgetBtn = el('button', {
     class: 'btn btn-subtle btn-sm',
-    onclick: async () => {
-      const res = await requestWidgetPin();
-      if (res.requested) hint('Place the widget wherever you want it');
-      else hint('Long-press the home screen → Widgets → Lockin, or add the Focus tile from Quick Settings');
+    onclick: () => openSheet('Home-screen widgets', (close) => widgets.map((w) => el('button', {
+      class: 'menu-row', type: 'button',
+      onclick: async () => {
+        close();
+        const res = await requestWidgetPin(w.kind);
+        if (res.requested) hint('Place the widget wherever you want it');
+        else hint('Long-press the home screen → Widgets → Lockin');
+      },
     },
+      el('span', { class: 'menu-txt' }, el('b', {}, w.label), el('span', {}, w.sub)),
+    ))),
   }, 'Pin widget');
 
   return el('div', { class: 'card' },
@@ -211,7 +223,7 @@ function nativeCard() {
       'Reads per-app foreground time for the screen-time card below. Lockin can open the setting, but only you can grant it.',
       el('div', { class: 'native-ctrl' }, usagePill, usageBtn)),
     setrow('Home screen',
-      'Today’s minutes against the target, the streak and the next block — as a widget. The Quick Settings tile opens Focus setup; it never starts a session on its own.',
+      'Today, exam countdown, next block or the week. The Focus tile opens setup; it never starts a session.',
       el('div', { class: 'native-ctrl' }, widgetBtn)),
     el('p', { class: 'tiny', style: 'margin:12px 0 0' },
       'Lockin reads how long an app was in the foreground. It does not read page content, keystrokes or files.'),
@@ -270,7 +282,7 @@ function lookCard() {
   }
   return el('div', { class: 'card' },
     el('h2', {}, 'Appearance'),
-    setrow('Theme', 'Dark by default. System follows your phone.', seg),
+    setrow('Theme', 'Dark, light or system.', seg),
   );
 }
 
@@ -293,7 +305,6 @@ function profileCard() {
   }, svg('check', 16), 'Save profile');
   return el('div', { class: 'card' },
     el('h2', {}, 'Profile'),
-    el('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Your name, exam and rough date personalize Home, the session screens and your stats.'),
     el('div', { class: 'fields' },
       el('label', { class: 'field' }, el('span', {}, 'Name'), nameInp),
       el('label', { class: 'field' }, el('span', {}, 'Target exam'), examInp),
@@ -562,9 +573,7 @@ function menuRow(meta, target) {
     onclick: () => Router.go(target),
   },
     el('span', { class: 'menu-icon' }, svg(meta.icon, 18)),
-    el('span', { class: 'menu-txt' },
-      el('b', {}, meta.label),
-      el('span', {}, meta.blurb)),
+    el('span', { class: 'menu-txt' }, el('b', {}, meta.label)),
     el('span', { class: 'menu-go', innerHTML: svg('chevR', 16) }),
   );
 }
@@ -575,10 +584,7 @@ function hub() {
     ...SECTIONS.map((meta) => menuRow(meta, `/settings?section=${meta.id}`)),
   ];
   /* Progress is a record, not a lever — a direct link, not a settings screen. */
-  rows.splice(2, 0, menuRow({
-    label: 'Progress', icon: 'chart',
-    blurb: 'Today, the week and the whole record.',
-  }, '/progress'));
+  rows.splice(2, 0, menuRow({ label: 'Progress', icon: 'chart' }, '/progress'));
 
   return el('section', { class: 'view-anim' },
     el('header', { class: 'app-head' },
@@ -612,10 +618,7 @@ function sectionScreen(meta) {
       class: 'backrow', type: 'button', onclick: () => Router.go('/settings'),
     }, svg('chevL', 16), 'You'),
     el('header', { class: 'app-head' },
-      el('div', { class: 'grow' },
-        el('h1', {}, meta.label),
-        el('div', { class: 'sub' }, meta.blurb),
-      ),
+      el('div', { class: 'grow' }, el('h1', {}, meta.label)),
     ),
     cards.filter(Boolean),
   );

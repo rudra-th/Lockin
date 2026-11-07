@@ -1542,25 +1542,6 @@ body[data-mode='onboard'] #view {
 .sw.quiet { background: var(--panel-2); border: 1px solid var(--line); }
 .sw.goal { height: 0; border-top: 1px dashed var(--tx-3); border-radius: 0; }
 
-.taskstat { display: flex; align-items: center; gap: 14px; }
-.ts-num {
-  min-width: 3.6ch;
-  font: 500 30px/1 var(--font-mono);
-  letter-spacing: -0.04em;
-  color: var(--acc);
-}
-.ts-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.ts-line b { font: 600 13.5px var(--font-sans); color: var(--tx); }
-.ts-line span { font: 400 12px var(--font-mono); color: var(--tx-3); white-space: nowrap; }
-.tsbar { height: 6px; border-radius: 99px; background: var(--panel-2); margin-top: 8px; overflow: hidden; }
-.tsbar i {
-  display: block;
-  height: 100%;
-  border-radius: 99px;
-  background: var(--acc);
-  transition: width 500ms var(--ease);
-}
-
 .hm svg { width: 100%; height: auto; display: block; max-width: 380px; margin: 0 auto; }
 
 .sesrow {
@@ -2469,12 +2450,6 @@ body[data-mode='onboard'] #view {
   overflow-wrap: anywhere;
 }
 
-.sched-next-time {
-  font: 500 12px/1.4 var(--font-mono);
-  color: var(--tx-2);
-  margin: 0;
-}
-
 .sched-next-meta {
   font: 400 12px/1.45 var(--font-sans);
   color: var(--tx-3);
@@ -2698,20 +2673,6 @@ body[data-mode='onboard'] #view {
   font-style: normal;
 }
 .weekstrip i.on { background: var(--acc-dim); color: var(--acc); }
-
-/* alarm summary */
-.sched-alarmsum { display: flex; align-items: center; gap: 13px; padding: 15px 16px; margin-top: 22px; }
-.sched-alarmsum-icon {
-  width: 40px; height: 40px;
-  flex: 0 0 auto;
-  display: grid; place-items: center;
-  border-radius: 12px;
-  background: var(--acc-dim);
-  color: var(--acc);
-}
-.sched-alarmsum-txt { flex: 1; min-width: 0; }
-.sched-alarmsum-txt b { display: block; font-size: 13.5px; font-weight: 600; }
-.sched-alarmsum-txt span { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--tx-3); }
 
 /* ---------- schedule editor ---------- */
 
@@ -3471,23 +3432,6 @@ body[data-mode='onboard'] #view {
 }
 .ctl-setup .btn { margin: 2px 0 4px; }
 
-/* web fallback */
-.ctl-web-list {
-  display: grid;
-  gap: 9px;
-  margin: 12px 0 14px;
-  padding: 0;
-  list-style: none;
-}
-.ctl-web-list li {
-  display: flex;
-  gap: 9px;
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: var(--tx-2);
-}
-.ctl-web-list svg { color: var(--acc); flex: none; margin-top: 1px; }
-
 /* kiosk dock inside a live strict session */
 .kiosk-dock {
   width: 100%;
@@ -3705,17 +3649,7 @@ body[data-mode='onboard'] #view {
 .ctl-empty .btn { margin-top: 6px; min-height: 50px; }
 
 /* the honest upgrade card on the web */
-.ctl-upgrade { padding: 28px 20px 22px; text-align: center; }
-.ctl-upgrade-badge {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 15px;
-  border-radius: 21px;
-  display: grid;
-  place-items: center;
-  background: var(--acc-dim);
-  color: var(--acc);
-}
+.ctl-upgrade { padding: 24px 18px 18px; text-align: center; }
 .ctl-upgrade h2 {
   margin: 0 0 8px;
   font: 600 20px/1.25 var(--font-sans);
@@ -3730,17 +3664,7 @@ body[data-mode='onboard'] #view {
   font-size: 13.5px;
   line-height: 1.5;
 }
-.ctl-upgrade .ctl-web-list {
-  gap: 12px;
-  margin: 0 0 20px;
-  padding: 15px;
-  border-radius: var(--r-md);
-  background: var(--panel-2);
-  text-align: left;
-}
-.ctl-upgrade .ctl-web-list li { font-size: 13px; }
 .ctl-upgrade-actions { margin-top: 0; }
-.ctl-upgrade-note { margin: 14px 0 0; color: var(--tx-3); font-size: 12px; line-height: 1.45; }
 
 .ctl-pointer { padding: 20px 18px 18px; }
 .ctl-pointer .ctl-lede { margin: -2px 0 16px; }
@@ -3755,9 +3679,6 @@ body[data-mode='onboard'] #view {
   padding-top: 15px;
   border-top: 1px solid var(--line);
 }
-.sched-master-txt { flex: 1; min-width: 0; }
-.sched-master-txt b { display: block; font-size: 15px; font-weight: 600; }
-.sched-master-txt span { display: block; margin-top: 3px; color: var(--tx-2); font-size: 12.5px; line-height: 1.4; }
 .sched-row { padding: 14px; gap: 12px; }
 .sched-row-main { min-height: 46px; }
 .sched-row-txt b { font-size: 15px; }

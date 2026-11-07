@@ -742,7 +742,7 @@ function setupScreen() {
     el('div', { class: 'dial-wrap' }, dial, projection),
     lenRow,
     modeSeg,
-    strictRow,
+    ...(isNative ? [strictRow] : []),
     attach,
     taskPanel,
     el('div', { class: 'study-foot' }, footNote, startBtn),

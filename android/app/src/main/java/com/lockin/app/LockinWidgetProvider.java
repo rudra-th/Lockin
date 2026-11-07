@@ -21,6 +21,9 @@ public class LockinWidgetProvider extends AppWidgetProvider {
         ComponentName provider = new ComponentName(ctx, LockinWidgetProvider.class);
         int[] ids = manager.getAppWidgetIds(provider);
         for (int id : ids) update(ctx, manager, id);
+        ExamWidgetProvider.refreshAll(ctx);
+        NextWidgetProvider.refreshAll(ctx);
+        WeekWidgetProvider.refreshAll(ctx);
         FocusTileService.requestUpdate(ctx);
     }
 

@@ -50,6 +50,29 @@
     <string name="widget_next">Next · %1$s</string>
     <string name="widget_streak">%1$d-day streak</string>
     <string name="widget_met">Target met</string>
+    <string name="widget_preview">&#8212;</string>
+    <string name="widget_now">Now</string>
+
+    <string name="widget_exam_name">Lockin exam</string>
+    <string name="widget_exam_desc">Days left until your exam.</string>
+    <string name="widget_exam_title">Exam</string>
+    <string name="widget_exam_unset">Set your exam in Lockin</string>
+    <string name="widget_exam_days">days left</string>
+    <string name="widget_exam_today">today</string>
+    <string name="widget_exam_tomorrow">tomorrow</string>
+    <string name="widget_exam_passed">passed</string>
+
+    <string name="widget_next_name">Lockin next</string>
+    <string name="widget_next_desc">The next block on your schedule.</string>
+    <string name="widget_next_title">Next block</string>
+    <string name="widget_next_none">Nothing scheduled</string>
+    <string name="widget_next_to">to %1$s</string>
+
+    <string name="widget_week_name">Lockin week</string>
+    <string name="widget_week_desc">Focus time this week and days on target.</string>
+    <string name="widget_week_title">Week</string>
+    <string name="widget_week_caption">This week</string>
+    <string name="widget_week_days">%1$d of 7 on target</string>
 
     <!-- Quick Settings tile -->
     <string name="tile_label">Focus</string>
