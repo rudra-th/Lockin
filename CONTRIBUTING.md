@@ -34,7 +34,7 @@ npm run design:check     # headless browser: 12px type, 44px targets, no overflo
 ```
 
 `design:check` needs Chrome, Edge or Chromium (set `CHROME_PATH` if it is not in
-a standard location). It drives the real app at 390 and 375, walks all eight
+a standard location). It drives the real app at 390, 375, 360 and 320, walks all eight
 opening-film scenes, and fails if any text dips below 12px, any control's
 effective hit area is under 44px, or anything overflows horizontally.
 

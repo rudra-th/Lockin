@@ -455,7 +455,16 @@ h1 {
 
 /* ---------- home ---------- */
 
-.home { display: grid; gap: 22px; }
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+}
+
+/* Grid items default to their min-content width, so one wide child (the week
+   strip was the offender) can push the whole screen past the viewport. Let
+   every child shrink; the chart below opts into minmax(0, 1fr) as well. */
+.home > * { min-width: 0; }
 
 .home-top {
   display: flex;
@@ -626,7 +635,7 @@ h1 {
 
 .week-bars {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   align-items: end;
   height: 54px;
@@ -637,6 +646,7 @@ h1 {
   /* A definite bar track, same as .day-col: percentage heights on .week-fill
      resolve against this row instead of collapsing to their 3px minimum. */
   grid-template-rows: 1fr auto;
+  min-width: 0;
   align-content: end;
   gap: 6px;
   height: 100%;

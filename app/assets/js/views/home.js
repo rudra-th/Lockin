@@ -242,12 +242,18 @@ function weekStrip() {
       el('b', {}, 'This week'),
       el('span', {}, fmtMin(total)),
     ),
-    el('span', { class: 'week-bars' }, days.map((d, i) => el('span', {
-      class: `week-day${d === todayKey() ? ' is-today' : ''}${vals[i] >= Store.goalFor(d) && vals[i] > 0 ? ' is-met' : ''}`,
-    },
-      el('i', { class: 'week-fill', style: `height:${Math.max(6, Math.round((vals[i] / max) * 100))}%` }),
-      el('span', {}, d === todayKey() ? 'Today' : DAYS[parseKey(d).getDay()].slice(0, 2)),
-    ))),
+    el('span', { class: 'week-bars' }, days.map((d, i) => {
+      const today = d === todayKey();
+      const label = DAYS[parseKey(d).getDay()].slice(0, 2);
+      return el('span', {
+        class: `week-day${today ? ' is-today' : ''}${vals[i] >= Store.goalFor(d) && vals[i] > 0 ? ' is-met' : ''}`,
+        title: today ? 'Today' : label,
+        'aria-label': today ? 'Today' : label,
+      },
+        el('i', { class: 'week-fill', style: `height:${Math.max(6, Math.round((vals[i] / max) * 100))}%` }),
+        el('span', { 'aria-hidden': 'true' }, label),
+      );
+    })),
   );
 
   return node;

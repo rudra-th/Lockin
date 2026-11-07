@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const APP = join(ROOT, 'app');
-const WIDTHS = [390, 375];
+const WIDTHS = [390, 375, 360, 320];
 const ROUTES = ['home', 'plan', 'focus', 'control', 'progress', 'settings'];
 const VIEW_FOR = { plan: 'schedule' };
 const requireBrowser = process.argv.includes('--require-browser');
