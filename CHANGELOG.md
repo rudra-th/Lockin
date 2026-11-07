@@ -3,6 +3,24 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.17.3 — 2026-11-07
+
+### Design review: the floors hold everywhere
+
+- **Every control reaches 44px.** Tick, delete, back rows, small buttons, chips, the
+  exam line and the seven-day chart now have real 44px targets; where the glyph must
+  stay small, an invisible box does the work.
+- **Every label reaches 12px.** The opening film, permission actions, exam cards and
+  month picks no longer run at 10-11.5px.
+- **The opening film got the same floors.** All eight scenes were re-measured at 390
+  and 375: no text under 12px, no control under 44px, no horizontal overflow.
+- **One clock.** Home, Focus, Control and Progress all read 24-hour time from the same
+  helper.
+- **The Focus dial is a readout.** The one primary on Focus is the start button.
+- **Named switches.** The master schedule switch announces what it controls.
+- **The Home exam chip stays on one line**, truncating its name first at 375px.
+- Bumped to 1.17.3 (versionCode 273).
+
 ## 1.17.2 — 2026-11-07
 
 ### The last of the QA pass

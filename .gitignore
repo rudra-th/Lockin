@@ -60,3 +60,4 @@ serviceAccount*.json
 .firebase/
 secrets/
 
+.gstack/

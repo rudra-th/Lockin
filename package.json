@@ -1,6 +1,6 @@
 {
   "name": "lockin",
-  "version": "1.17.2",
+  "version": "1.17.3",
   "private": true,
   "type": "module",
   "description": "A study-first focus app: recurring schedule blocks, alarms, wake-locked Study Mode and a daily target built from real minutes.",
