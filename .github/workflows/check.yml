@@ -19,5 +19,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run design:check -- --require-browser
       - run: npm run lint
       - run: npm test

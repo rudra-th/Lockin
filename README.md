@@ -184,6 +184,7 @@ android/                Capacitor 8 shell + LockinNative bridge
   variables.gradle      SDK 36, minSdk 24, AndroidX versions
 tools/
   check.mjs             repo check: parse, JSON, CSS, precache, versions
+  design-check.mjs      headless browser: 12px type, 44px targets, no overflow
   pack-extension.mjs    stages dist/extension (copies app/core + fonts)
   pack-site.mjs         stages dist/site for Surge
   gen-icons.ps1         regenerates the PWA icon set (GDI+, no deps)

@@ -30,7 +30,13 @@ counts.
 ```bash
 npm install
 npm run check            # JS parse, JSON, CSS braces, SW precache, versions
+npm run design:check     # headless browser: 12px type, 44px targets, no overflow
 ```
+
+`design:check` needs Chrome, Edge or Chromium (set `CHROME_PATH` if it is not in
+a standard location). It drives the real app at 390 and 375, walks all eight
+opening-film scenes, and fails if any text dips below 12px, any control's
+effective hit area is under 44px, or anything overflows horizontally.
 
 Open `app/tests.html` in a browser for the pure-logic self-check. It runs
 against an in-memory copy and never touches real data.

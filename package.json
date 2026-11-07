@@ -6,6 +6,7 @@
   "description": "A study-first focus app: recurring schedule blocks, alarms, wake-locked Study Mode and a daily target built from real minutes.",
   "scripts": {
     "check": "node tools/check.mjs",
+    "design:check": "node tools/design-check.mjs",
     "test": "node tools/run-tests.mjs",
     "lint": "eslint .",
     "bump": "node tools/version.mjs",
