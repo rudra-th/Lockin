@@ -3,6 +3,17 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.17.1 — 2026-11-07
+
+### QA pass on the redesign
+
+- **The exam line on Home shows its icon again.** It was appending the icon
+  markup as text; the icon now goes through the same child helper as the rest
+  of the app.
+- **Detail screens name themselves in the browser tab.** Screen time and
+  Progress had no tab of their own, so they kept the previous screen’s title.
+- Bumped to 1.17.1 (versionCode 271).
+
 ## 1.17.0 — 2026-11-07
 
 ### Strict mode, held by the phone

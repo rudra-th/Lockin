@@ -482,6 +482,7 @@ h1 {
 }
 
 .home-exam-line svg { width: 13px; height: 13px; color: var(--acc); }
+.home-exam-line .exam-ico { display: inline-flex; }
 .home-exam-line b { color: var(--tx); font-weight: 600; }
 .home-exam-line.is-empty { border-style: dashed; color: var(--tx-3); }
 

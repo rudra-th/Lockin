@@ -2,6 +2,13 @@
 
 const routes = new Map();
 
+/* Detail screens have no tab of their own, so they name their own title. */
+const DETAIL_TITLES = {
+  '/progress': 'Progress',
+  '/screen-time': 'Screen time',
+  '/start': 'Welcome',
+};
+
 export const Router = {
   current: null,
 
@@ -43,7 +50,8 @@ export const Router = {
     const tab = document.querySelector(`.tabbar button[data-nav="#${path}"]`);
     const name = tab?.getAttribute('aria-label')
       || tab?.querySelector('span')?.textContent
-      || (path === '/start' ? 'Welcome' : '');
+      || DETAIL_TITLES[path]
+      || '';
     if (name) document.title = `${name} — Lockin`;
 
     const heading = host.querySelector('h1');

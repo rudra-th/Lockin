@@ -83,18 +83,22 @@ function topBar() {
     'aria-label': 'Exam countdown — edit in Settings',
   });
 
+  /* svg() returns markup; Node.append would make it literal text. el()'s
+     child handling parses it, so the icon goes through a span. */
+  const icon = () => el('span', { class: 'exam-ico', innerHTML: svg('target', 13) });
+
   if (!p.exam && !p.examDate) {
-    exam.append(svg('target', 13), el('span', {}, 'Set your exam date'));
+    exam.append(icon(), el('span', {}, 'Set your exam date'));
   } else {
     const days = p.examDate ? daysUntil(p.examDate) : null;
     const label = p.exam || 'Your exam';
     if (days == null) {
-      exam.append(svg('target', 13), el('span', {}, label), el('span', {}, '· add date'));
+      exam.append(icon(), el('span', {}, label), el('span', {}, '· add date'));
     } else if (days < 0) {
-      exam.append(svg('target', 13), el('span', {}, label), el('span', {}, '· passed'));
+      exam.append(icon(), el('span', {}, label), el('span', {}, '· passed'));
     } else {
       const when = formatExamMonth(p.examDate).replace(/^[≈·]\s*/, '');
-      exam.append(svg('target', 13), el('span', {}, label), el('b', {}, days === 0 ? 'today' : `${days}d`), el('span', {}, `· ${when}`));
+      exam.append(icon(), el('span', {}, label), el('b', {}, days === 0 ? 'today' : `${days}d`), el('span', {}, `· ${when}`));
     }
   }
 
