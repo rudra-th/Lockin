@@ -1892,8 +1892,8 @@ body[data-mode='onboard'] #view {
   letter-spacing: 0.01em;
 }
 .film-back {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   margin-left: -9px;
   display: grid;
   place-items: center;
@@ -1906,7 +1906,7 @@ body[data-mode='onboard'] #view {
 }
 .film-back:active { transform: scale(0.92); color: var(--tx); }
 .film-step {
-  font: 500 10px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   letter-spacing: 0.12em;
   color: var(--tx-3);
 }
@@ -1952,7 +1952,7 @@ body[data-mode='onboard'] #view {
 
 .film-kicker {
   margin-bottom: 16px;
-  font: 600 10px/1.3 var(--font-mono);
+  font: 600 12px/1.3 var(--font-mono);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--acc);
@@ -1981,7 +1981,7 @@ body[data-mode='onboard'] #view {
   align-items: center;
   gap: 10px;
   margin-top: 24px;
-  font: 500 10px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -2000,6 +2000,7 @@ body[data-mode='onboard'] #view {
 }
 .film .btn { min-height: 54px; border-radius: 15px; font-size: 15.5px; }
 .film-ghost {
+  min-height: 44px;
   padding: 12px;
   border: 0;
   background: none;
@@ -2048,7 +2049,7 @@ body[data-mode='onboard'] #view {
   min-width: 0;
 }
 .film-signed b { display: block; font-size: 13.5px; overflow-wrap: anywhere; }
-.film-signed small { display: block; font-size: 11.5px; color: var(--tx-2); overflow-wrap: anywhere; }
+.film-signed small { display: block; font-size: 12px; color: var(--tx-2); overflow-wrap: anywhere; }
 .film-signed-check {
   display: grid;
   place-items: center;
@@ -2081,7 +2082,7 @@ body[data-mode='onboard'] #view {
 .exam-card:active { transform: scale(0.98); }
 .exam-card b { font: 600 14.5px/1.2 var(--font-sans); letter-spacing: -0.005em; }
 .exam-card span {
-  font: 500 11px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -2097,6 +2098,7 @@ body[data-mode='onboard'] #view {
   align-items: center;
   gap: 7px;
   width: 100%;
+  min-height: 44px;
   padding: 11px 2px;
   border: 0;
   background: none;
@@ -2113,6 +2115,7 @@ body[data-mode='onboard'] #view {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  min-height: 44px;
   padding: 13px 2px 13px 0;
   border: 0;
   border-bottom: 1px solid var(--line);
@@ -2132,12 +2135,13 @@ body[data-mode='onboard'] #view {
 /* month + year */
 .month-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 4px 0 18px; }
 .month {
+  min-height: 44px;
   padding: 11px 0;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
   color: var(--tx-2);
-  font: 500 11.5px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   cursor: pointer;
   transition: background 160ms, border-color 160ms, color 160ms;
 }
@@ -2148,13 +2152,14 @@ body[data-mode='onboard'] #view {
 }
 .film-sublabel {
   margin-bottom: 8px;
-  font: 600 10px/1 var(--font-mono);
+  font: 600 12px/1 var(--font-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--tx-3);
 }
 .year-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
 .year {
+  min-height: 44px;
   padding: 11px 16px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -2185,7 +2190,7 @@ body[data-mode='onboard'] #view {
   letter-spacing: -0.01em;
 }
 .readout-sub {
-  font: 500 11px/1.2 var(--font-mono);
+  font: 500 12px/1.2 var(--font-mono);
   color: var(--tx-3);
   text-align: right;
 }
@@ -2207,7 +2212,7 @@ body[data-mode='onboard'] #view {
   transition: background 160ms, border-color 160ms, color 160ms;
 }
 .hour b { font: 500 24px/1 var(--font-mono); }
-.hour span { font: 500 11px/1 var(--font-mono); color: var(--tx-3); }
+.hour span { font: 500 12px/1 var(--font-mono); color: var(--tx-3); }
 .hour.is-on {
   border-color: var(--acc);
   background: var(--acc-dim);
@@ -2236,7 +2241,7 @@ body[data-mode='onboard'] #view {
   font: 500 24px/1 var(--font-mono);
   color: var(--acc);
 }
-.fact span { font: 500 11px/1.25 var(--font-sans); color: var(--tx-2); }
+.fact span { font: 500 12px/1.25 var(--font-sans); color: var(--tx-2); }
 
 /* permissions */
 .film-perms { display: grid; gap: 7px; margin: 4px 0 10px; }
@@ -2265,13 +2270,13 @@ body[data-mode='onboard'] #view {
 .film-perm-txt span {
   display: block;
   margin-top: 3px;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.4;
   color: var(--tx-3);
 }
 .film-perm-act { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .film-perm-act .btn {
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 12px;
   border-radius: 10px;
   font-size: 12px;
@@ -2282,7 +2287,7 @@ body[data-mode='onboard'] #view {
   border: 1px solid color-mix(in srgb, var(--acc) 42%, var(--line));
   border-radius: 99px;
   color: var(--acc);
-  font: 500 11px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2290,7 +2295,7 @@ body[data-mode='onboard'] #view {
 .film-fine {
   max-width: 42ch;
   margin: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.55;
   color: var(--tx-3);
 }
