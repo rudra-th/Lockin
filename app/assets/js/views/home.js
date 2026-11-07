@@ -98,7 +98,7 @@ function topBar() {
       exam.append(icon(), el('span', {}, label), el('span', {}, '· passed'));
     } else {
       const when = formatExamMonth(p.examDate).replace(/^[≈·]\s*/, '');
-      exam.append(icon(), el('span', {}, label), el('b', {}, days === 0 ? 'today' : `${days}d`), el('span', {}, `· ${when}`));
+      exam.append(icon(), el('span', { class: 'exam-name' }, label), el('b', {}, days === 0 ? 'today' : `${days}d`), el('span', {}, `· ${when}`));
     }
   }
 

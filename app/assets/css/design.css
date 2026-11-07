@@ -507,6 +507,9 @@ h1 {
 .home-exam-line svg { width: 13px; height: 13px; color: var(--acc); }
 .home-exam-line .exam-ico { display: inline-flex; }
 .home-exam-line b { color: var(--tx); font-weight: 600; }
+/* Let the exam name give way first so the chip stays on one line at 375px. */
+.home-exam-line .exam-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-exam-line > span, .home-exam-line > b { white-space: nowrap; }
 .home-exam-line.is-empty { border-style: dashed; color: var(--tx-3); }
 
 .hero {
