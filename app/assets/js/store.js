@@ -46,7 +46,7 @@ function blankState() {
     screenTime: [], // daily phone usage: { id, day, mins, apps: [{package,label,mins}] }
     profile: { name: '', email: '', exam: '', examId: '', examDate: '' }, // filled by the opening film
     settings: {
-      theme: 'system',
+      theme: 'dark',
       wakelock: true,
       notifs: false,
       goalMin: DEFAULT_GOAL_MIN,

@@ -3,6 +3,21 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.17.2 — 2026-11-07
+
+### The last of the QA pass
+
+- **Screen-time charts fill their columns.** Percentage heights were resolving
+  against an auto-sized track and collapsing to the 3px minimum; every bar now
+  takes its real share of the chart, on the week and the month.
+- **Muted text is readable in both themes.** The third text colour now clears
+  4.5:1 on the canvas, panels and raised panels — dark and warm paper alike.
+- **Dark is the default.** Fresh installs open on the near-black canvas; System
+  and Light stay one tap away in Appearance.
+- **“1 minute” reads as one minute.** The Focus start button, length presets and
+  the Home suggestion no longer say “1 minutes”.
+- Bumped to 1.17.2 (versionCode 272).
+
 ## 1.17.1 — 2026-11-07
 
 ### QA pass on the redesign

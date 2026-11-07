@@ -257,18 +257,20 @@ function webDeviceCard() {
 
 function lookCard() {
   const s = Store.state.settings;
+  const theme = s.theme || 'dark';
   const seg = el('div', { class: 'segmented' },
     ['system', 'dark', 'light'].map((t) => el('button', {
       class: 'seg-btn', dataset: { theme: t },
-      'aria-pressed': String(s.theme === t),
+      'aria-pressed': String(theme === t),
       onclick: () => { Store.set((st) => { st.settings.theme = t; }); sync(); },
     }, t)));
   function sync() {
-    [...seg.children].forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.theme === Store.state.settings.theme)));
+    const now = Store.state.settings.theme || 'dark';
+    [...seg.children].forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.theme === now)));
   }
   return el('div', { class: 'card' },
     el('h2', {}, 'Appearance'),
-    setrow('Theme', 'Follows your OS by default.', seg),
+    setrow('Theme', 'Dark by default. System follows your phone.', seg),
   );
 }
 

@@ -7,9 +7,9 @@
   <script>
     (function () {
       try {
-        var pref = 'system';
+        var pref = 'dark';
         var raw = localStorage.getItem('lockin.store.v1') || localStorage.getItem('lockin.trial.store.v2');
-        if (raw) { var s = JSON.parse(raw); pref = (s && s.settings && s.settings.theme) || 'system'; }
+        if (raw) { var s = JSON.parse(raw); pref = (s && s.settings && s.settings.theme) || 'dark'; }
         var dark = pref === 'dark' || (pref !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
         var root = document.documentElement;
         root.dataset.theme = dark ? 'dark' : 'light';

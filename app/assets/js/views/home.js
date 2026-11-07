@@ -136,7 +136,7 @@ function heroCard() {
       el('button', {
         class: 'btn btn-primary btn-block',
         onclick: () => Router.go(isLive() ? '/focus' : `/focus?min=${suggested}&mode=timer`),
-      }, svg(isLive() ? 'play' : 'lock', 17), isLive() ? 'Back to the room' : `Start ${suggested} minutes`),
+      }, svg(isLive() ? 'play' : 'lock', 17), isLive() ? 'Back to the room' : `Start ${suggested} minute${suggested === 1 ? '' : 's'}`),
     ),
   );
 

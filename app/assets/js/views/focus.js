@@ -584,7 +584,7 @@ function setupScreen() {
   const lenRow = el('div', { class: 'len-row' }, presets.map((m) => {
     const b = el('button', {
       class: 'len', type: 'button', dataset: { min: String(m) },
-      'aria-pressed': 'false', 'aria-label': `${m} minutes`,
+      'aria-pressed': 'false', 'aria-label': `${m} minute${m === 1 ? '' : 's'}`,
       onclick: () => { selectMin(m); },
     }, el('b', {}, String(m)), el('span', {}, 'min'));
     lenBtns.push(b);
@@ -700,6 +700,10 @@ function setupScreen() {
       },
     }, label)));
 
+  function startText() {
+    return mode === 'stop' ? 'Start stopwatch' : `Start ${min} minute${min === 1 ? '' : 's'}`;
+  }
+
   function paintMode() {
     [...modeSeg.children].forEach((b, i) => {
       const id = modeBtns[i][0];
@@ -707,10 +711,10 @@ function setupScreen() {
       b.classList.toggle('is-on', on);
       b.setAttribute('aria-pressed', String(on));
     });
-    startLabel.textContent = mode === 'stop' ? 'Start stopwatch' : `Start ${min} minutes`;
+    startLabel.textContent = startText();
   }
 
-  const startLabel = el('span', {}, mode === 'stop' ? 'Start stopwatch' : `Start ${min} minutes`);
+  const startLabel = el('span', {}, startText());
   const startBtn = el('button', {
     class: 'btn btn-primary btn-block study-start', type: 'button',
     onclick: () => arm(),

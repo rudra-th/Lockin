@@ -49,7 +49,7 @@ if (isTrial) mountTrialBar();
 /* ---------- theme ---------- */
 
 function applyTheme() {
-  const pref = Store.state.settings.theme || 'system';
+  const pref = Store.state.settings.theme || 'dark';
   const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';

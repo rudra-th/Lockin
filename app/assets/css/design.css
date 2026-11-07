@@ -19,7 +19,7 @@
 
   --tx: #f4f6f8;
   --tx-2: #9aa3ae;
-  --tx-3: #6f7885;
+  --tx-3: #7d8794;
 
   --acc: #c6f24e;
   --acc-2: #d9ff6e;
@@ -69,7 +69,7 @@
 
   --tx: #14170f;
   --tx-2: #5c6357;
-  --tx-3: #7b8177;
+  --tx-3: #646a60;
 
   --acc: #2f6b14;
   --acc-2: #3f8a1e;
@@ -883,6 +883,9 @@ h1 {
 
 .day-col {
   display: grid;
+  /* A definite bar track: percentage heights on .day-bar resolve against it
+     instead of collapsing to their 3px minimum. */
+  grid-template-rows: 1fr auto;
   align-content: end;
   gap: 6px;
   height: 100%;
@@ -896,7 +899,7 @@ h1 {
 .day-col:active { background: var(--panel-2); }
 .day-col.is-on .day-bar { background: var(--acc); }
 .day-col.is-on span { color: var(--tx); }
-.day-bar { width: 100%; border-radius: 5px; background: var(--panel-3); min-height: 3px; }
+.day-bar { width: 100%; border-radius: 5px; background: var(--panel-3); min-height: 3px; align-self: end; }
 .day-col.is-today .day-bar { background: var(--acc); }
 .day-col span { font: 500 9.5px/1 var(--font-sans); color: var(--tx-3); text-align: center; overflow: hidden; white-space: nowrap; }
 

@@ -173,7 +173,7 @@ export function trialSeed(now = new Date()) {
       examDate,
     },
     settings: {
-      theme: 'system',
+      theme: 'dark',
       goalMin: 120,
       goalHistory: [{ day: dateKey(new Date(nowMs - 14 * 86400000)), min: 120 }],
       scheduleAlarms: true,
