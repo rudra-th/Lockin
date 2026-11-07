@@ -286,8 +286,11 @@ h1 {
 }
 
 .seg-btn {
-  min-height: 38px;
-  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -311,6 +314,13 @@ h1 {
   background: var(--panel-2);
   position: relative;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+/* The track stays 30px tall; the target reaches the 44px minimum. */
+.switch::before {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
 }
 
 .switch::after {
@@ -824,7 +834,11 @@ h1 {
 }
 
 .mode-seg-btn {
-  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
   border: 0;
   border-radius: 9px;
   background: transparent;
