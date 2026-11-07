@@ -3,6 +3,31 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.17.0 — 2026-11-07
+
+### Strict mode, held by the phone
+
+- **A live strict session now has a foreground service.** `StrictSessionService`
+  keeps the process warm with a quiet, ongoing notification for exactly as long
+  as the session runs, and stops the moment it ends. It never starts on its own.
+- **Device owner gets the hard lock.** Where Lockin is device owner, strict mode
+  enters lock task with the user’s allowlist, disables lock-task escape hatches,
+  and blocks uninstalling the app until the session ends. Without device
+  ownership it falls back to screen pinning — which Android always lets the user
+  unpin — and the Focus screen says so.
+- **Reboot does not quietly end it.** If a strict deadline survived a reboot,
+  `BootReceiver` reopens Focus so the web layer can restore the session and
+  re-arm the lock. An expired deadline still fails open.
+- **Split-screen and floating windows are covered.** The accessibility service
+  watches window changes, counts visible app windows, and covers the whole
+  surface when a second app sits beside an allowed one. It still reads no
+  window content, text, node trees or keystrokes.
+- **Smaller release APK.** R8 minification + resource shrinking are on, with
+  keep rules for Capacitor, its plugins and the Lockin bridge. The self-check
+  page and its 37 KB module are stripped from packaged assets instead of
+  shipping to phones.
+- Bumped to 1.17.0 (versionCode 270).
+
 ## 1.16.0 — 2026-11-07
 
 ### The Instrument — the whole app, rebuilt around one action

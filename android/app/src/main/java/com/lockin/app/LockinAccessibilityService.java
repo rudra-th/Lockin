@@ -17,6 +17,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -26,6 +27,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -50,6 +52,10 @@ public class LockinAccessibilityService extends AccessibilityService {
     private static final int REASON_FOCUS = 0;
     private static final int REASON_LIMIT = 1;
     private static final int REASON_STRICT = 2;
+
+    /* A synthetic package for the full-surface strict overlay. It is not an
+       app: it marks "more than one app is visible in strict mode". */
+    private static final String STRICT_SURFACE = "\u0000strict";
 
     private static WeakReference<LockinAccessibilityService> running =
             new WeakReference<>(null);
@@ -137,9 +143,19 @@ public class LockinAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event == null || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        if (event == null) return;
+        int type = event.getEventType();
+
+        /* Split-screen and floating windows fire this instead of a normal
+           foreground change: count the visible app windows and cover both
+           panes when strict mode is live. */
+        if (type == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            long changedAt = System.currentTimeMillis();
+            if (BlockingStore.read(this).strictActive(changedAt)) evaluateStrictSurface(changedAt);
             return;
         }
+        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
+
         CharSequence name = event.getPackageName();
         if (name == null) return;
         String pkg = name.toString();
@@ -155,7 +171,9 @@ public class LockinAccessibilityService extends AccessibilityService {
 
         if (pkg.equals(getPackageName())) {
             pauseUsage(now);
-            hideOverlay();
+            /* Returning to Lockin does not clear a split-screen neighbour. */
+            if (BlockingStore.read(this).strictActive(now)) evaluateStrictSurface(now);
+            else hideOverlay();
             return;
         }
 
@@ -276,8 +294,69 @@ public class LockinAccessibilityService extends AccessibilityService {
 
     /* ---------- what should cover this package, if anything ---------- */
 
+    /**
+     * Strict mode with more than one visible app window (split-screen, freeform
+     * or a floating window) covers the whole surface. Counting windows needs no
+     * content access; the config opts into the interactive-window flag only.
+     */
+    private void evaluateStrictSurface(long now) {
+        if (!screenOn) {
+            hideOverlay();
+            return;
+        }
+        if (hasSecondAppWindow()) {
+            Info info = strictInfo();
+            if (overlay != null && STRICT_SURFACE.equals(overlayPackage)) {
+                overlayInfo = info;
+                applyInfo();
+                paint();
+                return;
+            }
+            showOverlay(STRICT_SURFACE, info, now);
+            return;
+        }
+        if (overlayPackage != null && STRICT_SURFACE.equals(overlayPackage)) hideOverlay();
+        evaluate(lastForegroundPackage, now);
+    }
+
+    private boolean hasSecondAppWindow() {
+        List<AccessibilityWindowInfo> windows;
+        try {
+            windows = getWindows();
+        } catch (RuntimeException ignored) {
+            return false; // no window access: fail open, never invent a block
+        }
+        if (windows == null) return false;
+        /* getWindows() is the set on screen right now; the service's own
+           overlay is an accessibility overlay, not an application window.
+           Two application windows means split-screen, freeform or PiP. */
+        int apps = 0;
+        for (AccessibilityWindowInfo window : windows) {
+            if (window == null) continue;
+            if (window.getType() != AccessibilityWindowInfo.TYPE_APPLICATION) continue;
+            apps += 1;
+            if (apps > 1) return true;
+        }
+        return false;
+    }
+
+    private Info strictInfo() {
+        return new Info(
+                REASON_STRICT,
+                getString(R.string.block_strict_kicker),
+                getString(R.string.block_strict_title),
+                getString(R.string.block_strict_left),
+                getString(R.string.block_strict_until),
+                getString(R.string.block_strict_foot),
+                getString(R.string.block_back),
+                0L, 0L, false, false);
+    }
+
     private Info infoFor(String pkg, long now) {
         if (pkg == null) return null;
+        if (STRICT_SURFACE.equals(pkg)) {
+            return BlockingStore.read(this).strictActive(now) ? strictInfo() : null;
+        }
         if (pkg.equals(getPackageName())) return null;
         if (protectedPackages.contains(pkg)) return null;
 
@@ -288,15 +367,7 @@ public class LockinAccessibilityService extends AccessibilityService {
            by the web app; a stale one fails open. */
         if (config.strictActive(now)) {
             if (config.strictPackages.contains(pkg)) return null;
-            return new Info(
-                    REASON_STRICT,
-                    getString(R.string.block_strict_kicker),
-                    getString(R.string.block_strict_title),
-                    getString(R.string.block_strict_left),
-                    getString(R.string.block_strict_until),
-                    getString(R.string.block_strict_foot),
-                    getString(R.string.block_back),
-                    0L, 0L, false, false);
+            return strictInfo();
         }
 
         if (!config.enabled) return null;

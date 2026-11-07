@@ -295,13 +295,18 @@ public class LockinNativePlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** Seven (or N) local days, oldest first, for the rail. */
+    /**
+     * Seven (or N, up to 30) local days, oldest first, for the rail and the
+     * screen-time detail screen. Each day carries its total and its top apps,
+     * so a past day can be opened without another native round trip.
+     */
     @PluginMethod
     public void queryUsageDaily(PluginCall call) {
         int days = Math.max(1, Math.min(30, call.getInt("days", 7)));
         long now = System.currentTimeMillis();
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(now);
+        PackageManager pm = getContext().getPackageManager();
 
         JSArray out = new JSArray();
         for (int i = days - 1; i >= 0; i--) {
@@ -311,6 +316,7 @@ public class LockinNativePlugin extends Plugin {
             long end = Math.min(now, BlockingStore.nextMidnight(start));
 
             long total = 0;
+            Map<String, Long> totals = new HashMap<>();
             UsageStatsManager manager =
                     (UsageStatsManager) getContext().getSystemService(Context.USAGE_STATS_SERVICE);
             if (manager != null) {
@@ -319,14 +325,31 @@ public class LockinNativePlugin extends Plugin {
                 if (stats != null) {
                     for (UsageStats stat : stats) {
                         if (isSelf(stat.getPackageName())) continue;
-                        total += Math.max(0, stat.getTotalTimeInForeground());
+                        long ms = Math.max(0, stat.getTotalTimeInForeground());
+                        if (ms <= 0) continue;
+                        totals.merge(stat.getPackageName(), ms, Long::sum);
+                        total += ms;
                     }
                 }
+            }
+
+            List<Map.Entry<String, Long>> ranked = new ArrayList<>(totals.entrySet());
+            ranked.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+
+            JSArray apps = new JSArray();
+            for (int j = 0; j < ranked.size() && j < 8; j++) {
+                String pkg = ranked.get(j).getKey();
+                JSObject app = new JSObject();
+                app.put("package", pkg);
+                app.put("label", appLabel(pm, pkg));
+                app.put("ms", ranked.get(j).getValue());
+                apps.put(app);
             }
 
             JSObject row = new JSObject();
             row.put("day", BlockingStore.dayKey(start));
             row.put("ms", total);
+            row.put("apps", apps);
             out.put(row);
         }
 
@@ -551,6 +574,7 @@ public class LockinNativePlugin extends Plugin {
         if (until <= now) until = now + 60_000L;
 
         BlockingStore.writeStrict(getContext(), true, packages, until);
+        StrictSessionService.start(getContext());
 
         final long deadline = until;
         Activity activity = getActivity();
@@ -585,6 +609,7 @@ public class LockinNativePlugin extends Plugin {
     @PluginMethod
     public void stopStrictMode(PluginCall call) {
         BlockingStore.clearStrict(getContext());
+        StrictSessionService.stop(getContext());
         Activity activity = getActivity();
         if (activity == null) {
             call.resolve(strictStatusObject());
@@ -803,6 +828,9 @@ public class LockinNativePlugin extends Plugin {
                     dpm.setLockTaskFeatures(adminComponent(),
                             DevicePolicyManager.LOCK_TASK_FEATURE_NONE);
                 }
+                /* A strict session should not end by uninstalling it. */
+                dpm.setUninstallBlocked(adminComponent(),
+                        getContext().getPackageName(), true);
             } catch (SecurityException ignored) {
                 /* device owner was removed between the check and the call */
             }
@@ -840,6 +868,15 @@ public class LockinNativePlugin extends Plugin {
             }
         } catch (RuntimeException ignored) {
             /* already out of lock task */
+        }
+        DevicePolicyManager dpm = devicePolicy();
+        if (dpm != null && isDeviceOwner()) {
+            try {
+                dpm.setUninstallBlocked(adminComponent(),
+                        getContext().getPackageName(), false);
+            } catch (SecurityException ignored) {
+                /* the device owner was removed; nothing to unblock */
+            }
         }
     }
 

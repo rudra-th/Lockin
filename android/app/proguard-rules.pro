@@ -1,21 +1,31 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# Lockin release rules.
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Capacitor and its plugins are reached through the bridge and annotations, so
+# R8 must keep the plugin surface and anything it reflects over.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keep class com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keepclassmembers class * {
+    @com.getcapacitor.PluginMethod <methods>;
+}
+-keep @com.getcapacitor.PluginMethod class * { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# The native side of Lockin is small and registered by class name.
+-keep class com.lockin.app.** { *; }
+
+# Capacitor plugins commonly reflect over their own JS-facing methods.
+-keep class com.capacitorjs.plugins.** { *; }
+-keep class io.capawesome.capacitorjs.plugins.** { *; }
+
+# Do not warn about optional Firebase classes when auth is not configured.
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+
+# The Firebase Auth plugin carries handlers for providers this app never
+# enables (Facebook among them). Their SDKs are not dependencies; the handlers
+# are unreachable because only google.com is configured.
+-dontwarn com.facebook.**
+-dontwarn com.apple.**
+-dontwarn com.twitter.**

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Lockin only asks for one event: a window came to the front. Content
-     retrieval is off, so the platform will not hand the service text, node
-     trees or keystrokes even if a future version asked for them. -->
+<!-- Lockin asks for window changes only. The interactive-window flag lets it
+     count visible app windows so split-screen and floating windows cannot sit
+     beside an allowed app during strict mode. Content retrieval stays off, so
+     the platform will not hand the service text, node trees or keystrokes. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="false"
     android:description="@string/accessibility_description"
     android:notificationTimeout="100"
