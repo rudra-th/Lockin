@@ -282,6 +282,9 @@ function browserArgs(profile) {
     '--force-device-scale-factor=1',
     '--disable-extensions',
     '--mute-audio',
+    // Hosted runners restrict unprivileged user namespaces; the test browser
+    // has no profile worth protecting.
+    ...(process.env.CI ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
     'about:blank',
   ];
 }
