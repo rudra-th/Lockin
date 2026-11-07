@@ -708,6 +708,7 @@ body[data-mode='onboard'] #view {
 .taskrow { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .taskrow:last-child { border-bottom: 0; }
 .taskrow .tick {
+  position: relative;
   width: 22px; height: 22px;
   border-radius: 7px;
   border: 1.5px solid var(--line-2);
@@ -723,7 +724,23 @@ body[data-mode='onboard'] #view {
 .taskrow.done .tick { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
 .taskrow.done .label { color: var(--tx-3); text-decoration: line-through; }
 .taskrow .label { flex: 1; font-size: 14.5px; padding-top: 1px; }
-.taskrow .del { color: var(--tx-3); background: none; border: 0; padding: 4px; cursor: pointer; }
+/* The 22px tick keeps its quiet visual size; the touch target is 44px. */
+.taskrow .tick::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 44px;
+  transform: translate(-50%, -50%);
+}
+.taskrow .del { position: relative; color: var(--tx-3); background: none; border: 0; padding: 4px; cursor: pointer; }
+/* Delete stays visually small, but gets the same 44px target as the tick. */
+.taskrow .del::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 44px;
+  transform: translate(-50%, -50%);
+}
 .taskrow .body { flex: 1; min-width: 0; }
 .stages { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
 .stage { display: flex; align-items: center; gap: 8px; color: var(--tx-2); font-size: 13px; }
