@@ -908,8 +908,6 @@ body[data-mode='onboard'] #view {
     radial-gradient(circle at 50% 32%, color-mix(in srgb, var(--acc) 9%, transparent), transparent 62%),
     var(--panel);
   color: var(--tx);
-  cursor: pointer;
-  transition: transform 140ms var(--ease), border-color 200ms, background 200ms;
 }
 .dial::before {
   content: '';
@@ -918,10 +916,6 @@ body[data-mode='onboard'] #view {
   border-radius: 50%;
   border: 1px solid var(--line);
   pointer-events: none;
-}
-.dial:active { transform: scale(0.975); }
-@media (hover: hover) {
-  .dial:hover { border-color: color-mix(in srgb, var(--acc) 45%, var(--line-2)); }
 }
 .dial-ticks {
   position: absolute;
@@ -944,17 +938,6 @@ body[data-mode='onboard'] #view {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--tx-3);
-}
-.dial-go {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 10px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--acc-dim);
-  color: var(--acc);
-  font: 600 11.5px/1 var(--font-sans);
 }
 .dial-proj {
   font: 500 11.5px/1 var(--font-mono);

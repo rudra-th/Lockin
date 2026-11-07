@@ -548,13 +548,10 @@ function setupScreen() {
 
   const dialNum = el('span', { class: 'dial-num' }, String(min));
   const dialUnit = el('span', { class: 'dial-unit' }, min === 1 ? 'minute' : 'minutes');
-  const dial = el('button', {
-    class: 'dial', type: 'button',
-    onclick: () => arm(),
-  },
+  /* A readout, not a second start button: the one primary action is below. */
+  const dial = el('div', { class: 'dial' },
     el('span', { class: 'dial-ticks', 'aria-hidden': 'true' }),
     dialNum, dialUnit,
-    el('span', { class: 'dial-go' }, svg('play', 12), el('span', {}, 'Start')),
   );
   const projection = el('div', { class: 'dial-proj' });
 
@@ -573,7 +570,7 @@ function setupScreen() {
       : `ends ≈ ${clock}${sameDay ? '' : ' tomorrow'}`;
   }
 
-  /* Five lengths, one visible choice. Tapping a chip selects; the dial starts. */
+  /* Five lengths, one visible choice. A chip selects; the button below starts. */
   const presets = [10, 25, 45, 50, 90];
   if (!presets.includes(min)) {
     presets.push(min);
@@ -595,7 +592,6 @@ function setupScreen() {
     min = m;
     dialNum.textContent = String(min);
     dialUnit.textContent = min === 1 ? 'minute' : 'minutes';
-    dial.setAttribute('aria-label', `Start ${min} minute${min === 1 ? '' : 's'}${pomo ? ', Pomodoro ×3' : ''}`);
     lenBtns.forEach((b) => {
       const on = Number(b.dataset.min) === min;
       b.classList.toggle('is-on', on);
