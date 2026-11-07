@@ -455,7 +455,7 @@ body[data-mode='onboard'] #view {
 }
 .chip .dot { width: 9px; height: 9px; border-radius: 99px; background: hsl(var(--h) 55% 52%); flex: 0 0 auto; }
 .chip.add { border-style: dashed; color: var(--tx-3); }
-.small { font-size: 11px; color: var(--tx-2); }
+.small { font-size: 12px; color: var(--tx-2); }
 
 /* ---------- segmented control ---------- */
 
@@ -531,7 +531,7 @@ body[data-mode='onboard'] #view {
 .setnav-txt { display: grid; gap: 2px; min-width: 0; }
 .setnav-txt b { font-size: 13px; font-weight: 600; color: var(--tx); letter-spacing: -0.005em; }
 .setnav-txt small {
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.2;
   color: var(--tx-3);
   white-space: nowrap;
@@ -600,8 +600,8 @@ body[data-mode='onboard'] #view {
 .field { display: block; }
 .field > span {
   display: block;
-  font: 500 11px/1 var(--font-sans);
-  letter-spacing: 0.09em;
+  font: 500 12px/1 var(--font-sans);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--tx-3);
   margin-bottom: 6px;
@@ -805,7 +805,7 @@ body[data-mode='onboard'] #view {
   font: 600 16px var(--font-mono);
   color: var(--tx);
 }
-.ringbox .center small { display: block; font: 500 11px var(--font-sans); color: var(--tx-3); letter-spacing: 0; }
+.ringbox .center small { display: block; font: 500 12px var(--font-sans); color: var(--tx-3); letter-spacing: 0; }
 .stat-lead {
   font: 600 16px/1.2 var(--font-sans);
   letter-spacing: -0.01em;
@@ -934,13 +934,13 @@ body[data-mode='onboard'] #view {
   font-variant-numeric: tabular-nums;
 }
 .dial-unit {
-  font: 600 9.5px/1 var(--font-mono);
-  letter-spacing: 0.16em;
+  font: 600 12px/1 var(--font-mono);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--tx-3);
 }
 .dial-proj {
-  font: 500 11.5px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   letter-spacing: 0.02em;
   color: var(--tx-3);
 }
@@ -962,7 +962,7 @@ body[data-mode='onboard'] #view {
 }
 .len:active { transform: scale(0.96); }
 .len b { font: 500 21px/1 var(--font-mono); letter-spacing: -0.02em; }
-.len span { font: 500 11px/1 var(--font-mono); color: var(--tx-3); }
+.len span { font: 500 12px/1 var(--font-mono); color: var(--tx-3); }
 .len.is-on { border-color: var(--acc); background: var(--acc-dim); color: var(--acc); }
 .len.is-on span { color: inherit; }
 .len-meta {
@@ -1501,7 +1501,7 @@ body[data-mode='onboard'] #view {
   pointer-events: none;
 }
 .barcol .goalmark.hit { border-top-color: var(--acc); opacity: 0.85; }
-.barcol .lbl { font: 500 11px var(--font-sans); color: var(--tx-3); white-space: nowrap; }
+.barcol .lbl { font: 500 12px var(--font-sans); color: var(--tx-3); white-space: nowrap; }
 .barcol.today .lbl { color: var(--acc); }
 
 .weekstats {
@@ -1524,14 +1524,14 @@ body[data-mode='onboard'] #view {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.weekstats span { display: block; margin-top: 3px; font: 400 11px/1.2 var(--font-sans); color: var(--tx-3); }
+.weekstats span { display: block; margin-top: 3px; font: 400 12px/1.2 var(--font-sans); color: var(--tx-3); }
 
 .chartlegend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
   margin-top: 12px;
-  font: 500 11px/1 var(--font-sans);
+  font: 500 12px/1 var(--font-sans);
   color: var(--tx-3);
 }
 .chartlegend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -1550,7 +1550,7 @@ body[data-mode='onboard'] #view {
 }
 .ts-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .ts-line b { font: 600 13.5px var(--font-sans); color: var(--tx); }
-.ts-line span { font: 400 11px var(--font-mono); color: var(--tx-3); white-space: nowrap; }
+.ts-line span { font: 400 12px var(--font-mono); color: var(--tx-3); white-space: nowrap; }
 .tsbar { height: 6px; border-radius: 99px; background: var(--panel-2); margin-top: 8px; overflow: hidden; }
 .tsbar i {
   display: block;
@@ -1578,7 +1578,7 @@ body[data-mode='onboard'] #view {
   text-transform: uppercase;
   color: var(--warn);
 }
-.ses-when { font: 400 11px/1.3 var(--font-mono); color: var(--tx-3); margin-top: 2px; }
+.ses-when { font: 400 12px/1.3 var(--font-mono); color: var(--tx-3); margin-top: 2px; }
 .ses-mins { font: 500 13px/1 var(--font-mono); color: var(--tx-2); white-space: nowrap; }
 
 /* ============================================================
@@ -1746,7 +1746,7 @@ body[data-mode='onboard'] #view {
 .sched-head h2 { display: flex; align-items: center; gap: 6px; margin: 0; }
 .sched-head h2 svg { color: var(--tx-3); }
 .sched-count {
-  font: 500 11.5px/1 var(--font-sans);
+  font: 500 12px/1 var(--font-sans);
   letter-spacing: 0;
   color: var(--tx-3);
 }
@@ -1799,7 +1799,7 @@ body[data-mode='onboard'] #view {
   padding: 14px 16px 12px;
   min-width: 0;
 }
-.tile .tlabel { font: 500 11px/1 var(--font-sans); letter-spacing: 0.05em; color: var(--tx-2); }
+.tile .tlabel { font: 500 12px/1 var(--font-sans); letter-spacing: 0.04em; color: var(--tx-2); }
 .tile .tvalue {
   font: 500 21px/1.15 var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -1826,7 +1826,7 @@ body[data-mode='onboard'] #view {
   background: var(--acc);
   transition: width 500ms var(--ease);
 }
-.tile .tcaption { font: 400 11.5px/1.3 var(--font-sans); color: var(--tx-2); margin-top: 6px; }
+.tile .tcaption { font: 400 12px/1.3 var(--font-sans); color: var(--tx-2); margin-top: 6px; }
 
 /* streak week: one cell per day â€” tick, minutes, letter */
 .week .ptitle { font: 600 13.5px var(--font-sans); color: var(--tx); }
@@ -1846,12 +1846,12 @@ body[data-mode='onboard'] #view {
 .wday.flat .tick { border-style: dashed; }
 .wday .m {
   display: block;
-  font: 500 11px var(--font-mono);
+  font: 500 12px var(--font-mono);
   color: var(--tx-2);
   margin-top: 5px;
   font-variant-numeric: tabular-nums;
 }
-.wday .d { font: 500 11px var(--font-mono); color: var(--tx-3); margin-top: 3px; }
+.wday .d { font: 500 12px var(--font-mono); color: var(--tx-3); margin-top: 3px; }
 .wday.today .d { color: var(--acc); }
 .wday.today .m { color: var(--tx); }
 
@@ -2340,7 +2340,7 @@ body[data-mode='onboard'] #view {
 .row { display: flex; align-items: center; gap: 10px; }
 .sp { flex: 1; }
 .pill {
-  font: 500 11.5px/1 var(--font-sans);
+  font: 500 12px/1 var(--font-sans);
   color: var(--tx-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -2394,7 +2394,7 @@ body[data-mode='onboard'] #view {
   margin-bottom: 4px;
 }
 .taskdayhead h2 { margin-bottom: 3px; }
-.taskday-date { font: 400 11px/1.3 var(--font-mono); color: var(--tx-3); }
+.taskday-date { font: 400 12px/1.3 var(--font-mono); color: var(--tx-3); }
 
 .stat-sub { color: var(--tx-2); font-size: 12.5px; line-height: 1.4; margin-top: 4px; }
 .pillrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -2464,13 +2464,13 @@ body[data-mode='onboard'] #view {
 }
 
 .sched-next-time {
-  font: 500 11.5px/1.4 var(--font-mono);
+  font: 500 12px/1.4 var(--font-mono);
   color: var(--tx-2);
   margin: 0;
 }
 
 .sched-next-meta {
-  font: 400 11.5px/1.45 var(--font-sans);
+  font: 400 12px/1.45 var(--font-sans);
   color: var(--tx-3);
   margin: 4px 0 0;
 }
@@ -2481,7 +2481,7 @@ body[data-mode='onboard'] #view {
   letter-spacing: -0.02em;
   color: var(--acc);
 }
-.sched-count span { font: 400 11px/1.2 var(--font-sans); color: var(--tx-3); }
+.sched-count span { font: 400 12px/1.2 var(--font-sans); color: var(--tx-3); }
 
 .sched-hero-cta { margin-top: 15px; }
 
@@ -2526,7 +2526,7 @@ body[data-mode='onboard'] #view {
   gap: 3px;
 }
 .dr-kicker {
-  font: 600 10px/1 var(--font-sans);
+  font: 600 12px/1 var(--font-sans);
   letter-spacing: 0;
   color: var(--acc);
 }
@@ -2535,7 +2535,7 @@ body[data-mode='onboard'] #view {
   letter-spacing: -0.04em;
   color: var(--tx);
 }
-.dr-sub { font: 400 11px/1.2 var(--font-sans); color: var(--tx-3); max-width: 12ch; }
+.dr-sub { font: 400 12px/1.2 var(--font-sans); color: var(--tx-3); max-width: 12ch; }
 
 .sched-sec { margin-top: 22px; }
 .sched-sec-head {
@@ -2552,7 +2552,7 @@ body[data-mode='onboard'] #view {
   color: var(--tx);
   margin: 0;
 }
-.sched-sec-meta { font: 400 11.5px/1 var(--font-sans); color: var(--tx-3); white-space: nowrap; }
+.sched-sec-meta { font: 400 12px/1 var(--font-sans); color: var(--tx-3); white-space: nowrap; }
 .sched-sec-head .btn { padding: 8px 12px; min-height: 34px; font-size: 12px; }
 
 /* today's blocks */
@@ -2595,10 +2595,10 @@ body[data-mode='onboard'] #view {
 
 .slot-body { min-width: 0; }
 .slot-body b { display: block; font: 600 14.5px/1.2 var(--font-sans); overflow-wrap: anywhere; }
-.slot-body span { display: block; margin-top: 3px; font: 400 11px/1.2 var(--font-mono); color: var(--tx-3); }
+.slot-body span { display: block; margin-top: 3px; font: 400 12px/1.2 var(--font-mono); color: var(--tx-3); }
 
 .slot-state {
-  font: 500 11px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--tx-3);
@@ -2675,7 +2675,7 @@ body[data-mode='onboard'] #view {
 }
 .sched-row-txt { min-width: 0; }
 .sched-row-txt b { display: block; font: 600 14px/1.2 var(--font-sans); overflow-wrap: anywhere; }
-.sched-row-txt span { display: block; margin-top: 3px; font: 400 11px/1.2 var(--font-mono); color: var(--tx-3); }
+.sched-row-txt span { display: block; margin-top: 3px; font: 400 12px/1.2 var(--font-mono); color: var(--tx-3); }
 .sched-row.is-off .sched-row-mark { background: var(--line-2); }
 .sched-row.is-off .sched-row-txt { opacity: 0.55; }
 .sched-row.is-off .weekstrip { opacity: 0.45; }
@@ -2705,7 +2705,7 @@ body[data-mode='onboard'] #view {
 }
 .sched-alarmsum-txt { flex: 1; min-width: 0; }
 .sched-alarmsum-txt b { display: block; font-size: 13.5px; font-weight: 600; }
-.sched-alarmsum-txt span { display: block; margin-top: 2px; font-size: 11px; line-height: 1.4; color: var(--tx-3); }
+.sched-alarmsum-txt span { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--tx-3); }
 
 /* ---------- schedule editor ---------- */
 
@@ -3734,7 +3734,7 @@ body[data-mode='onboard'] #view {
 }
 .ctl-upgrade .ctl-web-list li { font-size: 13px; }
 .ctl-upgrade-actions { margin-top: 0; }
-.ctl-upgrade-note { margin: 14px 0 0; color: var(--tx-3); font-size: 11.5px; line-height: 1.45; }
+.ctl-upgrade-note { margin: 14px 0 0; color: var(--tx-3); font-size: 12px; line-height: 1.45; }
 
 .ctl-pointer { padding: 20px 18px 18px; }
 .ctl-pointer .ctl-lede { margin: -2px 0 16px; }
@@ -3755,7 +3755,7 @@ body[data-mode='onboard'] #view {
 .sched-row { padding: 14px; gap: 12px; }
 .sched-row-main { min-height: 46px; }
 .sched-row-txt b { font-size: 15px; }
-.sched-row-txt span { font-size: 11.5px; }
+.sched-row-txt span { font-size: 12px; }
 .sched-sec-head { margin-bottom: 12px; }
 .taskdayhead h2 { font-size: 17px; color: var(--tx); }
 
