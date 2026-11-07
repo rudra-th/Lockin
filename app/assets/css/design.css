@@ -606,12 +606,21 @@ h1 {
   height: 54px;
 }
 
-.week-day { display: grid; align-content: end; gap: 6px; height: 100%; }
+.week-day {
+  display: grid;
+  /* A definite bar track, same as .day-col: percentage heights on .week-fill
+     resolve against this row instead of collapsing to their 3px minimum. */
+  grid-template-rows: 1fr auto;
+  align-content: end;
+  gap: 6px;
+  height: 100%;
+}
 .week-fill {
   width: 100%;
   min-height: 3px;
   border-radius: 4px;
   background: var(--panel-3);
+  align-self: end;
 }
 .week-day.is-today .week-fill { background: var(--acc); }
 .week-day.is-met .week-fill { background: color-mix(in srgb, var(--acc) 62%, var(--panel-3)); }
