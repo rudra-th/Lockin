@@ -1,8 +1,8 @@
 /* Lockin — Settings: enforcement, theme, goals, profile, data in/out. */
 
-import { Store } from '../store.js';
+import { Store, uid } from '../store.js';
 import { Router } from '../router.js';
-import { el, fmtMin, nudgeAtHM } from '../util.js';
+import { el, fmtMin, nudgeAtHM, todayKey, parseKey, prettyDate } from '../util.js';
 import { svg } from '../icons.js';
 import { openSheet, hint, accountAvatar } from '../ui.js';
 import { tryInstall } from '../install.js';
@@ -58,6 +58,80 @@ function targetCard() {
     el('p', { class: 'tiny', style: 'margin:10px 0 0' },
       'Changing the target applies from today onward — past days keep the bar they were measured against.'),
   );
+}
+
+/* ---------- manual focus time ---------- */
+
+/**
+ * Add minutes you focused away from the phone. It writes a normal focus
+ * session, so the target, streak, Progress, sync and the widgets all see it
+ * exactly like a session the clock ran.
+ */
+function addFocusCard() {
+  return el('div', { class: 'card' },
+    el('h2', {}, 'Add focus time'),
+    el('p', { class: 'tiny', style: 'margin:0 0 12px' },
+      'Studied without the clock? Add those minutes to a day. They count toward the target, the streak, Progress and sync.'),
+    el('button', {
+      class: 'btn btn-subtle btn-block', type: 'button',
+      onclick: () => openAddFocusSheet(),
+    }, svg('plus', 16), 'Add minutes'),
+  );
+}
+
+function openAddFocusSheet() {
+  const today = todayKey();
+  const mins = el('input', {
+    class: 'inp', type: 'number', inputmode: 'numeric',
+    min: '1', max: '720', step: '5', value: '30',
+    'aria-label': 'Minutes focused',
+  });
+  const day = el('input', {
+    class: 'inp', type: 'date', value: today, max: today,
+    'aria-label': 'Day to add the minutes to',
+  });
+  const error = el('p', { class: 'tiny', style: 'margin:8px 0 0;color:var(--warn)' });
+
+  openSheet('Add focus time', (close) => {
+    const submit = () => {
+      const value = Math.round(Number(mins.value));
+      if (!Number.isFinite(value) || value < 1 || value > 720) {
+        error.textContent = 'Add between 1 and 720 minutes.';
+        mins.focus();
+        return;
+      }
+      const when = /^\d{4}-\d{2}-\d{2}$/.test(day.value) && day.value <= today
+        ? day.value
+        : today;
+      const start = parseKey(when).getTime() + 12 * 3600000;
+      Store.set((s) => s.sessions.push({
+        id: uid('ss'),
+        day: when,
+        taskIds: [],
+        start,
+        end: start + value * 60000,
+        secs: value * 60,
+        kind: 'focus',
+        completed: true,
+        manual: true,
+      }));
+      close();
+      hint(`${fmtMin(value)} added to ${prettyDate(when)}`);
+    };
+    return [
+      el('label', { class: 'field' },
+        el('span', {}, 'Minutes'), mins),
+      el('label', { class: 'field' },
+        el('span', {}, 'Day'), day),
+      error,
+      el('button', {
+        class: 'btn btn-primary btn-block', type: 'button', style: 'margin-top:12px',
+        onclick: submit,
+      }, 'Add minutes'),
+      el('p', { class: 'tiny', style: 'margin:10px 0 0' },
+        'It lands in your history as one session. Nothing else changes.'),
+    ];
+  });
 }
 
 function pomoCard() {
@@ -604,7 +678,7 @@ function hub() {
 
 function sectionScreen(meta) {
   const cards = {
-    study: [targetCard(), pomoCard(), alarmsCard()],
+    study: [targetCard(), addFocusCard(), pomoCard(), alarmsCard()],
     device: [
       deviceBasicsCard(),
       ...(isNative ? [nativeCard(), deviceCard()] : [webDeviceCard()]),

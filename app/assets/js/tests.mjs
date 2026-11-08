@@ -14,7 +14,7 @@
 import { Store } from './store.js';
 import {
   slotsToT, tToSlots, fmtClock, fmtWatch, fmtMin, clockLabel, todayKey, addDays, daysUntil,
-  freeExit, blockSessionMin, completedRoundMinutes, parseHM, toHM, spanMin,
+  freeExit, blockSessionMin, completedRoundMinutes, sessionEnd, parseHM, toHM, spanMin,
   occursOn, occurrenceOn, occurrencesBetween, nextOccurrence, eventsBetween, daysLabel,
   normalizeSchedule, el, pickDueEvents, sameOccurrence,
   normalizeGoalHistory, goalFor, setGoalOn, dayGoalMet, minutesLeft, goalStreak, targetDays,
@@ -325,6 +325,27 @@ export async function runSelfCheck(reporter, { dom = false } = {}) {
     eq(completedRoundMinutes(0, 4), 0);
     eq(completedRoundMinutes(25, 0), 0);
     eq(completedRoundMinutes(-25, 2), 0);
+  });
+  test('a stopwatch end banks its seconds even in strict mode', () => {
+    const out = sessionEnd({ mode: 'stop', seconds: 3240, forfeit: true });
+    eq(out.writeRecord, true);
+    eq(out.discarded, false);
+    eq(out.forfeited, false);
+    eq(out.minutes, 54);
+    eq(out.secs, 3240);
+  });
+  test('a stopwatch end inside the accident window writes nothing', () => {
+    const out = sessionEnd({ mode: 'stop', seconds: 9, discard: true });
+    eq(out.writeRecord, false);
+    eq(out.discarded, true);
+    eq(out.minutes, 0);
+  });
+  test('strict forfeits only the round in progress', () => {
+    const out = sessionEnd({ mode: 'timer', forfeit: true, minPerRound: 25, roundIdx: 2 });
+    eq(out.forfeited, true);
+    eq(out.discarded, false);
+    eq(out.writeRecord, false);
+    eq(out.minutes, 25); // round 1 already banked
   });
 
   group('Latest request wins');

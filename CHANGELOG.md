@@ -3,6 +3,21 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.19.0 — 2026-11-08
+
+### The clock stops losing your work
+
+- **A stopwatch end keeps every second, even in Strict Mode.** Strict's forfeit
+  is the round in progress — a stopwatch has no round in progress, so its run is
+  never taken back. Fifty-four minutes now lands as fifty-four minutes.
+- **The Focus setup is one hero, one action.** The decorative ring is gone: a
+  large length readout with −/+ steppers, a fixed 10/25/45/60/90 rail, and the
+  mode switch above it. Stopwatch hides the length entirely instead of showing a
+  duration it will not use. Today's banked minutes sit on one quiet line.
+- **Add focus time from Settings.** You → Study & focus → Add focus time writes a
+  normal session for a chosen day, so the target, streak, Progress, sync and the
+  widgets all count it. It shows as **added** in Recent sessions.
+
 ## 1.18.0 — 2026-11-07
 
 ### Less chrome, more room

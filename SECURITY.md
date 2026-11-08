@@ -18,9 +18,9 @@ window to ship a fix before publishing details.
 
 | Version | Supported |
 |---|---|
-| 1.15.x | Yes |
-| 1.14.x | Yes |
-| < 1.14 | No |
+| 1.19.x | Yes |
+| 1.18.x | Yes |
+| < 1.18 | No |
 
 ## What Lockin stores
 

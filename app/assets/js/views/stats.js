@@ -267,7 +267,9 @@ function recentCard() {
     el('div', { class: 'grow' },
       el('div', { class: 'ses-name' }, 'Focus',
         s.aborted ? el('span', { class: 'ses-tag' }, 'ended early') : null),
-      el('div', { class: 'ses-when' }, `${prettyDate(s.day)} · ${clockLabel(s.start)}`),
+      el('div', { class: 'ses-when' }, s.manual
+        ? `${prettyDate(s.day)} · added`
+        : `${prettyDate(s.day)} · ${clockLabel(s.start)}`),
     ),
     el('span', { class: 'ses-mins' }, fmtMin(Store.sessionMins(s))),
   );

@@ -32,3 +32,43 @@ export function completedRoundMinutes(minPerRound, roundIdx) {
   const done = Math.max(0, (Number(roundIdx) || 1) - 1);
   return Math.round(min * done);
 }
+
+/**
+ * What ending a session banks.
+ *
+ * A stopwatch has no round in progress — the run itself is the work — so its
+ * seconds are never forfeited, not even in strict mode. A timed session keeps
+ * every round it finished; strict forfeits only the round in progress. The
+ * 20-second accident window (`discard`) writes nothing at all.
+ */
+export function sessionEnd({
+  mode = 'timer',
+  finished = false,
+  discard = false,
+  forfeit = false,
+  breakEnd = false,
+  seconds = 0,
+  elapsedMs = 0,
+  minPerRound = 0,
+  roundIdx = 1,
+} = {}) {
+  const stop = mode === 'stop';
+  const secs = stop ? Math.max(0, Math.round(Number(seconds) || 0)) : null;
+  const banked = completedRoundMinutes(minPerRound, roundIdx);
+  /* Strict only has a round to take back when the session is a timed round. */
+  const strictForfeit = Boolean(forfeit) && !stop;
+  let minutes;
+  if (discard) minutes = 0;
+  else if (stop) minutes = Math.round(secs / 60);
+  else if (breakEnd || strictForfeit) minutes = banked;
+  else if (finished) minutes = Math.round((Number(minPerRound) || 0) * Math.max(1, roundIdx));
+  else minutes = Math.max(0, Math.round((Number(elapsedMs) || 0) / 60000));
+  return {
+    writeRecord: stop && !discard && !breakEnd,
+    secs,
+    minutes,
+    discarded: Boolean(discard) || (strictForfeit && banked === 0),
+    forfeited: strictForfeit && banked > 0,
+    breakEnd: Boolean(breakEnd) && !discard,
+  };
+}
