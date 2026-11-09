@@ -74,6 +74,8 @@ not just Lockin).
 - [ ] Lockin never appears in the per-app rows, and the daily total excludes
       the time spent studying in it (Digital Wellbeing will be higher by exactly
       that much).
+- [ ] The launcher never appears in the per-app rows either, and the daily total
+      excludes home-screen time (again, Digital Wellbeing runs higher).
 - [ ] A day with zero phone use shows 0 — not blank, not yesterday's number.
 - [ ] The 7-day rail matches Digital Wellbeing's per-day ordering (which days
       were heavy vs light).

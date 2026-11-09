@@ -38,7 +38,7 @@ What the shipped APK declares — nothing more:
 
 | Capability | Why |
 |---|---|
-| `PACKAGE_USAGE_STATS` | Per-app screen time and the daily total. Granted in system settings. Lockin filters its own package out of every total and app row. |
+| `PACKAGE_USAGE_STATS` | Per-app screen time and the daily total. Granted in system settings. Lockin filters its own package and every installed home screen out of every total and app row. |
 | `SCHEDULE_EXACT_ALARM` | Ring at the scheduled minute. |
 | `POST_NOTIFICATIONS` | Reminder five minutes before a block. Runtime prompt. |
 | `USE_FULL_SCREEN_INTENT` | A start alarm may take over the lock screen. Android 14+ can deny it; the alarm still arrives as a heads-up. |

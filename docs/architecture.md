@@ -125,8 +125,8 @@ Android keeps its device-control state in native `SharedPreferences`
 (`lockin_blocking`): the block switch and package list, push windows, per-app
 daily allowances, two days of foreground-time buckets, and the kiosk flags.
 That is deliberately outside the synced store and the device's own data is
-never uploaded. Lockin's own package is filtered out of every usage total and
-row before it reaches the store.
+never uploaded. Lockin's own package and every installed home screen are
+filtered out of every usage total and row before it reaches the store.
 
 ## Sync (opt-in, shipped in 1.6.0)
 

@@ -47,6 +47,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -300,7 +301,7 @@ public class LockinNativePlugin extends Plugin {
         long start = end - days * 86_400_000L;
 
         JSObject result = new JSObject();
-        result.put("usage", usageRows(start, end, 50));
+        result.put("usage", usageRows(start, end, 50, excludedFromUsage()));
         result.put("days", days);
         call.resolve(result);
     }
@@ -310,10 +311,9 @@ public class LockinNativePlugin extends Plugin {
     public void queryUsageToday(PluginCall call) {
         long now = System.currentTimeMillis();
         JSObject result = new JSObject();
-        result.put("usage", usageRows(BlockingStore.startOfDay(now), now, 30));
+        result.put("usage", usageRows(BlockingStore.startOfDay(now), now, 30, excludedFromUsage()));
         call.resolve(result);
     }
-
     /**
      * Seven (or N, up to 30) local days, oldest first, for the rail and the
      * screen-time detail screen. Each day carries its total and its top apps,
@@ -328,6 +328,7 @@ public class LockinNativePlugin extends Plugin {
         PackageManager pm = getContext().getPackageManager();
 
         JSArray out = new JSArray();
+        Set<String> excluded = excludedFromUsage();
         for (int i = days - 1; i >= 0; i--) {
             Calendar day = (Calendar) calendar.clone();
             day.add(Calendar.DAY_OF_YEAR, -i);
@@ -343,7 +344,7 @@ public class LockinNativePlugin extends Plugin {
                         manager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end);
                 if (stats != null) {
                     for (UsageStats stat : stats) {
-                        if (isSelf(stat.getPackageName())) continue;
+                        if (excluded.contains(stat.getPackageName())) continue;
                         long ms = Math.max(0, stat.getTotalTimeInForeground());
                         if (ms <= 0) continue;
                         totals.merge(stat.getPackageName(), ms, Long::sum);
@@ -377,14 +378,31 @@ public class LockinNativePlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** Lockin's own package — never part of the phone's measured screen time. */
-    private boolean isSelf(String pkg) {
-        if (pkg == null) return false;
-        String self = getContext().getPackageName();
-        return pkg.equals(self) || pkg.equals("com.lockin.app");
+    /**
+     * Packages that are not the student choosing an app: Lockin itself and
+     * every installed home screen. Launcher time is the gap between apps, and
+     * counting it inflated the daily total with a row nobody opened. Resolved
+     * per query so a changed default launcher is honoured without a restart.
+     */
+    private Set<String> excludedFromUsage() {
+        Set<String> out = new HashSet<>();
+        out.add(getContext().getPackageName());
+        out.add("com.lockin.app");
+
+        PackageManager pm = getContext().getPackageManager();
+        List<ResolveInfo> homes = pm.queryIntentActivities(
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0);
+        if (homes != null) {
+            for (ResolveInfo info : homes) {
+                if (info.activityInfo != null && info.activityInfo.packageName != null) {
+                    out.add(info.activityInfo.packageName);
+                }
+            }
+        }
+        return out;
     }
 
-    private JSArray usageRows(long start, long end, int limit) {
+    private JSArray usageRows(long start, long end, int limit, Set<String> excluded) {
         Map<String, Long> totals = new HashMap<>();
         UsageStatsManager manager =
                 (UsageStatsManager) getContext().getSystemService(Context.USAGE_STATS_SERVICE);
@@ -394,8 +412,9 @@ public class LockinNativePlugin extends Plugin {
             if (stats != null) {
                 for (UsageStats stat : stats) {
                     /* Lockin is where the studying happens; its own screen time
-                       is not something the student should see counted. */
-                    if (isSelf(stat.getPackageName())) continue;
+                       is not something the student should see counted. The home
+                       screen is not an app either. */
+                    if (excluded.contains(stat.getPackageName())) continue;
                     long ms = stat.getTotalTimeInForeground();
                     if (ms > 0) totals.merge(stat.getPackageName(), ms, Long::sum);
                 }

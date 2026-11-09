@@ -56,8 +56,9 @@ The Capacitor shell adds capabilities the web cannot have:
 
 - **Usage access** (`PACKAGE_USAGE_STATS`) for per-app screen time. Granted in
   system settings; the app can open that screen but cannot grant it silently.
-  Lockin's own package is filtered out of every usage total and app row, so the
-  study surface never counts against the day it measures.
+  Lockin's own package and every installed home screen are filtered out of every
+  usage total and app row, so neither the study surface nor the launcher counts
+  against the day it measures.
 - **Exact alarms** (`SCHEDULE_EXACT_ALARM`) for block starts and reminders.
 - **Notifications** (`POST_NOTIFICATIONS`) for alarms and the daily check-in.
 - **App blocking** (optional accessibility service) for the apps you choose

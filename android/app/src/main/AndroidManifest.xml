@@ -3,11 +3,17 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Android 11+ package visibility: the app picker needs the launcher list.
-         This is the narrowest query that returns it — no QUERY_ALL_PACKAGES. -->
+         This is the narrowest query that returns it — no QUERY_ALL_PACKAGES.
+         Home screens are queried separately by CATEGORY_HOME so screen time can
+         leave launcher time out and the blocking overlay can never cover them. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
         </intent>
     </queries>
 

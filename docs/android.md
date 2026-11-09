@@ -142,6 +142,10 @@ web and in the extension pack.
 - Lockin's own package (`com.lockin.app`) is filtered out of every row and every
   daily total, so studying in Lockin never counts as phone screen time. The same
   exclusion is applied in `Store.recordScreenTime` before a snapshot is stored.
+- Every installed home screen (resolved through `CATEGORY_HOME`) is filtered out
+  too: launcher time is the gap between apps, not an app the student opened, so
+  it neither inflates the total nor takes a row. The lookup runs per query, so a
+  changed default launcher is honoured without restarting the app.
 - No history database, no page content, no pickups, no unlocks, no keylogging.
 
 ### Google sign-in (optional sync)
@@ -319,7 +323,8 @@ APK you test. Without the file, debug uses the standard debug keystore.
   build. The service config already limits it to package names, one event type,
   no content retrieval.
 - `QUERY_ALL_PACKAGES` is restricted and **not** declared. The app picker uses a
-  narrow `MAIN`/`LAUNCHER` `<queries>` entry instead.
+  narrow `MAIN`/`LAUNCHER` `<queries>` entry, and a `MAIN`/`HOME` entry lets
+  screen time and the overlay recognise every installed home screen.
 - Full-screen intents are restricted on Android 14+; the app checks the
   permission at runtime, offers the system toggle in Settings, and degrades to
   a heads-up notification.

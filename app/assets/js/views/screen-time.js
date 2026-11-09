@@ -98,7 +98,7 @@ function mount(host) {
         el('h1', {}, 'Screen time'),
         el('div', { class: 'sub' }, demo
           ? 'A demo month for the trial. Real numbers live on the Android app.'
-          : 'Foreground time from Android. It stays on this phone.'),
+          : 'Foreground time from Android, minus the home screen and Lockin. It stays on this phone.'),
       ),
       el('button', {
         class: 'iconbtn', type: 'button', 'aria-label': 'Back to Phone',

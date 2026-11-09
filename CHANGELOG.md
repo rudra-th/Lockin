@@ -3,6 +3,18 @@
 All notable changes to Lockin. The web app and extension share a version line;
 the Android shell follows once it ships.
 
+## 1.19.1 — 2026-11-09
+
+### Screen time stops counting the home screen
+
+- **The launcher is not an app you opened.** Android reports foreground time for
+  the home screen, so the daily total was inflated and a launcher row sat near
+  the top of the day. Every installed home screen is now filtered out of the
+  total and the app rows, the same way Lockin's own package is. The lookup runs
+  on each query, so changing your default launcher needs no restart.
+- **The detail screen says what is left out:** foreground time from Android,
+  minus the home screen and Lockin.
+
 ## 1.19.0 — 2026-11-08
 
 ### The clock stops losing your work
